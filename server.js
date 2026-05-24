@@ -23,32 +23,44 @@ function saveDB(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
 
 async function analyzeInvoice(b64, text) {
   const { default: https } = await import('https');
-  const prompt = `أنت خبير محاسبة متخصص في قراءة الفواتير السعودية بدقة عالية.
+  const prompt = `أنت نظام OCR متخصص في قراءة الفواتير السعودية. مهمتك استخراج البيانات بدقة 100%.
 
-## التصنيف:
-- type="tax": الفاتورة تحتوي على "كيان وبناء" أو الرقم الضريبي 31130575740003
-- type="petty": أي إيصال لا يحتوي على اسم الشركة أو رقمها الضريبي
+### خطوات العمل:
+1. افحص الفاتورة بعناية شديدة
+2. ابحث عن جدول الأصناف - عادةً يحتوي على أعمدة: رقم الصنف، اسم الصنف، الوحدة، الكمية، سعر الوحدة، الإجمالي
+3. اقرأ كل سطر في الجدول واستخرج الاسم الحقيقي للصنف
 
-## قراءة الأرقام (مهم جداً):
-- اقرأ الأرقام كما هي بالضبط
-- استخدم النقطة للعشريات: 26.15 وليس 2615
-- الفاصلة , في الأرقام تعني العشرية: 26,15 = 26.15
-- إذا رأيت 30.00 اكتبها 30
-- إجمالي الفاتورة = Net Total أو المبلغ الإجمالي النهائي
+### تصنيف الفاتورة:
+- tax: تحتوي على "كيان وبناء" أو رقم ضريبي 31130575740003
+- petty: لا تحتوي على ذلك
 
-## قراءة البنود (مهم جداً):
-- اسم الصنف: اقرأه حرفياً كما هو مكتوب في عمود "اسم الصنف" أو "Description"
-- لا تكتب "صنية" أو أي كلمة عامة — اكتب الاسم الفعلي
-- الكمية: من عمود الكمية أو Qty
-- الوحدة: من عمود الوحدة
-- سعر الوحدة: من عمود سعر الوحدة
-- إجمالي البند: الكمية × سعر الوحدة
+### قراءة الأرقام:
+- الفاصلة في الأرقام = نقطة عشرية: 26,15 → 26.15
+- اقرأ Net Total أو الإجمالي النهائي كـ total
+- اقرأ Total VAT Excl أو قبل الضريبة كـ subtotal
 
-## الصيغة المطلوبة (JSON نقي فقط):
-{"desc":"وصف مختصر للفاتورة","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":15,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم الصنف الحقيقي","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
+### قراءة أسماء الأصناف (مهم جداً):
+- اقرأ عمود "اسم الصنف" أو "Description" حرفياً
+- مثال من فاتورة حقيقية: "متر 7 مثر اصفر"، "خوذه اصفر"، "سلفتي ثقيل اخضر واسود"
+- لا تكتب أبداً كلمات عامة مثل "صنية" أو "بند" أو "منتج"
+- إذا لم تستطع قراءة الاسم بوضوح اكتب ما تراه حتى لو غير واضح
 
-إذا لا ضريبة: taxRate=0, taxAmt=0, total=subtotal
-إذا لا بنود: items=[]
+### الإخراج - JSON نقي فقط بدون أي نص إضافي:
+{
+  "desc": "وصف مختصر للفاتورة",
+  "type": "petty أو tax",
+  "supplier": "اسم المورد كاملاً",
+  "invoiceNo": "رقم الفاتورة",
+  "date": "YYYY-MM-DD",
+  "payMethod": "cash أو transfer",
+  "subtotal": رقم_عشري,
+  "taxRate": رقم,
+  "taxAmt": رقم_عشري,
+  "total": رقم_عشري,
+  "items": [
+    {"desc": "اسم الصنف الحقيقي من الفاتورة", "qty": رقم, "unit": "الوحدة", "unitPrice": رقم_عشري, "total": رقم_عشري}
+  ]
+}
 ${text ? '\nنص إضافي: ' + text : ''}\``;
 
   const content = b64
@@ -56,7 +68,7 @@ ${text ? '\nنص إضافي: ' + text : ''}\``;
     : [{ type: 'text', text: prompt }];
 
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1200, messages: [{ role: 'user', content }] });
+    const body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1200, messages: [{ role: 'user', content }] });
     const req = https.request({
       hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
