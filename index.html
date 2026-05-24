@@ -780,6 +780,13 @@ if('serviceWorker' in navigator){
 
 // INIT
 initTheme();
+
+// Always hide splash after 2.5s max
+setTimeout(()=>{
+  const s=document.getElementById('splash');
+  if(s){s.style.opacity='0';setTimeout(()=>{if(s.parentNode)s.parentNode.removeChild(s);},500);}
+},2500);
+
 initLogin();
 </script>
 </body>
