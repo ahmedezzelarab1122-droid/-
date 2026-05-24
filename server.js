@@ -307,6 +307,70 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify(db, null, 2));
   }
 
+
+  // Transfer between supervisors
+  if (pathname === '/api/transfer' && req.method === 'POST') {
+    try {
+      const { fromId, toId, amount, note } = await parseBody(req);
+      const db = loadDB();
+      
+      const fromSup = db.supervisors.find(s => s.id == fromId);
+      const toSup = db.supervisors.find(s => s.id == toId);
+      
+      if (!fromSup || !toSup) return sendJSON(res, { error: 'مشرف غير موجود' }, 400);
+      if (fromId == toId) return sendJSON(res, { error: 'لا يمكن التحويل لنفس المشرف' }, 400);
+      
+      const amt = parseFloat(amount);
+      if (!amt || amt <= 0) return sendJSON(res, { error: 'المبلغ غير صحيح' }, 400);
+      
+      const fromSpent = db.entries.filter(e => e.supId == fromId).reduce((a,e) => a+(e.total||0), 0);
+      const fromBalance = fromSup.budget - fromSpent;
+      
+      if (amt > fromBalance) {
+        return sendJSON(res, { error: `الرصيد غير كافٍ — المتبقي عند ${fromSup.name}: ${fromBalance.toFixed(2)} ﷼` }, 400);
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      const transferNote = note || `تحويل من ${fromSup.name} إلى ${toSup.name}`;
+      
+      // Deduct from sender as expense entry
+      const debitEntry = {
+        id: db.nextId++,
+        supId: parseInt(fromId),
+        supName: fromSup.name,
+        project: 'تحويل داخلي',
+        type: 'transfer',
+        desc: `تحويل إلى ${toSup.name}`,
+        supplier: '',
+        invoiceNo: 'TRF-' + Date.now(),
+        date: today,
+        payMethod: 'transfer',
+        subtotal: amt,
+        taxRate: 0,
+        taxAmt: 0,
+        total: amt,
+        items: [],
+        transferTo: toSup.name,
+        transferNote: transferNote
+      };
+      
+      // Add to receiver as negative expense (increases balance effectively via budget)
+      toSup.budget = (toSup.budget || 0) + amt;
+      
+      db.entries.push(debitEntry);
+      saveDB(db);
+      
+      return sendJSON(res, { 
+        ok: true, 
+        message: `تم تحويل ${amt} ﷼ من ${fromSup.name} إلى ${toSup.name}`,
+        newFromBalance: fromBalance - amt,
+        newToBudget: toSup.budget
+      });
+    } catch(e) {
+      return sendJSON(res, { error: e.message }, 500);
+    }
+  }
+
   // Restore backup
   if (pathname === '/api/restore' && req.method === 'POST') {
     try {
