@@ -557,11 +557,11 @@ function compressImg(file){
     r.onload=e=>{
       const img=new Image();
       img.onload=()=>{
-        const MAX=1024;let w=img.width,h=img.height;
+        const MAX=1600;let w=img.width,h=img.height;
         if(w>MAX||h>MAX){const ratio=Math.min(MAX/w,MAX/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
         const cv=document.createElement('canvas');cv.width=w;cv.height=h;
         cv.getContext('2d').drawImage(img,0,0,w,h);
-        const src=cv.toDataURL('image/jpeg',.85);
+        const src=cv.toDataURL('image/jpeg',.92);
         res({b64:src.split(',')[1],src});
       };
       img.src=e.target.result;
