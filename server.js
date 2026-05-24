@@ -303,10 +303,26 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/backup' && req.method === 'GET') {
     const db = loadDB();
     const timestamp = new Date().toISOString().split('T')[0];
-    const backupFile = path.join(__dirname, `backup_${timestamp}.json`);
-    fs.writeFileSync(backupFile, JSON.stringify(db, null, 2));
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Content-Disposition': `attachment; filename="kayan_backup_${timestamp}.json"` });
     return res.end(JSON.stringify(db, null, 2));
+  }
+
+  // Restore backup
+  if (pathname === '/api/restore' && req.method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      // Validate backup structure
+      if (!body.supervisors || !body.projects || !body.entries) {
+        return sendJSON(res, { error: 'ملف النسخة الاحتياطية غير صحيح' }, 400);
+      }
+      // Ensure managerPassword exists
+      if (!body.managerPassword) body.managerPassword = 'admin123';
+      // Save restored data
+      saveDB(body);
+      return sendJSON(res, { ok: true, message: 'تم استعادة البيانات بنجاح', entries: body.entries.length, supervisors: body.supervisors.length });
+    } catch (e) {
+      return sendJSON(res, { error: 'فشل في استعادة البيانات: ' + e.message }, 500);
+    }
   }
 
   // Export Excel
