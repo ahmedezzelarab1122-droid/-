@@ -23,31 +23,33 @@ function saveDB(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
 
 async function analyzeInvoice(b64, text) {
   const { default: https } = await import('https');
-  const prompt = `أنت خبير محاسبة متخصص في قراءة الفواتير السعودية. استخرج البيانات بدقة تامة وأرجعها JSON نقي فقط بدون أي نص أو markdown.
+  const prompt = `أنت خبير محاسبة متخصص في قراءة الفواتير السعودية بدقة عالية.
 
-قواعد التصنيف:
-- tax (ضريبية): الفاتورة التي تحتوي على اسم "شركة كيان وبناء للمقاولات" أو الرقم الضريبي 31130575740003 - هذه فاتورة ضريبية رسمية
-- petty (نثرية): أي فاتورة أو إيصال لا يحتوي على اسم الشركة أو رقمها الضريبي
+## التصنيف:
+- type="tax": الفاتورة تحتوي على "كيان وبناء" أو الرقم الضريبي 31130575740003
+- type="petty": أي إيصال لا يحتوي على اسم الشركة أو رقمها الضريبي
 
-قواعد الأرقام (مهم جداً):
-- اقرأ الأرقام كما هي بالضبط من الفاتورة
-- الأرقام العشرية تستخدم النقطة فقط: مثال 43.47 وليس 4347
-- لا تضيف أصفاراً ولا تحذف أرقاماً
-- إذا كان المبلغ 50.00 فاكتبه 50 وليس 5000
-- إذا كان 1,790 فهو 1.790 ريال للوحدة وليس 1790
-- اقرأ إجمالي الفاتورة من السطر الأخير مباشرة
+## قراءة الأرقام (مهم جداً):
+- اقرأ الأرقام كما هي بالضبط
+- استخدم النقطة للعشريات: 26.15 وليس 2615
+- الفاصلة , في الأرقام تعني العشرية: 26,15 = 26.15
+- إذا رأيت 30.00 اكتبها 30
+- إجمالي الفاتورة = Net Total أو المبلغ الإجمالي النهائي
 
-قواعد البنود:
-- استخرج كل بند كما هو مكتوب في الفاتورة بالضبط
-- الكمية والوحدة والسعر من الفاتورة مباشرة
-- لا تخترع بنوداً غير موجودة
+## قراءة البنود (مهم جداً):
+- اسم الصنف: اقرأه حرفياً كما هو مكتوب في عمود "اسم الصنف" أو "Description"
+- لا تكتب "صنية" أو أي كلمة عامة — اكتب الاسم الفعلي
+- الكمية: من عمود الكمية أو Qty
+- الوحدة: من عمود الوحدة
+- سعر الوحدة: من عمود سعر الوحدة
+- إجمالي البند: الكمية × سعر الوحدة
 
-الصيغة المطلوبة:
-{"desc":"وصف مختصر للمصروف","type":"petty أو tax","supplier":"اسم المورد كما في الفاتورة أو null","invoiceNo":"رقم الفاتورة أو null","date":"YYYY-MM-DD أو null","payMethod":"cash أو transfer","subtotal":رقم_دقيق,"taxRate":رقم,"taxAmt":رقم_دقيق,"total":رقم_دقيق,"items":[{"desc":"اسم البند","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
+## الصيغة المطلوبة (JSON نقي فقط):
+{"desc":"وصف مختصر للفاتورة","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":15,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم الصنف الحقيقي","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
 
-إذا لم توجد ضريبة: taxRate=0, taxAmt=0, total=subtotal
-إذا لم توجد بنود: items=[]
-${text ? 'نص إضافي: ' + text : ''}`;
+إذا لا ضريبة: taxRate=0, taxAmt=0, total=subtotal
+إذا لا بنود: items=[]
+${text ? '\nنص إضافي: ' + text : ''}\``;
 
   const content = b64
     ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
@@ -197,6 +199,20 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/entries' && req.method === 'POST') {
     const body = await parseBody(req);
     const db = loadDB();
+    
+    // Check duplicate invoice by invoice number
+    if (body.invoiceNo && body.invoiceNo.trim()) {
+      const dup = db.entries.find(e =>
+        e.invoiceNo &&
+        e.invoiceNo.trim().toLowerCase() === body.invoiceNo.trim().toLowerCase()
+      );
+      if (dup) {
+        return sendJSON(res, {
+          error: `⚠️ تنبيه: الفاتورة رقم ${body.invoiceNo} مسجلة مسبقاً بتاريخ ${dup.date} باسم ${dup.supName || ''}`
+        }, 200);
+      }
+    }
+    
     const entry = { ...body, id: db.nextId++ };
     db.entries.push(entry);
     saveDB(db);
