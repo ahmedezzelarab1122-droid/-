@@ -33,7 +33,7 @@ petty=أكل/مياه/قهوة/وقود/يومي. tax=فاتورة ضريبية 
     : [{ type: 'text', text: prompt }];
 
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1200, messages: [{ role: 'user', content }] });
+    const body = JSON.stringify({ model: 'claude-sonnet-4-5-20251001', max_tokens: 1200, messages: [{ role: 'user', content }] });
     const req = https.request({
       hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
