@@ -23,44 +23,35 @@ function saveDB(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
 
 async function analyzeInvoice(b64, text) {
   const { default: https } = await import('https');
-  const prompt = `أنت نظام OCR متخصص في قراءة الفواتير السعودية. مهمتك استخراج البيانات بدقة 100%.
+  const prompt = `أنت نظام قراءة فواتير متخصص. اقرأ هذه الفاتورة بعناية شديدة واستخرج البيانات بدقة 100%.
 
-### خطوات العمل:
-1. افحص الفاتورة بعناية شديدة
-2. ابحث عن جدول الأصناف - عادةً يحتوي على أعمدة: رقم الصنف، اسم الصنف، الوحدة، الكمية، سعر الوحدة، الإجمالي
-3. اقرأ كل سطر في الجدول واستخرج الاسم الحقيقي للصنف
+## أولاً - تحديد نوع الفاتورة:
+- إذا وجدت "كيان وبناء" أو الرقم الضريبي 31130575740003 → type="tax"
+- إذا لم تجد ذلك → type="petty"
 
-### تصنيف الفاتورة:
-- tax: تحتوي على "كيان وبناء" أو رقم ضريبي 31130575740003
-- petty: لا تحتوي على ذلك
+## ثانياً - قراءة جدول الأصناف (الأهم):
+ابحث في الفاتورة عن جدول يحتوي أعمدة مثل:
+[رقم | اسم الصنف | الوحدة | الكمية | سعر الوحدة | الإجمالي]
+أو بالإنجليزي:
+[SL | Description | Unit | Qty | Unit Price | Total]
 
-### قراءة الأرقام:
-- الفاصلة في الأرقام = نقطة عشرية: 26,15 → 26.15
-- اقرأ Net Total أو الإجمالي النهائي كـ total
-- اقرأ Total VAT Excl أو قبل الضريبة كـ subtotal
+لكل سطر في الجدول:
+- اقرأ عمود "اسم الصنف" أو "Description" واكتبه حرفياً كما هو
+- مثال صحيح: "متر 7 مثر اصفر" أو "خوذه اصفر" أو "سلفتي ثقيل اخضر واسود"
+- مثال خاطئ: "صنية" أو "بند" أو "منتج" - هذه كلمات عامة لا تكتبها أبداً
+- إذا الخط غير واضح، اكتب ما تستطيع قراءته ولو جزئياً
 
-### قراءة أسماء الأصناف (مهم جداً):
-- اقرأ عمود "اسم الصنف" أو "Description" حرفياً
-- مثال من فاتورة حقيقية: "متر 7 مثر اصفر"، "خوذه اصفر"، "سلفتي ثقيل اخضر واسود"
-- لا تكتب أبداً كلمات عامة مثل "صنية" أو "بند" أو "منتج"
-- إذا لم تستطع قراءة الاسم بوضوح اكتب ما تراه حتى لو غير واضح
+## ثالثاً - قراءة الأرقام:
+- الفاصلة في الأرقام = عشرية: 26,15 تعني 26.15
+- Net Total أو الإجمالي النهائي = total
+- Total VAT Excl أو قبل الضريبة = subtotal  
+- VAT أو الضريبة = taxAmt
 
-### الإخراج - JSON نقي فقط بدون أي نص إضافي:
-{
-  "desc": "وصف مختصر للفاتورة",
-  "type": "petty أو tax",
-  "supplier": "اسم المورد كاملاً",
-  "invoiceNo": "رقم الفاتورة",
-  "date": "YYYY-MM-DD",
-  "payMethod": "cash أو transfer",
-  "subtotal": رقم_عشري,
-  "taxRate": رقم,
-  "taxAmt": رقم_عشري,
-  "total": رقم_عشري,
-  "items": [
-    {"desc": "اسم الصنف الحقيقي من الفاتورة", "qty": رقم, "unit": "الوحدة", "unitPrice": رقم_عشري, "total": رقم_عشري}
-  ]
-}
+## الإخراج - JSON نقي فقط بدون أي كلام إضافي:
+{"desc":"وصف مختصر","type":"petty أو tax","supplier":"اسم المورد كاملاً","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":رقم,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم الصنف الحقيقي حرفياً","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
+
+إذا لا ضريبة: taxRate=0, taxAmt=0, total=subtotal
+إذا لا يوجد جدول أصناف: items=[]
 ${text ? '\nنص إضافي: ' + text : ''}\``;
 
   const content = b64
@@ -212,15 +203,31 @@ const server = http.createServer(async (req, res) => {
     const body = await parseBody(req);
     const db = loadDB();
     
-    // Check duplicate invoice by invoice number
+    // Check duplicate - by invoice number OR by (supplier + total + date)
+    const normalize = s => (s || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+    
+    // Check 1: same invoice number
     if (body.invoiceNo && body.invoiceNo.trim()) {
       const dup = db.entries.find(e =>
-        e.invoiceNo &&
-        e.invoiceNo.trim().toLowerCase() === body.invoiceNo.trim().toLowerCase()
+        e.invoiceNo && normalize(e.invoiceNo) === normalize(body.invoiceNo)
       );
       if (dup) {
         return sendJSON(res, {
-          error: `⚠️ تنبيه: الفاتورة رقم ${body.invoiceNo} مسجلة مسبقاً بتاريخ ${dup.date} باسم ${dup.supName || ''}`
+          error: `⚠️ تنبيه: الفاتورة رقم ${body.invoiceNo} مسجلة مسبقاً بتاريخ ${dup.date}`
+        }, 200);
+      }
+    }
+    
+    // Check 2: same supplier + total + date (even if invoice number differs)
+    if (body.supplier && body.total && body.date) {
+      const dup2 = db.entries.find(e =>
+        normalize(e.supplier) === normalize(body.supplier) &&
+        Math.abs((e.total || 0) - (body.total || 0)) < 0.1 &&
+        e.date === body.date
+      );
+      if (dup2) {
+        return sendJSON(res, {
+          error: `⚠️ تنبيه: يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ (${dup2.date})`
         }, 200);
       }
     }
