@@ -23,9 +23,31 @@ function saveDB(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
 
 async function analyzeInvoice(b64, text) {
   const { default: https } = await import('https');
-  const prompt = `أنت خبير محاسبة. استخرج بيانات الفاتورة أو المصروف وأرجعها JSON نقي فقط بدون أي نص أو markdown:
-{"desc":"وصف","type":"petty أو tax أو other","supplier":"اسم المورد أو null","invoiceNo":"رقم الفاتورة أو null","date":"YYYY-MM-DD أو null","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":رقم,"taxAmt":رقم,"total":رقم,"items":[{"desc":"البند","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
-petty=أكل/مياه/قهوة/وقود. tax=فاتورة رسمية أو مواد بناء. بدون ضريبة: taxRate=0,taxAmt=0,total=subtotal. بدون بنود: items=[]. أرقام بدون فواصل.${text ? '\nنص: ' + text : ''}`;
+  const prompt = `أنت خبير محاسبة متخصص في قراءة الفواتير السعودية. استخرج البيانات بدقة تامة وأرجعها JSON نقي فقط بدون أي نص أو markdown.
+
+قواعد التصنيف:
+- tax (ضريبية): الفاتورة التي تحتوي على اسم "شركة كيان وبناء للمقاولات" أو الرقم الضريبي 31130575740003 - هذه فاتورة ضريبية رسمية
+- petty (نثرية): أي فاتورة أو إيصال لا يحتوي على اسم الشركة أو رقمها الضريبي
+
+قواعد الأرقام (مهم جداً):
+- اقرأ الأرقام كما هي بالضبط من الفاتورة
+- الأرقام العشرية تستخدم النقطة فقط: مثال 43.47 وليس 4347
+- لا تضيف أصفاراً ولا تحذف أرقاماً
+- إذا كان المبلغ 50.00 فاكتبه 50 وليس 5000
+- إذا كان 1,790 فهو 1.790 ريال للوحدة وليس 1790
+- اقرأ إجمالي الفاتورة من السطر الأخير مباشرة
+
+قواعد البنود:
+- استخرج كل بند كما هو مكتوب في الفاتورة بالضبط
+- الكمية والوحدة والسعر من الفاتورة مباشرة
+- لا تخترع بنوداً غير موجودة
+
+الصيغة المطلوبة:
+{"desc":"وصف مختصر للمصروف","type":"petty أو tax","supplier":"اسم المورد كما في الفاتورة أو null","invoiceNo":"رقم الفاتورة أو null","date":"YYYY-MM-DD أو null","payMethod":"cash أو transfer","subtotal":رقم_دقيق,"taxRate":رقم,"taxAmt":رقم_دقيق,"total":رقم_دقيق,"items":[{"desc":"اسم البند","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
+
+إذا لم توجد ضريبة: taxRate=0, taxAmt=0, total=subtotal
+إذا لم توجد بنود: items=[]
+${text ? 'نص إضافي: ' + text : ''}`;
 
   const content = b64
     ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
@@ -194,7 +216,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/supervisors' && req.method === 'POST') {
     const body = await parseBody(req);
     const db = loadDB();
-    db.supervisors.push({ id: Date.now(), name: body.name, budget: body.budget, password: body.password || '1234' });
+    db.supervisors.push({ id: Date.now(), name: body.name, budget: body.budget, password: body.password || '1234', visa: body.visa || '' });
     saveDB(db);
     return sendJSON(res, { ok: true });
   }
@@ -236,6 +258,17 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       return sendJSON(res, { error: e.message }, 500);
     }
+  }
+
+
+  // Auto backup - save DB snapshot
+  if (pathname === '/api/backup' && req.method === 'GET') {
+    const db = loadDB();
+    const timestamp = new Date().toISOString().split('T')[0];
+    const backupFile = path.join(__dirname, `backup_${timestamp}.json`);
+    fs.writeFileSync(backupFile, JSON.stringify(db, null, 2));
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Content-Disposition': `attachment; filename="kayan_backup_${timestamp}.json"` });
+    return res.end(JSON.stringify(db, null, 2));
   }
 
   // Export Excel
