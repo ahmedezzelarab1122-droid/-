@@ -103,13 +103,17 @@ function generateExcel(db) {
   const supMap = {};
   db.supervisors.forEach(s => supMap[s.id] = s.name);
 
-  let rows = db.entries.map(e => `
+  let rows = db.entries.map(e => {
+    const itemsDesc = (e.items && e.items.length > 0)
+      ? e.items.map(it => it.desc + ' (' + it.qty + ' ' + it.unit + ')').join(' | ')
+      : (e.desc || '');
+    return `
     <Row>
       <Cell><Data ss:Type="Number">${e.id}</Data></Cell>
       <Cell><Data ss:Type="String">${supMap[e.supId] || ''}</Data></Cell>
       <Cell><Data ss:Type="String">${e.project || ''}</Data></Cell>
       <Cell><Data ss:Type="String">${e.type === 'petty' ? 'نثرية' : e.type === 'tax' ? 'ضريبية' : 'أخرى'}</Data></Cell>
-      <Cell><Data ss:Type="String">${e.desc || ''}</Data></Cell>
+      <Cell><Data ss:Type="String">${itemsDesc}</Data></Cell>
       <Cell><Data ss:Type="String">${e.supplier || ''}</Data></Cell>
       <Cell><Data ss:Type="String">${e.invoiceNo || ''}</Data></Cell>
       <Cell><Data ss:Type="String">${e.date || ''}</Data></Cell>
@@ -118,7 +122,8 @@ function generateExcel(db) {
       <Cell><Data ss:Type="Number">${e.taxRate || 0}</Data></Cell>
       <Cell><Data ss:Type="Number">${e.taxAmt || 0}</Data></Cell>
       <Cell><Data ss:Type="Number">${e.total || 0}</Data></Cell>
-    </Row>`).join('');
+    </Row>`;
+  }).join('');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
