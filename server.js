@@ -23,43 +23,43 @@ function saveDB(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
 
 async function analyzeInvoice(b64, text) {
   const { default: https } = await import('https');
-  const prompt = `أنت نظام قراءة فواتير متخصص. اقرأ هذه الفاتورة بعناية شديدة واستخرج البيانات بدقة 100%.
+  const prompt = `أنت نظام OCR متخصص. اقرأ هذه الفاتورة بدقة شديدة.
 
-## أولاً - تحديد نوع الفاتورة:
-- إذا وجدت "كيان وبناء" أو الرقم الضريبي 31130575740003 → type="tax"
-- إذا لم تجد ذلك → type="petty"
+## التصنيف:
+- type="tax": تحتوي على "كيان وبناء" أو رقم ضريبي 31130575740003
+- type="petty": لا تحتوي على ذلك
 
-## ثانياً - قراءة جدول الأصناف (الأهم):
-ابحث في الفاتورة عن جدول يحتوي أعمدة مثل:
-[رقم | اسم الصنف | الوحدة | الكمية | سعر الوحدة | الإجمالي]
-أو بالإنجليزي:
-[SL | Description | Unit | Qty | Unit Price | Total]
+## قراءة الأرقام:
+- الفاصلة في الأرقام = عشرية: 26,15 → 26.15
+- Total Amt With Tax = الإجمالي النهائي (total)
+- Total Excluding VAT = قبل الضريبة (subtotal)
+- Tax 15% = الضريبة (taxAmt)
 
-لكل سطر في الجدول:
-- اقرأ عمود "اسم الصنف" أو "Description" واكتبه حرفياً كما هو
-- مثال صحيح: "متر 7 مثر اصفر" أو "خوذه اصفر" أو "سلفتي ثقيل اخضر واسود"
-- مثال خاطئ: "صنية" أو "بند" أو "منتج" - هذه كلمات عامة لا تكتبها أبداً
-- إذا الخط غير واضح، اكتب ما تستطيع قراءته ولو جزئياً
+## قراءة البنود - الأهم:
+ابحث عن جدول الأصناف في الفاتورة. كل سطر فيه يحتوي على:
+- عمود "اسم الصنف" أو "Item Name/Description" أو "البيان"
+- اقرأ هذا العمود حرفياً كما هو مكتوب
+- أمثلة من فواتير حقيقية:
+  * "ازميل تكسيره 8ملي بوز"
+  * "سكين معجون 6"
+  * "متر 7 مثر اصفر"
+  * "خوذه اصفر"
+- لا تكتب أبداً: "صنية" أو "بند" أو "منتج" أو "item"
+- اكتب ما تراه حرفياً حتى لو فيه أخطاء إملائية
 
-## ثالثاً - قراءة الأرقام:
-- الفاصلة في الأرقام = عشرية: 26,15 تعني 26.15
-- Net Total أو الإجمالي النهائي = total
-- Total VAT Excl أو قبل الضريبة = subtotal  
-- VAT أو الضريبة = taxAmt
-
-## الإخراج - JSON نقي فقط بدون أي كلام إضافي:
-{"desc":"وصف مختصر","type":"petty أو tax","supplier":"اسم المورد كاملاً","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":رقم,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم الصنف الحقيقي حرفياً","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
+## الإخراج - JSON نقي فقط:
+{"desc":"وصف مختصر","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":15,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم الصنف الحقيقي","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
 
 إذا لا ضريبة: taxRate=0, taxAmt=0, total=subtotal
-إذا لا يوجد جدول أصناف: items=[]
-${text ? '\nنص إضافي: ' + text : ''}\``;
+إذا لا بنود: items=[]
+${text ? '\nنص: ' + text : ''}\``;
 
   const content = b64
     ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
     : [{ type: 'text', text: prompt }];
 
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1200, messages: [{ role: 'user', content }] });
+    const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 1200, messages: [{ role: 'user', content }] });
     const req = https.request({
       hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
