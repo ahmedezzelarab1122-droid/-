@@ -1,478 +1,941 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#b8860b">
+<link rel="manifest" href="/manifest.json">
+<title>مصروفات كيان</title>
+<style>
+:root{
+  --g:#c9a84c;--gl:#fdf6e3;--gd:#a07830;
+  --b:#5b3a1a;--bl:#f5ebe0;
+  --r:#dc2626;--rl:#fee2e2;
+  --a:#c9a84c;--al:#fdf6e3;
+  --n1:#fafaf8;--n2:#f5f0e8;--n3:#e8ddd0;
+  --n4:#a89880;--n5:#7a6555;--n9:#2d1a0a;
+  --brown:#3d1f00;--gold:#c9a84c;--gold2:#e8c87a;--cream:#fdf6e3;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:'Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;background:var(--n1);color:var(--n9);font-size:14px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes bar{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* DARK */
+[data-theme=dark]{--n1:#1a1208;--n2:#221808;--n3:#2e2010;--n4:#8a7560;--n5:#b09878;--n9:#f5ead8;--g:#e8c87a;--gl:#2e2010;--gd:#f0d890}
+[data-theme=dark] body{background:#1a1208}
+[data-theme=dark] .topbar,[data-theme=dark] .tabs,[data-theme=dark] .card,[data-theme=dark] .stat,[data-theme=dark] .sc,[data-theme=dark] .lc{background:#221808!important;border-color:#2e2010!important}
+[data-theme=dark] input,[data-theme=dark] select,[data-theme=dark] textarea{background:#221808;border-color:#2e2010;color:#f5ead8}
+[data-theme=dark] .lw{background:linear-gradient(135deg,#0d0800,#1a1208,#2e2010)}
+[data-theme=dark] .tab{color:#6a5540}
+[data-theme=dark] .tab.on{color:var(--gold);border-bottom-color:var(--gold)}
+/* LAYOUT */
+.topbar{background:#3d1f00;border-bottom:2px solid var(--gold);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.tabs{display:flex;background:#fdf6e3;border-bottom:2px solid var(--n3);padding:0 10px;position:sticky;top:52px;z-index:50;overflow-x:auto}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 13px;border:none;background:none;font-family:inherit;font-size:12px;color:var(--n4);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab.on{color:var(--brown);border-bottom-color:var(--brown);font-weight:700}
+#mc{padding:12px;max-width:620px;margin:0 auto;padding-bottom:24px}
+/* CARDS */
+.card{background:#fff;border:1px solid var(--n3);border-radius:12px;padding:13px 15px;margin-bottom:11px;animation:fi .3s ease;box-shadow:0 1px 4px rgba(61,31,0,.06)}
+.ctitle{font-size:13px;font-weight:600;color:var(--n5);margin-bottom:11px}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px}
+.stat{background:#fff;border:1px solid var(--n3);border-radius:10px;padding:11px 13px;border-top:2px solid var(--gold)}
+.sl{font-size:11px;color:var(--n4);margin-bottom:2px}
+.sv{font-size:18px;font-weight:700}
+/* FORMS */
+label.lbl{font-size:12px;font-weight:500;color:var(--n5);display:block;margin-bottom:4px}
+input,select,textarea{width:100%;padding:8px 11px;border:1.5px solid var(--n3);border-radius:7px;font-size:13px;font-family:inherit;color:var(--n9);background:#fff;outline:none;direction:rtl;box-sizing:border-box}
+input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+textarea{resize:none;min-height:65px}
+.fg{margin-bottom:9px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit;width:100%;transition:.15s}
+.btn:active{transform:scale(.97)}
+.bp{background:var(--brown);color:#fff}
+.bs{background:var(--n2);color:var(--n5)}
+.bd{background:var(--rl);color:var(--r);width:auto}
+.bx{background:#217346;color:#fff}
+.brow{display:flex;gap:7px;margin-top:8px}
+.brow .btn{flex:1}
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:14px;font-size:11px;font-weight:600}
+.bpt{background:#dcfce7;color:#166534}.btx{background:var(--bl);color:var(--b)}.bot{background:var(--n2);color:var(--n5)}.bcs{background:var(--al);color:var(--a)}.btr{background:#ede9fe;color:#7c3aed}.btransfer{background:#e0f2fe;color:#0369a1}
+/* MISC */
+.pbar{height:5px;background:var(--n2);border-radius:3px;overflow:hidden;margin-top:5px}
+.pf{height:100%;border-radius:3px}
+.fr{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--n2);font-size:13px}
+.fr:last-child{border-bottom:none}
+.tbox{background:linear-gradient(135deg,#3d1f00,#6b3810);color:#fff;border:1px solid var(--gold);border-radius:9px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:9px}
+.txr{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--n2)}
+.txr:last-child{border-bottom:none}
+.av{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.sc{background:#fff;border:1px solid var(--n3);border-radius:11px;padding:11px 13px;margin-bottom:9px}
+.shdr{font-size:11px;font-weight:600;color:var(--n4);margin-bottom:7px;margin-top:3px}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--n2)}
+.srow:last-child{border-bottom:none}
+.xb{border:none;background:none;color:var(--n4);cursor:pointer;font-size:16px;padding:3px}
+.xb:hover{color:var(--r)}
+.ftabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.ftab{padding:4px 11px;border-radius:14px;border:1.5px solid var(--n3);background:#fff;font-family:inherit;font-size:11px;cursor:pointer}
+.ftab.on{background:var(--brown);color:#fff;border-color:var(--brown)}
+.ar{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.ar input{flex:1;min-width:80px}
+.ar .btn{width:auto;padding:8px 11px}
+.empty{text-align:center;padding:2.5rem;color:var(--n4);font-size:13px}
+.sep{height:1px;background:var(--n2);margin:8px 0}
+.chip{background:var(--n2);border-radius:6px;padding:6px 9px;margin-bottom:5px}
+.ok{background:var(--gl);border-radius:7px;padding:9px 12px;font-size:12px;color:var(--gd);display:flex;align-items:center;gap:6px;margin-bottom:9px}
+.err{background:var(--rl);border-radius:7px;padding:9px 12px;font-size:12px;color:var(--r);margin-bottom:8px;display:none}
+.spin{width:28px;height:28px;border:3px solid var(--n3);border-top-color:var(--gold);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 10px}
+.ldg{text-align:center;padding:3rem;display:none}
+.drop{border:2px dashed var(--n3);border-radius:10px;padding:22px 14px;text-align:center;cursor:pointer;background:var(--n1);margin-bottom:9px;transition:.15s}
+.drop:hover{border-color:var(--gold);background:var(--gl)}
+.iprev{width:100%;border-radius:8px;max-height:160px;object-fit:cover;margin-bottom:9px;display:none;border:1px solid var(--n3)}
+.warn{background:var(--rl);color:var(--r);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:500;margin-bottom:12px}
+/* LOGIN */
+.lw{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#3d1f00 0%,#6b3810 40%,#c9a84c 100%);padding:20px}
+.lc{background:#fff;border-radius:20px;padding:2rem 1.5rem;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(61,31,0,.4);border:1px solid #e8ddd0}
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px}
+.rb{padding:13px;border:2px solid var(--n3);border-radius:11px;cursor:pointer;text-align:center;background:#fff;font-family:inherit;transition:.15s}
+.rb:hover,.rb.sel{border-color:var(--brown);background:var(--gl)}
+.rb svg{display:block;margin:0 auto 5px}
+.rb span{font-size:12px;font-weight:600;color:var(--n5)}
+.rb.sel span{color:var(--gold)}
+</style>
+</head>
+<body>
 
-const PORT = process.env.PORT || 10000;
-const API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const DB_FILE = path.join(__dirname, 'data.json');
+<!-- LOGIN -->
+<div id="lview" class="lw" style="display:none">
+  <div class="lc">
+    <div style="text-align:center;margin-bottom:22px">
+      <img src="data:image/png;base64,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" style="width:120px;height:120px;object-fit:contain;margin-bottom:10px;background:#fff;border-radius:12px;padding:8px">
+      <div style="font-size:17px;font-weight:700;color:var(--brown)">مصروفات كيان</div>
+      <div style="font-size:12px;color:var(--n4);margin-top:3px">شركة كيان وبناء للمقاولات</div>
+    </div>
+    <div class="rg">
+      <button class="rb" id="rb-sup" onclick="selRole('supervisor')">
+        <svg width="22" height="22" fill="none" stroke="var(--n4)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+        <span>مشرف</span>
+      </button>
+      <button class="rb" id="rb-mgr" onclick="selRole('manager')">
+        <svg width="22" height="22" fill="none" stroke="var(--n4)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        <span>مدير</span>
+      </button>
+    </div>
+    <div class="fg" id="sup-grp" style="display:none">
+      <label class="lbl">اختر اسمك</label>
+      <select id="sup-sel"></select>
+    </div>
+    <div class="fg">
+      <label class="lbl">كلمة المرور</label>
+      <input type="password" id="pw-inp" placeholder="أدخل كلمة المرور" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="err" id="lerr"></div>
+    <button class="btn bp" onclick="doLogin()">دخول</button>
+  </div>
+</div>
 
-// In-memory cache to prevent data loss on Render free tier
-let _dbCache = null;
+<!-- APP -->
+<div id="aview" style="display:none">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:9px">
+      <div style="width:34px;height:34px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:1px solid var(--gold)">
+        <img src="data:image/png;base64,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" style="width:28px;height:28px;object-fit:contain">
+      </div>
+      <div>
+        <div id="tbname" style="font-size:13px;font-weight:700;color:#e8c87a"></div>
+        <div id="tbrole" style="font-size:10px;color:#c9a84c88"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn bp" style="width:auto;padding:6px 11px;font-size:12px" onclick="openScan()">
+        <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        رفع فاتورة
+      </button>
+      <button id="ibtn" onclick="installApp()" style="display:none;border:1px solid rgba(201,168,76,0.5);border-radius:7px;padding:5px 9px;background:rgba(255,255,255,0.15);font-size:11px;color:#e8c87a;cursor:pointer;font-family:inherit">تثبيت</button>
+      <button onclick="toggleTheme()" id="tbtn" style="border:1px solid rgba(201,168,76,0.4);border-radius:7px;padding:5px 8px;background:rgba(255,255,255,0.1);cursor:pointer;font-size:15px;line-height:1">🌙</button>
+      <button onclick="doLogout()" style="border:1px solid rgba(201,168,76,0.4);border-radius:7px;padding:5px 9px;background:rgba(255,255,255,0.1);font-size:11px;color:#e8c87a;cursor:pointer;font-family:inherit">خروج</button>
+    </div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="mc"></div>
+</div>
 
-function loadDB() {
-  if (_dbCache) return _dbCache;
-  try { 
-    _dbCache = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    return _dbCache;
-  } catch {}
-  _dbCache = {
-    supervisors: [
-      { id: 1, name: 'المشرف', budget: 10000, password: '1234' }
-    ],
-    projects: ['المشروع الأول'],
-    entries: [],
-    managerPassword: 'admin123',
-    nextId: 1
-  };
-  return _dbCache;
+<!-- SCAN PANEL -->
+<div id="swrap" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:200;display:none;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeScan()">
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:560px;padding:16px 15px 28px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px">
+      <div style="font-size:14px;font-weight:700">رفع فاتورة / مصروف</div>
+      <button onclick="closeScan()" style="border:none;background:var(--n2);border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:16px;color:var(--n5)">✕</button>
+    </div>
+    <div id="ss1">
+      <label class="drop" for="sfile" id="sdrop">
+        <svg width="34" height="34" fill="none" stroke="var(--n4)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 7px;display:block"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <p style="font-size:13px;color:var(--n5)">اضغط لرفع صورة الفاتورة</p>
+        <small style="font-size:11px;color:var(--n4)">من الكاميرا أو من الواتساب</small>
+      </label>
+      <input type="file" id="sfile" accept="image/*" style="display:none" onchange="pickFile(this)">
+      <img id="sprev" class="iprev">
+      <div class="fg"><label class="lbl">أو الصق نص الرسالة</label><textarea id="stxt" placeholder="مثال: أكل عمال 450 ريال&#10;فاتورة حديد 2300 ريال INV-005"></textarea></div>
+      <div class="fg2">
+        <div><label class="lbl">المشرف</label><select id="ssup"></select></div>
+        <div><label class="lbl">المشروع</label><select id="sproj"></select></div>
+      </div>
+      <div class="err" id="serr"></div>
+      <button class="btn bp" onclick="runAI()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        تحليل بالذكاء الاصطناعي
+      </button>
+    </div>
+    <div class="ldg" id="sldg"><div class="spin"></div><p id="ltxt" style="color:var(--n5);font-size:13px">جاري التحليل...</p></div>
+    <div id="ss2" style="display:none">
+      <div class="ok"><svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم استخراج البيانات — راجع وأكد</div>
+      <img id="sprev2" class="iprev">
+      <div class="card" style="margin-bottom:9px"><div id="rfields"></div></div>
+      <div id="icard" style="display:none" class="card"><div class="ctitle">البنود</div><div id="ilist"></div></div>
+      <div class="fg2">
+        <div><label class="lbl">المشرف</label><select id="csup"></select></div>
+        <div><label class="lbl">المشروع</label><select id="cproj"></select></div>
+      </div>
+      <div class="brow">
+        <button class="btn bp" onclick="saveEntry()"><svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>حفظ</button>
+        <button class="btn bs" onclick="resetScan()">إلغاء</button>
+      </div>
+    </div>
+    <div id="sdone" style="display:none;text-align:center;padding:1.5rem 0">
+      <div style="width:52px;height:52px;background:var(--gl);border-radius:50%;margin:0 auto 11px;display:flex;align-items:center;justify-content:center">
+        <svg width="26" height="26" fill="none" stroke="var(--gold)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">تم الحفظ بنجاح</div>
+      <div id="dsum" style="font-size:12px;color:var(--n5);margin-bottom:14px"></div>
+      <div class="brow">
+        <button class="btn bp" onclick="resetScan()">رفع فاتورة أخرى</button>
+        <button class="btn bs" onclick="closeScan()">إغلاق</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS=['#b8860b','#1d4ed8','#9333ea','#0a7c5c','#dc2626','#0891b2'];
+let DB={supervisors:[],projects:[],entries:[]};
+let CU=null,ROLE=null,SR=null;
+let imgB64=null,imgSrc=null,parsed=null,fType='all';
+
+async function api(p,m='GET',b=null){
+  const o={method:m,headers:{'Content-Type':'application/json'}};
+  if(b)o.body=JSON.stringify(b);
+  const r=await fetch(p,o);
+  return r.json();
+}
+const fmt=n=>{const v=Number(n||0);return v.toLocaleString('en-US',{minimumFractionDigits:v%1===0?0:2,maximumFractionDigits:2});};
+const today=()=>new Date().toISOString().split('T')[0];
+const tl=t=>t==='petty'?'نثرية':t==='tax'?'ضريبية':'أخرى';
+const pl=p=>p==='cash'?'كاش':'تحويل';
+const tb=t=>`<span class="badge b${t==='petty'?'pt':t==='tax'?'tx':'ot'}">${tl(t)}</span>`;
+const pb=p=>`<span class="badge b${p==='cash'?'cs':'tr'}">${pl(p)}</span>`;
+const gs=id=>DB.entries.filter(e=>e.supId==id).reduce((a,e)=>a+(e.total||0),0);
+const gn=id=>DB.supervisors.find(s=>s.id==id)?.name||'—';
+const gc=i=>COLORS[i%COLORS.length];
+
+// THEME
+function initTheme(){
+  const t=localStorage.getItem('kayan_theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',t);
+  const b=document.getElementById('tbtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('kayan_theme',t);
+  const b=document.getElementById('tbtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';
 }
 
-function saveDB(db) { 
-  _dbCache = db;
-  try { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); } catch(e) { console.error('Save error:', e); }
+// PWA
+let dp;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;const b=document.getElementById('ibtn');if(b)b.style.display='inline-flex';});
+function installApp(){if(dp){dp.prompt();dp.userChoice.then(()=>{dp=null;const b=document.getElementById('ibtn');if(b)b.style.display='none';});}}
+
+// SESSION
+function saveSession(pw,supId){localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId:supId||null}));}
+async function restoreSession(){
+  try{
+    const s=localStorage.getItem('ks');
+    if(!s)return false;
+    const sess=JSON.parse(s);
+    if(!sess||!sess.pw||!sess.ROLE)return false;
+    const body={role:sess.ROLE,password:sess.pw};
+    if(sess.supId)body.supId=parseInt(sess.supId);
+    const res=await api('/api/login','POST',body);
+    if(!res||!res.ok){localStorage.removeItem('ks');return false;}
+    CU={id:res.supId||0,name:res.name,budget:res.budget||0};
+    ROLE=res.role;
+    return true;
+  }catch(e){localStorage.removeItem('ks');return false;}
 }
 
-async function analyzeInvoice(b64, text) {
-  const { default: https } = await import('https');
-  const prompt = `أنت نظام OCR متخصص. اقرأ هذه الفاتورة بدقة شديدة.
-
-## تصنيف الفاتورة (مهم جداً):
-الفاتورة تكون ضريبية (tax) إذا توفر أي من الشروط التالية:
-1. اسم العميل يحتوي على "كيان وبناء" أو "Kayan"
-2. الرقم الضريبي للعميل (Client VAT) هو 31130575740003
-3. الفاتورة مكتوب عليها "فاتورة ضريبية" أو "Tax Invoice"
-4. يوجد رقم ضريبي للمورد (VAT Number)
-5. يوجد خانة VAT أو ضريبة القيمة المضافة بقيمة أكبر من صفر
-
-الفاتورة تكون نثرية (petty) فقط إذا:
-- لا يوجد أي من الشروط أعلاه
-- إيصال بسيط بدون ضريبة
-
-## قراءة الأرقام:
-- الفاصلة في الأرقام = عشرية: 26,15 → 26.15
-- Net Total أو الصافي = total
-- Total Excluding VAT = subtotal
-- VAT 15% = taxAmt
-
-## قراءة البنود:
-اقرأ عمود البيان أو Description حرفياً:
-- مثال: "عازل لفة ارضيات طول 50 متر لياذ"
-- مثال: "نايلون اخضر 300 مكروم ثافل 4×15 م"
-- لا تكتب: "صنية" أو "بند"
-
-## الإخراج JSON نقي فقط:
-{"desc":"اسم المورد فقط","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":15,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم البند الحقيقي","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
-
-إذا لا ضريبة: taxRate=0, taxAmt=0, total=subtotal
-إذا لا بنود: items=[]
-${text ? '\nنص: ' + text : ''}\``;
-
-  const content = b64
-    ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
-    : [{ type: 'text', text: prompt }];
-
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 1200, messages: [{ role: 'user', content }] });
-    const req = https.request({
-      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
-    }, res => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.error) return reject(new Error(json.error.message));
-          const raw = json.content.map(x => x.text || '').join('');
-          const match = raw.match(/\{[\s\S]*\}/);
-          if (!match) return reject(new Error('لم يُستخرج JSON'));
-          const parsed = JSON.parse(match[0]);
-          if (!parsed.total) parsed.total = (parsed.subtotal || 0) + (parsed.taxAmt || 0);
-          if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0];
-          resolve(parsed);
-        } catch (e) { reject(e); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
+// LOGIN
+async function start(){
+  try{DB=await api('/api/db');}catch(e){}
+  const ok=await restoreSession().catch(()=>false);
+  if(ok&&CU&&ROLE){showApp();}
+  else{document.getElementById('lview').style.display='flex';}
 }
 
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', c => { body += c; if (body.length > 20 * 1024 * 1024) req.destroy(); });
-    req.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve({}); } });
-    req.on('error', reject);
-  });
+function selRole(r){
+  SR=r;
+  document.querySelectorAll('.rb').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('rb-'+(r==='supervisor'?'sup':'mgr')).classList.add('sel');
+  const g=document.getElementById('sup-grp');
+  if(r==='supervisor'){
+    document.getElementById('sup-sel').innerHTML='<option value="">اختر...</option>'+DB.supervisors.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+    g.style.display='block';
+  }else g.style.display='none';
 }
 
-function sendJSON(res, data, status = 200) {
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-  res.end(JSON.stringify(data));
-}
-
-// Generate Excel XML
-function generateExcel(db) {
-  const supMap = {};
-  db.supervisors.forEach(s => supMap[s.id] = s.name);
-
-  let rows = db.entries.map(e => {
-    const itemsDesc = (e.items && e.items.length > 0)
-      ? e.items.map(it => it.desc + ' (' + it.qty + ' ' + it.unit + ')').join(' | ')
-      : (e.desc || '');
-    return `
-    <Row>
-      <Cell><Data ss:Type="Number">${e.id}</Data></Cell>
-      <Cell><Data ss:Type="String">${supMap[e.supId] || ''}</Data></Cell>
-      <Cell><Data ss:Type="String">${e.project || ''}</Data></Cell>
-      <Cell><Data ss:Type="String">${e.type === 'petty' ? 'نثرية' : e.type === 'tax' ? 'ضريبية' : 'أخرى'}</Data></Cell>
-      <Cell><Data ss:Type="String">${itemsDesc}</Data></Cell>
-      <Cell><Data ss:Type="String">${e.supplier || ''}</Data></Cell>
-      <Cell><Data ss:Type="String">${e.invoiceNo || ''}</Data></Cell>
-      <Cell><Data ss:Type="String">${e.date || ''}</Data></Cell>
-      <Cell><Data ss:Type="String">${e.payMethod === 'cash' ? 'كاش' : 'تحويل'}</Data></Cell>
-      <Cell><Data ss:Type="Number">${e.subtotal || 0}</Data></Cell>
-      <Cell><Data ss:Type="Number">${e.taxRate || 0}</Data></Cell>
-      <Cell><Data ss:Type="Number">${e.taxAmt || 0}</Data></Cell>
-      <Cell><Data ss:Type="Number">${e.total || 0}</Data></Cell>
-    </Row>`;
-  }).join('');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Worksheet ss:Name="المصروفات">
-    <Table>
-      <Row>
-        <Cell><Data ss:Type="String">الرقم</Data></Cell>
-        <Cell><Data ss:Type="String">المشرف</Data></Cell>
-        <Cell><Data ss:Type="String">المشروع</Data></Cell>
-        <Cell><Data ss:Type="String">النوع</Data></Cell>
-        <Cell><Data ss:Type="String">الوصف</Data></Cell>
-        <Cell><Data ss:Type="String">المورد</Data></Cell>
-        <Cell><Data ss:Type="String">رقم الفاتورة</Data></Cell>
-        <Cell><Data ss:Type="String">التاريخ</Data></Cell>
-        <Cell><Data ss:Type="String">طريقة الدفع</Data></Cell>
-        <Cell><Data ss:Type="String">قبل الضريبة</Data></Cell>
-        <Cell><Data ss:Type="String">نسبة الضريبة%</Data></Cell>
-        <Cell><Data ss:Type="String">مبلغ الضريبة</Data></Cell>
-        <Cell><Data ss:Type="String">الإجمالي</Data></Cell>
-      </Row>
-      ${rows}
-    </Table>
-  </Worksheet>
-</Workbook>`;
-}
-
-const server = http.createServer(async (req, res) => {
-  const { pathname } = url.parse(req.url);
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,DELETE', 'Access-Control-Allow-Headers': 'Content-Type' });
-    return res.end();
+async function doLogin(){
+  const err=document.getElementById('lerr');
+  const pw=document.getElementById('pw-inp').value;
+  if(!SR){err.style.display='block';err.textContent='اختر صفتك أولاً';return;}
+  if(!pw){err.style.display='block';err.textContent='أدخل كلمة المرور';return;}
+  const body={role:SR,password:pw};
+  let supId=null;
+  if(SR==='supervisor'){
+    const id=document.getElementById('sup-sel').value;
+    if(!id){err.style.display='block';err.textContent='اختر اسمك';return;}
+    body.supId=parseInt(id);supId=parseInt(id);
   }
+  try{
+    const res=await api('/api/login','POST',body);
+    if(!res.ok){err.style.display='block';err.textContent=res.error||'كلمة المرور خاطئة';return;}
+    err.style.display='none';
+    CU={id:res.supId||0,name:res.name,budget:res.budget||0};
+    ROLE=res.role;
+    localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId}));
+    showApp();
+  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+}
 
-  // Login
-  if (pathname === '/api/login' && req.method === 'POST') {
-    const { role, password, supId } = await parseBody(req);
-    const db = loadDB();
-    if (role === 'manager') {
-      if (password === db.managerPassword) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
-      return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-    }
-    if (role === 'supervisor') {
-      const sup = db.supervisors.find(s => s.id === parseInt(supId));
-      if (!sup) return sendJSON(res, { ok: false, error: 'المشرف غير موجود' }, 404);
-      if (sup.password !== password) return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-      return sendJSON(res, { ok: true, role: 'supervisor', name: sup.name, supId: sup.id, budget: sup.budget });
-    }
-    return sendJSON(res, { ok: false, error: 'بيانات خاطئة' }, 400);
+function doLogout(){
+  CU=null;ROLE=null;SR=null;
+  localStorage.removeItem('ks');
+  document.getElementById('aview').style.display='none';
+  document.getElementById('lview').style.display='flex';
+  document.querySelectorAll('.rb').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('sup-grp').style.display='none';
+  document.getElementById('pw-inp').value='';
+  document.getElementById('lerr').style.display='none';
+}
+
+function showApp(){
+  document.getElementById('lview').style.display='none';
+  document.getElementById('aview').style.display='block';
+  document.getElementById('tbname').textContent=CU.name;
+  document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':'مشرف';
+  const items=ROLE==='manager'
+    ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور'],['transfer','التحويلات']]
+    :[['home','الرئيسية'],['hist','سجلاتي'],['bal','رصيدي']];
+  document.getElementById('tabs').innerHTML=items.map(([id,lbl],i)=>`<button class="tab${i===0?' on':''}" onclick="goTab('${id}',this)">${lbl}</button>`).join('');
+  ROLE==='manager'?rDash():rHome();
+}
+
+function goTab(id,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer};
+  map[id]?.();
+}
+
+// ── DASHBOARD ──────────────────────
+function rDash(){
+  const tB=DB.supervisors.reduce((a,s)=>a+s.budget,0);
+  const tS=DB.entries.filter(e=>e.type!=='budget_add'&&e.type!=='transfer').reduce((a,e)=>a+(e.total||0),0);
+  const pt=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tx=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  document.getElementById('mc').innerHTML=`
+    <div class="sg">
+      <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:var(--a)">${fmt(tS)} ﷼</div></div>
+      <div class="stat"><div class="sl">المتبقي الكلي</div><div class="sv" style="color:var(--gold)">${fmt(tB-tS)} ﷼</div></div>
+      <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534">${fmt(pt)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b)">${fmt(tx)} ﷼</div></div>
+    </div>
+    <div class="shdr">حالة المشرفين</div>
+    ${DB.supervisors.map((s,i)=>{
+      const sp=gs(s.id),rem=s.budget-sp,pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
+      const pc=pct>85?'var(--r)':pct>65?'var(--a)':'var(--gold)';
+      const warn=pct>80?`<div class="warn" style="font-size:12px;padding:7px 10px;margin-top:6px">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
+      return`<div class="sc"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><div class="av" style="background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-weight:600;font-size:13px">${s.name}</div><div style="font-size:10px;color:var(--n4)">${DB.entries.filter(e=>e.supId==s.id).length} معاملة · ميزانية ${fmt(s.budget)}</div></div></div><div style="text-align:left"><div style="font-size:10px;color:var(--n4)">صرف: ${fmt(sp)}</div><div style="font-size:14px;font-weight:700;color:${rem<500?'var(--r)':'var(--gold)'}">${fmt(rem)} ﷼</div></div></div><div class="pbar"><div class="pf" style="width:${pct}%;background:${pc}"></div></div>${warn}</div>`;
+    }).join('')}
+    <div class="shdr" style="margin-top:4px">آخر المعاملات</div>
+    <div class="card">${DB.entries.slice(-5).reverse().map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:var(--n4);margin-top:1px">${gn(e.supId)} · ${e.project}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:2px">${fmt(e.total)} ﷼</div></div></div>`).join('')||'<div class="empty">لا توجد معاملات بعد</div>'}</div>`;
+}
+
+// ── TRANSACTIONS ──────────────────
+function rTxns(){
+  const sO=DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const pO=DB.projects.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="padding:10px 12px;margin-bottom:10px">
+      <div style="margin-bottom:7px"><select id="fs" onchange="rfT()"><option value="all">كل المشرفين</option>${sO}</select></div>
+      <div style="margin-bottom:7px"><select id="fp" onchange="rfT()"><option value="all">كل المشاريع</option>${pO}</select></div>
+      <div class="ftabs"><button class="ftab on" onclick="setFT('all',this)">الكل</button><button class="ftab" onclick="setFT('petty',this)">نثرية</button><button class="ftab" onclick="setFT('tax',this)">ضريبية</button></div>
+    </div>
+    <button class="btn bx" onclick="location.href='/api/export'" style="margin-bottom:10px">
+      <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      تصدير Excel
+    </button>
+    <div id="tl"></div>`;
+  rfT();
+}
+function setFT(v,btn){fType=v;document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');rfT();}
+function rfT(){
+  const fS=document.getElementById('fs')?.value||'all';
+  const fP=document.getElementById('fp')?.value||'all';
+  const list=DB.entries.filter(e=>{
+    if(fS!=='all'&&e.supId!=fS)return false;
+    if(fP!=='all'&&e.project!==fP)return false;
+    if(fType!=='all'&&e.type!==fType)return false;
+    return true;
+  }).slice().reverse();
+  const total=list.reduce((a,e)=>a+(e.total||0),0);
+  const el=document.getElementById('tl');if(!el)return;
+  if(!list.length){el.innerHTML='<div class="empty">لا توجد نتائج</div>';return;}
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:11px;color:var(--n4)">${list.length} معاملة</span><span style="font-size:13px;font-weight:700;color:var(--r)">${fmt(total)} ﷼</span></div>`
+  +list.map(e=>`<div class="card" style="padding:10px 12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div>
+      <div style="font-size:10px;color:var(--n4);margin-top:2px">${gn(e.supId)} · ${e.project}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div>
+      <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:var(--n4)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
+    </div>
+    ${e.items?.length?`<div style="border-top:1px solid var(--n2);margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:var(--n5)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
+    <button onclick="delE(${e.id})" style="margin-top:5px;border:none;background:none;color:var(--n4);cursor:pointer;font-size:11px;font-family:inherit">✕ حذف</button>
+  </div>`).join('');
+}
+async function delE(id){if(!confirm('حذف؟'))return;await api('/api/entries/'+id,'DELETE');DB=await api('/api/db');rfT();rDash();}
+
+// ── REPORTS ────────────────────────
+function rReports(){
+  const taxT=DB.entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const ptT=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const txT=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tot=ptT+txT||1;
+  const pm={};DB.entries.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
+  document.getElementById('mc').innerHTML=`
+    <div class="card"><div class="ctitle">تقرير المشرفين</div>
+    ${DB.supervisors.map((s,i)=>{
+      const sp=gs(s.id),p=DB.entries.filter(e=>e.supId==s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),t=DB.entries.filter(e=>e.supId==s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),tx=DB.entries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
+      return`<div class="txr"><div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${gc(i)};display:inline-block"></span>${s.name}</div><div style="font-size:10px;color:var(--n4);margin-top:1px">نثرية:${fmt(p)} · ضريبية:${fmt(t)} · ضريبة:${fmt(tx)}</div></div><div style="text-align:left"><div style="font-size:13px;font-weight:700;color:var(--r)">${fmt(sp)} ﷼</div><div style="font-size:10px;color:var(--gold)">متبقي:${fmt(s.budget-sp)}</div></div></div>`;
+    }).join('')}</div>
+    <div class="card"><div class="ctitle">تقرير المشاريع</div>${DB.projects.map(p=>`<div class="txr"><span style="font-size:13px">${p}</span><span style="font-weight:700;color:var(--r)">${fmt(pm[p]||0)} ﷼</span></div>`).join('')}</div>
+    <div class="card"><div class="ctitle">إجمالي ضريبة القيمة المضافة</div><div style="font-size:22px;font-weight:800;color:var(--b)">${fmt(taxT)} ﷼</div></div>
+    <div class="card"><div class="ctitle">توزيع المصاريف</div>
+    ${[['نثرية',ptT,'#166534'],['ضريبية',txT,'var(--b)']].map(([l,v,c])=>{
+      const pc=Math.round(v/tot*100);
+      return`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px"><span>${l}</span><span style="font-weight:600;color:${c}">${fmt(v)} ﷼ (${pc}%)</span></div><div class="pbar"><div class="pf" style="width:${pc}%;background:${c}"></div></div></div>`;
+    }).join('')}</div>`;
+}
+
+// ── SETUP ──────────────────────────
+function rSetup(){
+  document.getElementById('mc').innerHTML=`
+    <div class="card"><div class="ctitle">المشرفون</div>
+      ${DB.supervisors.map((s,i)=>`<div class="srow"><div style="display:flex;align-items:center;gap:7px"><div class="av" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-size:12px;font-weight:600">${s.name}</div><div style="font-size:10px;color:var(--n4)">ميزانية:${fmt(s.budget)} · متبقي:${fmt(s.budget-gs(s.id))}${s.visa?' · فيزا:****'+s.visa.slice(-4):''}</div></div></div><button class="xb" onclick="delSup(${s.id})">✕</button></div>`).join('')}
+      <div class="ar">
+        <input id="nn" placeholder="اسم المشرف" style="flex:2;min-width:100px">
+        <input id="nb" type="number" placeholder="الميزانية" style="max-width:90px">
+        <input id="np" type="password" placeholder="الباسورد" style="max-width:90px">
+        <input id="nv" placeholder="رقم الفيزا" style="flex:2;min-width:100px">
+        <button class="btn bp" onclick="addSup()" style="width:auto;padding:7px 11px">+</button>
+      </div>
+    </div>
+    <div class="card"><div class="ctitle">المشاريع</div>
+      ${DB.projects.map(p=>`<div class="srow"><span style="font-size:12px">${p}</span><button class="xb" onclick="delProj('${p}')">✕</button></div>`).join('')}
+      <div class="ar"><input id="nproj" placeholder="اسم المشروع"><button class="btn bp" onclick="addProj()" style="width:auto;padding:7px 11px">+</button></div>
+    </div>
+    <div class="card">
+      <div class="ctitle">النسخ الاحتياطي</div>
+      <div style="font-size:12px;color:var(--n4);margin-bottom:12px">احفظ بياناتك أو استعدها من نسخة سابقة</div>
+      
+      <div style="margin-bottom:10px">
+        <label class="lbl">تحميل نسخة احتياطية</label>
+        <button class="btn bx" onclick="location.href='/api/backup'">
+          <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          تحميل النسخة الاحتياطية
+        </button>
+      </div>
+      
+      <div class="sep"></div>
+      
+      <div style="margin-bottom:10px">
+        <label class="lbl">استعادة من نسخة احتياطية</label>
+        <div style="font-size:11px;color:var(--n4);margin-bottom:8px">اختر ملف JSON من نسخة احتياطية سابقة لاستعادة البيانات</div>
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border:2px dashed var(--n3);border-radius:8px;cursor:pointer;background:var(--n1);font-size:13px;color:var(--n5);transition:.15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--n3)'">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          اختر ملف النسخة الاحتياطية (.json)
+          <input type="file" accept=".json" style="display:none" onchange="restoreBackup(this)">
+        </label>
+      </div>
+      
+      <div id="restore-status" style="display:none"></div>
+      
+      <div class="sep"></div>
+      <button class="btn bd" onclick="clearAll()">مسح كل المعاملات</button>
+    </div>`;
+}
+async function addSup(){
+  const n=document.getElementById('nn').value.trim(),b=parseFloat(document.getElementById('nb').value)||0,p=document.getElementById('np').value||'1234',v=document.getElementById('nv').value.trim();
+  if(!n||!b)return;
+  await api('/api/supervisors','POST',{name:n,budget:b,password:p,visa:v});
+  DB=await api('/api/db');rSetup();
+}
+async function delSup(id){if(!confirm('حذف؟'))return;await api('/api/supervisors/'+id,'DELETE');DB=await api('/api/db');rSetup();}
+async function addProj(){
+  const n=document.getElementById('nproj').value.trim();if(!n)return;
+  await api('/api/projects','POST',{name:n});DB=await api('/api/db');
+  document.getElementById('nproj').value='';rSetup();
+}
+async function delProj(p){if(!confirm('حذف؟'))return;await api('/api/projects/'+encodeURIComponent(p),'DELETE');DB=await api('/api/db');rSetup();}
+async function clearAll(){if(!confirm('مسح كل المعاملات؟'))return;for(const e of DB.entries)await api('/api/entries/'+e.id,'DELETE');DB=await api('/api/db');rSetup();}
+
+async function restoreBackup(inp){
+  const file=inp.files[0];if(!file)return;
+  const status=document.getElementById('restore-status');
+  
+  if(!confirm('تأكيد: سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية. هل أنت متأكد؟')){
+    inp.value='';return;
   }
-
-  // Get DB
-  if (pathname === '/api/db' && req.method === 'GET') {
-    const db = loadDB();
-    // Don't send passwords to client
-    const safe = { ...db, supervisors: db.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget })) };
-    delete safe.managerPassword;
-    return sendJSON(res, safe);
-  }
-
-  // Update passwords
-  if (pathname === '/api/passwords' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const db = loadDB();
-    if (body.managerPassword) db.managerPassword = body.managerPassword;
-    if (body.supervisors) {
-      body.supervisors.forEach(({ id, password }) => {
-        const sup = db.supervisors.find(s => s.id === id);
-        if (sup && password) sup.password = password;
-      });
-    }
-    saveDB(db);
-    return sendJSON(res, { ok: true });
-  }
-
-  // Add entry
-  if (pathname === '/api/entries' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const db = loadDB();
+  
+  status.style.display='block';
+  status.innerHTML='<div style="background:var(--al);border-radius:7px;padding:9px 12px;font-size:12px;color:var(--a)">جاري استعادة البيانات...</div>';
+  
+  try{
+    const text=await file.text();
+    const backup=JSON.parse(text);
+    const res=await api('/api/restore','POST',backup);
     
-    // Check duplicate - by invoice number OR by (supplier + total + date)
-    const normalize = s => (s || '').toString().trim().toLowerCase().replace(/\s+/g, '');
-    
-    // Check 1: same invoice number
-    if (body.invoiceNo && body.invoiceNo.trim()) {
-      const dup = db.entries.find(e =>
-        e.invoiceNo && normalize(e.invoiceNo) === normalize(body.invoiceNo)
-      );
-      if (dup) {
-        return sendJSON(res, {
-          error: `⚠️ تنبيه: الفاتورة رقم ${body.invoiceNo} مسجلة مسبقاً بتاريخ ${dup.date}`
-        }, 200);
-      }
+    if(res.ok){
+      DB=await api('/api/db');
+      status.innerHTML=`<div class="ok"><svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم الاستعادة بنجاح — ${res.entries} معاملة و${res.supervisors} مشرف</div>`;
+      setTimeout(()=>{rSetup();status.style.display='none';},2000);
+    }else{
+      status.innerHTML=`<div class="err" style="display:block">${res.error||'فشل في الاستعادة'}</div>`;
     }
-    
-    // Check 2: same supplier + total + date (even if invoice number differs)
-    if (body.supplier && body.total && body.date) {
-      const dup2 = db.entries.find(e =>
-        normalize(e.supplier) === normalize(body.supplier) &&
-        Math.abs((e.total || 0) - (body.total || 0)) < 0.1 &&
-        e.date === body.date
-      );
-      if (dup2) {
-        return sendJSON(res, {
-          error: `⚠️ تنبيه: يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ (${dup2.date})`
-        }, 200);
-      }
-    }
-    
-    const entry = { ...body, id: db.nextId++ };
-    db.entries.push(entry);
-    saveDB(db);
-    return sendJSON(res, { ok: true, entry });
+  }catch(e){
+    status.innerHTML=`<div class="err" style="display:block">الملف غير صحيح — تأكد أنه ملف JSON من النسخة الاحتياطية</div>`;
   }
+  inp.value='';
+}
 
-  // Delete entry
-  if (pathname.startsWith('/api/entries/') && req.method === 'DELETE') {
-    const id = parseInt(pathname.split('/').pop());
-    const db = loadDB();
-    db.entries = db.entries.filter(e => e.id !== id);
-    saveDB(db);
-    return sendJSON(res, { ok: true });
-  }
+// ── PASSWORDS ─────────────────────
+function rPws(){
+  document.getElementById('mc').innerHTML=`
+    <div class="card"><div class="ctitle">كلمة مرور المدير</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><label style="font-size:13px;font-weight:500">المدير</label><input type="password" id="pm" placeholder="كلمة مرور جديدة" style="max-width:160px"></div>
+    </div>
+    <div class="card"><div class="ctitle">كلمات مرور المشرفين</div>
+      ${DB.supervisors.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--n2)"><label style="font-size:13px;font-weight:500">${s.name}</label><input type="password" id="ps${s.id}" placeholder="كلمة مرور جديدة" style="max-width:160px"></div>`).join('')}
+    </div>
+    <button class="btn bp" onclick="savePW()">حفظ كلمات المرور</button>
+    <div class="ok" id="pwok" style="display:none;margin-top:8px"><svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم الحفظ</div>`;
+}
+async function savePW(){
+  const mgr=document.getElementById('pm').value;
+  const sups=DB.supervisors.map(s=>{const pw=document.getElementById('ps'+s.id)?.value;return pw?{id:s.id,password:pw}:null;}).filter(Boolean);
+  const body={};if(mgr)body.managerPassword=mgr;if(sups.length)body.supervisors=sups;
+  await api('/api/passwords','POST',body);
+  const ok=document.getElementById('pwok');if(ok){ok.style.display='flex';setTimeout(()=>ok.style.display='none',2000);}
+}
 
-  // Add supervisor
-  if (pathname === '/api/supervisors' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const db = loadDB();
-    db.supervisors.push({ id: Date.now(), name: body.name, budget: body.budget, password: body.password || '1234', visa: body.visa || '' });
-    saveDB(db);
-    return sendJSON(res, { ok: true });
-  }
+// ── SUPERVISOR PAGES ───────────────
+function rHome(){
+  const entries=DB.entries.filter(e=>e.supId==CU.id).slice(-5).reverse();
+  const sp=DB.entries.filter(e=>e.supId==CU.id).reduce((a,e)=>a+(e.total||0),0);
+  const rem=CU.budget-sp;
+  const pct=Math.min(100,Math.round(sp/(CU.budget||1)*100));
+  const warn=pct>80?`<div class="warn">⚠️ تنبيه: رصيدك اقترب من النهاية! المتبقي ${fmt(rem)} ﷼ فقط</div>`:'';
+  document.getElementById('mc').innerHTML=`
+    ${warn}
+    <div class="card" style="text-align:center;padding:16px">
+      <div style="font-size:12px;color:var(--n4);margin-bottom:4px">رصيدك المتبقي</div>
+      <div style="font-size:32px;font-weight:800;color:${rem<500?'var(--r)':'var(--gold)'}">${fmt(rem)} ﷼</div>
+      <div style="font-size:11px;color:var(--n4);margin-top:3px">من ${fmt(CU.budget)} ﷼</div>
+      <div class="pbar" style="margin-top:10px"><div class="pf" style="width:${pct}%;background:${pct>85?'var(--r)':pct>65?'var(--a)':'var(--gold)'}"></div></div>
+    </div>
+    <div class="shdr">آخر معاملاتي</div>
+    <div class="card">${entries.map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:var(--n4);margin-top:1px">${e.project} · ${e.date}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:2px">${fmt(e.total)} ﷼</div></div></div>`).join('')||'<div class="empty">لا توجد معاملات بعد</div>'}</div>`;
+}
+function rHist(){
+  const entries=DB.entries.filter(e=>e.supId==CU.id).slice().reverse();
+  document.getElementById('mc').innerHTML=entries.length
+    ?entries.map(e=>`<div class="card" style="padding:10px 12px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:var(--n4);margin-top:1px">${e.project}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div></div></div></div>`).join('')
+    :'<div class="empty">لا توجد معاملات بعد</div>';
+}
+function rBal(){
+  const entries=DB.entries.filter(e=>e.supId==CU.id);
+  const sp=entries.reduce((a,e)=>a+(e.total||0),0),rem=CU.budget-sp;
+  const pct=Math.min(100,Math.round(sp/(CU.budget||1)*100));
+  const pc=pct>85?'var(--r)':pct>65?'var(--a)':'var(--gold)';
+  const pt=entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tx=entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="text-align:center;padding:20px 14px">
+      <div style="font-size:12px;color:var(--n4);margin-bottom:5px">المتبقي من ميزانيتي</div>
+      <div style="font-size:36px;font-weight:800;color:${rem<500?'var(--r)':'var(--gold)'}">${fmt(rem)} ﷼</div>
+      <div style="font-size:11px;color:var(--n4);margin-top:3px">من إجمالي ${fmt(CU.budget)} ﷼</div>
+      <div class="pbar" style="margin-top:10px"><div class="pf" style="width:${pct}%;background:${pc}"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--n4)"><span>صرفت ${pct}%</span><span>متبقي ${100-pct}%</span></div>
+    </div>
+    <div class="sg">
+      <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534">${fmt(pt)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b)">${fmt(tx)} ﷼</div></div>
+      <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:var(--a)">${fmt(sp)} ﷼</div></div>
+      <div class="stat"><div class="sl">المعاملات</div><div class="sv">${entries.length}</div></div>
+    </div>`;
+}
 
-  // Add budget to supervisor
-  if (pathname.match(/\/api\/supervisors\/\d+\/budget/) && req.method === 'POST') {
-    const id = parseInt(pathname.split('/')[3]);
-    const { amount } = await parseBody(req);
-    const db = loadDB();
-    const sup = db.supervisors.find(s => s.id === id);
-    if (!sup) return sendJSON(res, { error: 'مشرف غير موجود' }, 404);
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0) return sendJSON(res, { error: 'مبلغ غير صحيح' }, 400);
-    sup.budget += amt;
-    // Add budget log entry
-    db.entries.push({
-      id: db.nextId++,
-      supId: id, supName: sup.name,
-      project: 'إدارة الميزانية',
-      type: 'budget_add',
-      desc: `إضافة رصيد: ${amt} ﷼`,
-      date: new Date().toISOString().split('T')[0],
-      payMethod: 'transfer',
-      subtotal: 0, taxRate: 0, taxAmt: 0, total: 0,
-      items: [], budgetAdded: amt
-    });
-    saveDB(db);
-    return sendJSON(res, { ok: true, newBudget: sup.budget });
-  }
+// ── SCAN ───────────────────────────
+function fillSels(){
+  ['ssup','csup'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');});
+  ['sproj','cproj'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=DB.projects.map(p=>`<option>${p}</option>`).join('');});
+  if(ROLE==='supervisor'&&CU){['ssup','csup'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=CU.id;el.disabled=true;}});}
+}
+function openScan(){fillSels();document.getElementById('swrap').style.display='flex';}
+function closeScan(){document.getElementById('swrap').style.display='none';resetScan();}
 
-  // Delete supervisor
-  if (pathname.startsWith('/api/supervisors/') && req.method === 'DELETE') {
-    const id = parseInt(pathname.split('/').pop());
-    const db = loadDB();
-    db.supervisors = db.supervisors.filter(s => s.id !== id);
-    saveDB(db);
-    return sendJSON(res, { ok: true });
-  }
-
-  // Add project
-  if (pathname === '/api/projects' && req.method === 'POST') {
-    const { name } = await parseBody(req);
-    const db = loadDB();
-    if (name && !db.projects.includes(name)) db.projects.push(name);
-    saveDB(db);
-    return sendJSON(res, { ok: true });
-  }
-
-  // Delete project
-  if (pathname.startsWith('/api/projects/') && req.method === 'DELETE') {
-    const name = decodeURIComponent(pathname.split('/').pop());
-    const db = loadDB();
-    db.projects = db.projects.filter(p => p !== name);
-    saveDB(db);
-    return sendJSON(res, { ok: true });
-  }
-
-  // Analyze invoice
-  if (pathname === '/api/analyze' && req.method === 'POST') {
-    if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
-    try {
-      const { b64, text } = await parseBody(req);
-      const result = await analyzeInvoice(b64 || null, text || '');
-      return sendJSON(res, result);
-    } catch (e) {
-      return sendJSON(res, { error: e.message }, 500);
-    }
-  }
-
-
-  // Auto backup - save DB snapshot
-  if (pathname === '/api/backup' && req.method === 'GET') {
-    const db = loadDB();
-    const timestamp = new Date().toISOString().split('T')[0];
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Content-Disposition': `attachment; filename="kayan_backup_${timestamp}.json"` });
-    return res.end(JSON.stringify(db, null, 2));
-  }
-
-
-  // Transfer between supervisors
-  if (pathname === '/api/transfer' && req.method === 'POST') {
-    try {
-      const { fromId, toId, amount, note } = await parseBody(req);
-      const db = loadDB();
-      
-      const fromSup = db.supervisors.find(s => s.id == fromId);
-      const toSup = db.supervisors.find(s => s.id == toId);
-      
-      if (!fromSup || !toSup) return sendJSON(res, { error: 'مشرف غير موجود' }, 400);
-      if (fromId == toId) return sendJSON(res, { error: 'لا يمكن التحويل لنفس المشرف' }, 400);
-      
-      const amt = parseFloat(amount);
-      if (!amt || amt <= 0) return sendJSON(res, { error: 'المبلغ غير صحيح' }, 400);
-      
-      const fromSpent = db.entries.filter(e => e.supId == fromId).reduce((a,e) => a+(e.total||0), 0);
-      const fromBalance = fromSup.budget - fromSpent;
-      
-      if (amt > fromBalance) {
-        return sendJSON(res, { error: `الرصيد غير كافٍ — المتبقي عند ${fromSup.name}: ${fromBalance.toFixed(2)} ﷼` }, 400);
-      }
-      
-      const today = new Date().toISOString().split('T')[0];
-      const transferNote = note || `تحويل من ${fromSup.name} إلى ${toSup.name}`;
-      
-      // Deduct from sender as expense entry
-      const debitEntry = {
-        id: db.nextId++,
-        supId: parseInt(fromId),
-        supName: fromSup.name,
-        project: 'تحويل داخلي',
-        type: 'transfer',
-        desc: `تحويل إلى ${toSup.name}`,
-        supplier: '',
-        invoiceNo: 'TRF-' + Date.now(),
-        date: today,
-        payMethod: 'transfer',
-        subtotal: amt,
-        taxRate: 0,
-        taxAmt: 0,
-        total: amt,
-        items: [],
-        transferTo: toSup.name,
-        transferNote: transferNote
+function compressImg(file){
+  return new Promise(res=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=1600;let w=img.width,h=img.height;
+        if(w>MAX||h>MAX){const ratio=Math.min(MAX/w,MAX/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        const src=cv.toDataURL('image/jpeg',.92);
+        res({b64:src.split(',')[1],src});
       };
-      
-      // Add to receiver as negative expense (increases balance effectively via budget)
-      toSup.budget = (toSup.budget || 0) + amt;
-      
-      db.entries.push(debitEntry);
-      saveDB(db);
-      
-      return sendJSON(res, { 
-        ok: true, 
-        message: `تم تحويل ${amt} ﷼ من ${fromSup.name} إلى ${toSup.name}`,
-        newFromBalance: fromBalance - amt,
-        newToBudget: toSup.budget
-      });
-    } catch(e) {
-      return sendJSON(res, { error: e.message }, 500);
-    }
-  }
+      img.src=e.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
 
-  // Restore backup
-  if (pathname === '/api/restore' && req.method === 'POST') {
-    try {
-      const body = await parseBody(req);
-      // Validate backup structure
-      if (!body.supervisors || !body.projects || !body.entries) {
-        return sendJSON(res, { error: 'ملف النسخة الاحتياطية غير صحيح' }, 400);
-      }
-      // Ensure managerPassword exists
-      if (!body.managerPassword) body.managerPassword = 'admin123';
-      // Save restored data
-      saveDB(body);
-      return sendJSON(res, { ok: true, message: 'تم استعادة البيانات بنجاح', entries: body.entries.length, supervisors: body.supervisors.length });
-    } catch (e) {
-      return sendJSON(res, { error: 'فشل في استعادة البيانات: ' + e.message }, 500);
-    }
-  }
+async function pickFile(inp){
+  const file=inp.files[0];if(!file)return;
+  const {b64,src}=await compressImg(file);
+  imgB64=b64;imgSrc=src;
+  const p=document.getElementById('sprev');p.src=src;p.style.display='block';
+  document.getElementById('sdrop').style.display='none';
+}
 
-  // Export Excel
-  if (pathname === '/api/export' && req.method === 'GET') {
-    const db = loadDB();
-    const xml = generateExcel(db);
-    res.writeHead(200, {
-      'Content-Type': 'application/vnd.ms-excel',
-      'Content-Disposition': 'attachment; filename="expenses.xls"',
-      'Access-Control-Allow-Origin': '*'
-    });
-    return res.end(xml);
+async function runAI(){
+  const txt=(document.getElementById('stxt')?.value||'').trim();
+  const err=document.getElementById('serr');
+  if(!imgB64&&!txt){err.style.display='block';err.textContent='يرجى رفع صورة أو كتابة نص';return;}
+  err.style.display='none';
+  document.getElementById('ss1').style.display='none';
+  const ldg=document.getElementById('sldg');ldg.style.display='block';
+  document.getElementById('ltxt').textContent=imgB64?'جاري قراءة الصورة...':'جاري تحليل النص...';
+  try{
+    const params={text:txt};if(imgB64)params.b64=imgB64;
+    const result=await api('/api/analyze','POST',params);
+    if(result.error)throw new Error(result.error);
+    parsed=result;ldg.style.display='none';showResult();
+  }catch(e){
+    ldg.style.display='none';
+    document.getElementById('ss1').style.display='block';
+    err.style.display='block';
+    err.textContent='خطأ: '+(e.message||'حاول مرة أخرى');
   }
+}
 
-  // Serve PWA files
-  // Serve icons
-  if (pathname === '/icon-192.png') {
-    const b64 = require('fs').readFileSync(path.join(__dirname, 'icon-192.b64'), 'utf8');
-    const buf = Buffer.from(b64, 'base64');
-    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public,max-age=86400' });
-    return res.end(buf);
+function showResult(){
+  document.getElementById('ss2').style.display='block';
+  if(imgSrc){const p=document.getElementById('sprev2');p.src=imgSrc;p.style.display='block';}
+  document.getElementById('rfields').innerHTML=`
+    <div class="fr"><span style="color:var(--n4)">الوصف</span><span style="font-weight:600">${parsed.desc||'—'}</span></div>
+    <div class="fr"><span style="color:var(--n4)">المورد</span><span>${parsed.supplier||'—'}</span></div>
+    <div class="fr"><span style="color:var(--n4)">رقم الفاتورة</span><span>${parsed.invoiceNo||'—'}</span></div>
+    <div class="fr"><span style="color:var(--n4)">التاريخ</span><span>${parsed.date}</span></div>
+    <div class="fr"><span style="color:var(--n4)">النوع</span>${tb(parsed.type)}</div>
+    <div class="fr"><span style="color:var(--n4)">الدفع</span>${pb(parsed.payMethod)}</div>
+    <div class="sep"></div>
+    <div class="fr"><span style="color:var(--n4)">قبل الضريبة</span><span>${fmt(parsed.subtotal)} ﷼</span></div>
+    <div class="fr"><span style="color:var(--n4)">ضريبة ${parsed.taxRate||0}%</span><span>${fmt(parsed.taxAmt)} ﷼</span></div>
+    <div class="tbox"><span style="font-size:12px;opacity:.85">الإجمالي</span><span style="font-size:17px;font-weight:700">${fmt(parsed.total)} ﷼</span></div>`;
+  if(parsed.items?.length){
+    document.getElementById('icard').style.display='block';
+    document.getElementById('ilist').innerHTML=parsed.items.map(it=>`<div class="chip"><div style="font-size:12px;font-weight:600">${it.desc}</div><div style="font-size:11px;color:var(--n4);margin-top:2px">${it.qty} ${it.unit} × ${fmt(it.unitPrice)} ﷼ = <strong>${fmt(it.total)} ﷼</strong></div></div>`).join('');
   }
-  if (pathname === '/icon-512.png') {
-    const b64 = require('fs').readFileSync(path.join(__dirname, 'icon-512.b64'), 'utf8');
-    const buf = Buffer.from(b64, 'base64');
-    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public,max-age=86400' });
-    return res.end(buf);
-  }
-  if (pathname === '/manifest.json') {
-    res.writeHead(200, { 'Content-Type': 'application/manifest+json' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'manifest.json'), 'utf8'));
-  }
-  if (pathname === '/sw.js') {
-    res.writeHead(200, { 'Content-Type': 'application/javascript' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8'));
-  }
-  if (pathname === '/icon.svg') {
-    res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'icon.svg'), 'utf8'));
-  }
+  const ss=document.getElementById('ssup'),cs=document.getElementById('csup');
+  if(ss&&cs&&!cs.disabled)cs.value=ss.value;
+  const sp=document.getElementById('sproj'),cp=document.getElementById('cproj');
+  if(sp&&cp)cp.value=sp.value;
+}
 
-  // Serve HTML
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'));
-});
+async function saveEntry(){
+  const supId=parseInt(document.getElementById('csup').value);
+  const project=document.getElementById('cproj').value;
+  const supName=DB.supervisors.find(s=>s.id==supId)?.name||'';
+  const entry={supId,supName,project,type:parsed.type||'petty',desc:parsed.desc||'فاتورة',supplier:parsed.supplier||'',invoiceNo:parsed.invoiceNo||'',date:parsed.date||today(),payMethod:parsed.payMethod||'cash',subtotal:parsed.subtotal||0,taxRate:parsed.taxRate||0,taxAmt:parsed.taxAmt||0,total:parsed.total||parsed.subtotal||0,items:parsed.items||[]};
+  document.getElementById('ss2').style.display='none';
+  document.getElementById('sldg').style.display='block';
+  document.getElementById('ltxt').textContent='جاري الحفظ...';
+  try{
+    await api('/api/entries','POST',entry);
+    DB=await api('/api/db');
+    document.getElementById('sldg').style.display='none';
+    document.getElementById('sdone').style.display='block';
+    document.getElementById('dsum').innerHTML=`${parsed.desc} · ${project}<br><strong style="color:var(--gold)">${fmt(parsed.total)} ﷼</strong>`;
+    if(ROLE==='supervisor')rHome();else rDash();
+  }catch(e){
+    document.getElementById('sldg').style.display='none';
+    document.getElementById('ss2').style.display='block';
+    document.getElementById('serr').style.display='block';
+    document.getElementById('serr').textContent='خطأ في الحفظ';
+  }
+}
 
-server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+function resetScan(){
+  imgB64=null;imgSrc=null;parsed=null;
+  document.getElementById('sfile').value='';
+  ['sprev','sprev2'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display='none';el.src='';}});
+  document.getElementById('sdrop').style.display='block';
+  document.getElementById('stxt').value='';
+  document.getElementById('serr').style.display='none';
+  document.getElementById('icard').style.display='none';
+  document.getElementById('ss1').style.display='block';
+  document.getElementById('ss2').style.display='none';
+  document.getElementById('sldg').style.display='none';
+  document.getElementById('sdone').style.display='none';
+}
+
+
+
+function hideAddBudget(){
+  document.getElementById('add-budget-form').style.display = 'none';
+  currentBudgetSupId = null;
+}
+
+async function doAddBudget(){
+  const amt = parseFloat(document.getElementById('ab-amount').value);
+  const err = document.getElementById('ab-err');
+  if(!amt || amt <= 0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  err.style.display='none';
+  try{
+    const res = await api('/api/supervisors/'+currentBudgetSupId+'/budget','POST',{amount:amt});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    hideAddBudget();
+    rSetup();
+    // Show success
+    const ok = document.createElement('div');
+    ok.className='ok';ok.style.marginTop='8px';
+    ok.innerHTML=`<svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم إضافة ${fmt(amt)} ﷼`;
+    document.querySelector('#mc .card').appendChild(ok);
+    setTimeout(()=>ok.remove(),2500);
+  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+}
+
+// ── ADD BUDGET ─────────────────────────
+let _budgetSupId=null;
+function showAddBudget(id,name){
+  _budgetSupId=id;
+  document.getElementById('ab-name').textContent=name;
+  document.getElementById('ab-amount').value='';
+  document.getElementById('ab-err').style.display='none';
+  document.getElementById('add-budget-form').style.display='block';
+  setTimeout(()=>document.getElementById('ab-amount').focus(),100);
+}
+function hideAddBudget(){
+  document.getElementById('add-budget-form').style.display='none';
+  _budgetSupId=null;
+}
+async function doAddBudget(){
+  const amt=parseFloat(document.getElementById('ab-amount').value);
+  const err=document.getElementById('ab-err');
+  if(!amt||amt<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  err.style.display='none';
+  try{
+    const res=await api('/api/supervisors/'+_budgetSupId+'/budget','POST',{amount:amt});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB=await api('/api/db');
+    hideAddBudget();
+    rSetup();
+  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+}
+
+// ── MANAGER TRANSFER ──────────────────
+function rTransfer(){
+  const sOpts = DB.supervisors.map(s=>`<option value="${s.id}">${s.name} (متبقي: ${fmt(s.budget - gs(s.id))} ﷼)</option>`).join('');
+  // Get transfer history
+  const transfers = DB.entries.filter(e=>e.type==='transfer').slice().reverse();
+  
+  document.getElementById('mc').innerHTML=`
+    <div class="card">
+      <div class="ctitle">تحويل رصيد بين المشرفين</div>
+      <div class="fg">
+        <label class="lbl">من المشرف</label>
+        <select id="tf-from">${sOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">إلى المشرف</label>
+        <select id="tf-to">${sOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">المبلغ (﷼)</label>
+        <input type="number" id="tf-amount" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="fg">
+        <label class="lbl">ملاحظة (اختياري)</label>
+        <input type="text" id="tf-note" placeholder="سبب التحويل...">
+      </div>
+      <div class="err" id="tf-err"></div>
+      <div id="tf-ok" style="display:none" class="ok">
+        <svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="tf-ok-msg"></span>
+      </div>
+      <button class="btn bp" onclick="doTransfer()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        تنفيذ التحويل
+      </button>
+    </div>
+    ${transfers.length ? `
+    <div class="shdr">سجل التحويلات</div>
+    <div class="card">
+      ${transfers.map(e=>`<div class="txr">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${e.desc}</div>
+          <div style="font-size:10px;color:var(--n4);margin-top:1px">${e.supName} · ${e.date}${e.transferNote?' · '+e.transferNote:''}</div>
+        </div>
+        <div style="text-align:left;flex-shrink:0;margin-right:7px">
+          <span class="badge btransfer">تحويل</span>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>
+        </div>
+      </div>`).join('')}
+    </div>` : ''}`;
+}
+
+async function doTransfer(){
+  const fromId = document.getElementById('tf-from').value;
+  const toId = document.getElementById('tf-to').value;
+  const amount = document.getElementById('tf-amount').value;
+  const note = document.getElementById('tf-note').value;
+  const err = document.getElementById('tf-err');
+  const ok = document.getElementById('tf-ok');
+  
+  err.style.display='none'; ok.style.display='none';
+  
+  if(!amount || parseFloat(amount)<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  if(fromId===toId){err.style.display='block';err.textContent='اختر مشرفَين مختلفَين';return;}
+  
+  try{
+    const res = await api('/api/transfer','POST',{fromId,toId,amount:parseFloat(amount),note});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    document.getElementById('tf-amount').value='';
+    document.getElementById('tf-note').value='';
+    document.getElementById('tf-ok-msg').textContent = res.message;
+    ok.style.display='flex';
+    setTimeout(()=>{ok.style.display='none';rTransfer();},2500);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
+}
+
+// ── SUPERVISOR TRANSFER ────────────────
+function rSTransfer(){
+  const others = DB.supervisors.filter(s=>s.id!=CU.id);
+  const mySpent = DB.entries.filter(e=>e.supId==CU.id).reduce((a,e)=>a+(e.total||0),0);
+  const myBalance = CU.budget - mySpent;
+  const myTransfers = DB.entries.filter(e=>e.supId==CU.id&&e.type==='transfer').slice().reverse();
+  
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="text-align:center;padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--n4);margin-bottom:4px">رصيدك المتاح للتحويل</div>
+      <div style="font-size:28px;font-weight:800;color:${myBalance<100?'var(--r)':'var(--brown)'}">
+        ${fmt(myBalance)} <span style="font-size:14px">﷼</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctitle">تحويل إلى مشرف آخر</div>
+      ${others.length===0 ? '<div class="empty">لا يوجد مشرفون آخرون</div>' : `
+      <div class="fg">
+        <label class="lbl">إلى المشرف</label>
+        <select id="st-to">${others.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">المبلغ (﷼)</label>
+        <input type="number" id="st-amount" placeholder="0.00" min="0" step="0.01" max="${myBalance}">
+      </div>
+      <div class="fg">
+        <label class="lbl">ملاحظة (اختياري)</label>
+        <input type="text" id="st-note" placeholder="سبب التحويل...">
+      </div>
+      <div class="err" id="st-err"></div>
+      <div id="st-ok" style="display:none" class="ok">
+        <svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="st-ok-msg"></span>
+      </div>
+      <button class="btn bp" onclick="doSTransfer()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        تحويل
+      </button>`}
+    </div>
+    ${myTransfers.length ? `
+    <div class="shdr">تحويلاتي السابقة</div>
+    <div class="card">
+      ${myTransfers.map(e=>`<div class="txr">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${e.desc}</div>
+          <div style="font-size:10px;color:var(--n4);margin-top:1px">${e.date}${e.transferNote?' · '+e.transferNote:''}</div>
+        </div>
+        <div style="text-align:left;flex-shrink:0;margin-right:7px">
+          <span class="badge btransfer">تحويل</span>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>
+        </div>
+      </div>`).join('')}
+    </div>` : ''}`;
+}
+
+async function doSTransfer(){
+  const toId = document.getElementById('st-to').value;
+  const amount = document.getElementById('st-amount').value;
+  const note = document.getElementById('st-note').value;
+  const err = document.getElementById('st-err');
+  const ok = document.getElementById('st-ok');
+  
+  err.style.display='none'; ok.style.display='none';
+  if(!amount||parseFloat(amount)<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  
+  try{
+    const res=await api('/api/transfer','POST',{fromId:CU.id,toId,amount:parseFloat(amount),note});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB=await api('/api/db');
+    // Update local budget
+    CU.budget = DB.supervisors.find(s=>s.id==CU.id)?.budget || CU.budget;
+    document.getElementById('st-amount').value='';
+    document.getElementById('st-note').value='';
+    document.getElementById('st-ok-msg').textContent=res.message;
+    ok.style.display='flex';
+    setTimeout(()=>{ok.style.display='none';rSTransfer();},2500);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
+}
+
+// SERVICE WORKER
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+
+// START
+initTheme();
+start();
+</script>
+</body>
+</html>
