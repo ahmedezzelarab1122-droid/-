@@ -63,7 +63,7 @@ textarea{resize:none;min-height:65px}
 .brow .btn{flex:1}
 /* BADGES */
 .badge{display:inline-block;padding:2px 8px;border-radius:14px;font-size:11px;font-weight:600}
-.bpt{background:#dcfce7;color:#166534}.btx{background:var(--bl);color:var(--b)}.bot{background:var(--n2);color:var(--n5)}.bcs{background:var(--al);color:var(--a)}.btr{background:#ede9fe;color:#7c3aed}
+.bpt{background:#dcfce7;color:#166534}.btx{background:var(--bl);color:var(--b)}.bot{background:var(--n2);color:var(--n5)}.bcs{background:var(--al);color:var(--a)}.btr{background:#ede9fe;color:#7c3aed}.btransfer{background:#e0f2fe;color:#0369a1}
 /* MISC */
 .pbar{height:5px;background:var(--n2);border-radius:3px;overflow:hidden;margin-top:5px}
 .pf{height:100%;border-radius:3px}
@@ -338,8 +338,8 @@ function showApp(){
   document.getElementById('tbname').textContent=CU.name;
   document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':'مشرف';
   const items=ROLE==='manager'
-    ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور']]
-    :[['home','الرئيسية'],['hist','سجلاتي'],['bal','رصيدي']];
+    ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور'],['transfer','التحويلات']]
+    :[['home','الرئيسية'],['hist','سجلاتي'],['bal','رصيدي'],['stransfer','تحويل']];
   document.getElementById('tabs').innerHTML=items.map(([id,lbl],i)=>`<button class="tab${i===0?' on':''}" onclick="goTab('${id}',this)">${lbl}</button>`).join('');
   ROLE==='manager'?rDash():rHome();
 }
@@ -347,7 +347,7 @@ function showApp(){
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer};
   map[id]?.();
 }
 
@@ -714,6 +714,166 @@ function resetScan(){
   document.getElementById('ss2').style.display='none';
   document.getElementById('sldg').style.display='none';
   document.getElementById('sdone').style.display='none';
+}
+
+
+// ── MANAGER TRANSFER ──────────────────
+function rTransfer(){
+  const sOpts = DB.supervisors.map(s=>`<option value="${s.id}">${s.name} (متبقي: ${fmt(s.budget - gs(s.id))} ﷼)</option>`).join('');
+  // Get transfer history
+  const transfers = DB.entries.filter(e=>e.type==='transfer').slice().reverse();
+  
+  document.getElementById('mc').innerHTML=`
+    <div class="card">
+      <div class="ctitle">تحويل رصيد بين المشرفين</div>
+      <div class="fg">
+        <label class="lbl">من المشرف</label>
+        <select id="tf-from">${sOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">إلى المشرف</label>
+        <select id="tf-to">${sOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">المبلغ (﷼)</label>
+        <input type="number" id="tf-amount" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="fg">
+        <label class="lbl">ملاحظة (اختياري)</label>
+        <input type="text" id="tf-note" placeholder="سبب التحويل...">
+      </div>
+      <div class="err" id="tf-err"></div>
+      <div id="tf-ok" style="display:none" class="ok">
+        <svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="tf-ok-msg"></span>
+      </div>
+      <button class="btn bp" onclick="doTransfer()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        تنفيذ التحويل
+      </button>
+    </div>
+    ${transfers.length ? `
+    <div class="shdr">سجل التحويلات</div>
+    <div class="card">
+      ${transfers.map(e=>`<div class="txr">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${e.desc}</div>
+          <div style="font-size:10px;color:var(--n4);margin-top:1px">${e.supName} · ${e.date}${e.transferNote?' · '+e.transferNote:''}</div>
+        </div>
+        <div style="text-align:left;flex-shrink:0;margin-right:7px">
+          <span class="badge btransfer">تحويل</span>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>
+        </div>
+      </div>`).join('')}
+    </div>` : ''}`;
+}
+
+async function doTransfer(){
+  const fromId = document.getElementById('tf-from').value;
+  const toId = document.getElementById('tf-to').value;
+  const amount = document.getElementById('tf-amount').value;
+  const note = document.getElementById('tf-note').value;
+  const err = document.getElementById('tf-err');
+  const ok = document.getElementById('tf-ok');
+  
+  err.style.display='none'; ok.style.display='none';
+  
+  if(!amount || parseFloat(amount)<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  if(fromId===toId){err.style.display='block';err.textContent='اختر مشرفَين مختلفَين';return;}
+  
+  try{
+    const res = await api('/api/transfer','POST',{fromId,toId,amount:parseFloat(amount),note});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    document.getElementById('tf-amount').value='';
+    document.getElementById('tf-note').value='';
+    document.getElementById('tf-ok-msg').textContent = res.message;
+    ok.style.display='flex';
+    setTimeout(()=>{ok.style.display='none';rTransfer();},2500);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
+}
+
+// ── SUPERVISOR TRANSFER ────────────────
+function rSTransfer(){
+  const others = DB.supervisors.filter(s=>s.id!=CU.id);
+  const mySpent = DB.entries.filter(e=>e.supId==CU.id).reduce((a,e)=>a+(e.total||0),0);
+  const myBalance = CU.budget - mySpent;
+  const myTransfers = DB.entries.filter(e=>e.supId==CU.id&&e.type==='transfer').slice().reverse();
+  
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="text-align:center;padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--n4);margin-bottom:4px">رصيدك المتاح للتحويل</div>
+      <div style="font-size:28px;font-weight:800;color:${myBalance<100?'var(--r)':'var(--brown)'}">
+        ${fmt(myBalance)} <span style="font-size:14px">﷼</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctitle">تحويل إلى مشرف آخر</div>
+      ${others.length===0 ? '<div class="empty">لا يوجد مشرفون آخرون</div>' : `
+      <div class="fg">
+        <label class="lbl">إلى المشرف</label>
+        <select id="st-to">${others.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">المبلغ (﷼)</label>
+        <input type="number" id="st-amount" placeholder="0.00" min="0" step="0.01" max="${myBalance}">
+      </div>
+      <div class="fg">
+        <label class="lbl">ملاحظة (اختياري)</label>
+        <input type="text" id="st-note" placeholder="سبب التحويل...">
+      </div>
+      <div class="err" id="st-err"></div>
+      <div id="st-ok" style="display:none" class="ok">
+        <svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="st-ok-msg"></span>
+      </div>
+      <button class="btn bp" onclick="doSTransfer()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        تحويل
+      </button>`}
+    </div>
+    ${myTransfers.length ? `
+    <div class="shdr">تحويلاتي السابقة</div>
+    <div class="card">
+      ${myTransfers.map(e=>`<div class="txr">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${e.desc}</div>
+          <div style="font-size:10px;color:var(--n4);margin-top:1px">${e.date}${e.transferNote?' · '+e.transferNote:''}</div>
+        </div>
+        <div style="text-align:left;flex-shrink:0;margin-right:7px">
+          <span class="badge btransfer">تحويل</span>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>
+        </div>
+      </div>`).join('')}
+    </div>` : ''}`;
+}
+
+async function doSTransfer(){
+  const toId = document.getElementById('st-to').value;
+  const amount = document.getElementById('st-amount').value;
+  const note = document.getElementById('st-note').value;
+  const err = document.getElementById('st-err');
+  const ok = document.getElementById('st-ok');
+  
+  err.style.display='none'; ok.style.display='none';
+  if(!amount||parseFloat(amount)<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  
+  try{
+    const res=await api('/api/transfer','POST',{fromId:CU.id,toId,amount:parseFloat(amount),note});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB=await api('/api/db');
+    // Update local budget
+    CU.budget = DB.supervisors.find(s=>s.id==CU.id)?.budget || CU.budget;
+    document.getElementById('st-amount').value='';
+    document.getElementById('st-note').value='';
+    document.getElementById('st-ok-msg').textContent=res.message;
+    ok.style.display='flex';
+    setTimeout(()=>{ok.style.display='none';rSTransfer();},2500);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
 }
 
 // SERVICE WORKER
