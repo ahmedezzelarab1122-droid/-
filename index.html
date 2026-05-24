@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>مصروفات المشرفين</title>
+<style>
+:root{--gr:#0a7c5c;--grl:#dcfce7;--grd:#065c42;--bl:#1d4ed8;--bll:#dbeafe;--rd:#dc2626;--rdl:#fee2e2;--am:#d97706;--aml:#fef3c7;--pu:#7c3aed;--pul:#ede9fe;--g50:#f8fafc;--g100:#f1f5f9;--g200:#e2e8f0;--g300:#cbd5e1;--g400:#94a3b8;--g500:#64748b;--g700:#374151;--g900:#0f172a}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:'Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;background:var(--g50);color:var(--g900);font-size:15px;line-height:1.5}
+.topbar{background:#fff;border-bottom:1px solid var(--g200);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.main{padding:14px;max-width:620px;margin:0 auto;padding-bottom:80px}
+.bnav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--g200);display:flex;z-index:100}
+.ni{flex:1;padding:8px 4px 10px;border:none;background:none;cursor:pointer;font-size:11px;color:var(--g400);display:flex;flex-direction:column;align-items:center;gap:3px;font-family:inherit;transition:color .15s}
+.ni.active{color:var(--gr)}
+.ni svg{width:22px;height:22px}
+.card{background:#fff;border-radius:14px;border:1px solid var(--g200);padding:14px 16px;margin-bottom:12px}
+.ctitle{font-size:14px;font-weight:600;color:var(--g500);margin-bottom:12px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat{background:#fff;border-radius:12px;border:1px solid var(--g200);padding:12px 14px}
+.sl{font-size:11px;color:var(--g400);margin-bottom:3px}
+.sv{font-size:18px;font-weight:700}
+input,select,textarea{width:100%;padding:9px 12px;border:1.5px solid var(--g200);border-radius:8px;font-size:14px;font-family:inherit;color:var(--g900);background:#fff;outline:none;direction:rtl;box-sizing:border-box;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--gr)}
+textarea{resize:none;min-height:70px}
+.flbl{font-size:12px;font-weight:500;color:var(--g500);display:block;margin-bottom:5px}
+.frow{margin-bottom:10px}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;border:none;font-family:inherit;width:100%;transition:opacity .15s}
+.btn:active{opacity:.85}
+.btn-p{background:var(--gr);color:#fff}
+.btn-s{background:var(--g100);color:var(--g500)}
+.btn-d{background:var(--rdl);color:var(--rd)}
+.brow{display:flex;gap:8px;margin-top:4px}
+.brow .btn{flex:1}
+.drop{border:2px dashed var(--g300);border-radius:12px;padding:28px 16px;text-align:center;cursor:pointer;background:var(--g50);margin-bottom:10px;transition:.15s}
+.drop:hover{border-color:var(--gr);background:#f0fdf4}
+.drop svg{display:block;margin:0 auto 8px}
+.drop p{font-size:14px;color:var(--g500)}
+.drop small{font-size:12px;color:var(--g400)}
+.iprev{width:100%;border-radius:10px;max-height:180px;object-fit:cover;margin-bottom:10px;display:none;border:1px solid var(--g200)}
+.spinner{width:32px;height:32px;border:3px solid var(--g200);border-top-color:var(--gr);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{text-align:center;padding:4rem 2rem;display:none}
+.ok-box{background:var(--grl);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--grd);font-weight:500;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.err-box{background:var(--rdl);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--rd);margin-bottom:10px;display:none}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;margin-left:2px}
+.bp{background:var(--grl);color:var(--grd)}
+.bt{background:var(--bll);color:var(--bl)}
+.bo{background:var(--g100);color:var(--g500)}
+.bc{background:var(--aml);color:var(--am)}
+.btr{background:var(--pul);color:var(--pu)}
+.pbar{height:6px;background:var(--g100);border-radius:3px;overflow:hidden;margin-top:6px}
+.pfill{height:100%;border-radius:3px}
+.fr{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--g100);font-size:13px}
+.fr:last-child{border-bottom:none}
+.tbox{background:var(--gr);color:#fff;border-radius:10px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.txr{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--g100)}
+.txr:last-child{border-bottom:none}
+.av{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
+.ftabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ftab{padding:5px 13px;border-radius:20px;border:1.5px solid var(--g200);background:#fff;font-family:inherit;font-size:12px;cursor:pointer;transition:.1s}
+.ftab.active{background:var(--gr);color:#fff;border-color:var(--gr)}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--g100)}
+.delbtn{border:none;background:none;color:var(--g400);cursor:pointer;font-size:18px;padding:4px;line-height:1}
+.delbtn:hover{color:var(--rd)}
+.addrow{display:flex;gap:8px;margin-top:12px}
+.addrow input{flex:1}
+.addrow .btn{width:auto;padding:9px 14px}
+.empty{text-align:center;padding:3rem;color:var(--g400);font-size:14px}
+.sep{height:1px;background:var(--g100);margin:10px 0}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#065c42,#0a7c5c,#1d9e75);padding:24px}
+.lcard{background:#fff;border-radius:20px;padding:2rem 1.75rem;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.rbtn{padding:14px;border:2px solid var(--g200);border-radius:12px;cursor:pointer;text-align:center;background:#fff;font-family:inherit;transition:.15s}
+.rbtn:hover{border-color:var(--gr);background:#f0fdf4}
+.rbtn.sel{border-color:var(--gr);background:#f0fdf4}
+.rbtn svg{display:block;margin:0 auto 6px}
+.rbtn span{font-size:13px;font-weight:600;color:var(--g700)}
+.rbtn.sel span{color:var(--gr)}
+.item-chip{background:var(--g50);border-radius:8px;padding:8px 12px;margin-bottom:6px}
+</style>
+</head>
+<body>
+
+<div id="login-view" class="login-wrap">
+  <div class="lcard">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:60px;height:60px;background:var(--grl);border-radius:16px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center">
+        <svg width="30" height="30" fill="none" stroke="var(--gr)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <div style="font-size:18px;font-weight:700">نظام مصروفات المشرفين</div>
+      <div style="font-size:13px;color:var(--g400);margin-top:4px">إدارة مصروفات المقاولات</div>
+    </div>
+    <div class="rgrid">
+      <button class="rbtn" id="rbtn-sup" onclick="selRole('supervisor')">
+        <svg width="24" height="24" fill="none" stroke="var(--g400)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+        <span>مشرف</span>
+      </button>
+      <button class="rbtn" id="rbtn-mgr" onclick="selRole('manager')">
+        <svg width="24" height="24" fill="none" stroke="var(--g400)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        <span>مدير</span>
+      </button>
+    </div>
+    <div class="frow" id="sup-grp" style="display:none">
+      <label class="flbl">اختر اسمك</label>
+      <select id="sup-sel"></select>
+    </div>
+    <div class="err-box" id="lerr"></div>
+    <button class="btn btn-p" onclick="doLogin()">
+      <svg width="17" height="17" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+      دخول
+    </button>
+  </div>
+</div>
+
+<div id="app-view" style="display:none">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div id="tbav" style="width:36px;height:36px;border-radius:10px;background:var(--grl);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--gr)">م</div>
+      <div>
+        <div id="tbname" style="font-size:14px;font-weight:700"></div>
+        <div id="tbrole" style="font-size:11px;color:var(--g400)"></div>
+      </div>
+    </div>
+    <button onclick="doLogout()" style="border:1.5px solid var(--g200);border-radius:8px;padding:6px 12px;background:none;font-size:12px;color:var(--g500);cursor:pointer;font-family:inherit">خروج</button>
+  </div>
+  <div class="main" id="mc"></div>
+  <nav class="bnav" id="bnav"></nav>
+</div>
+
+<script>
+const C=['#0a7c5c','#1d4ed8','#9333ea','#d97706','#dc2626','#0891b2'];
+let DB={},CU=null,ROLE=null,SR=null;
+let SS={b64:null,src:null,parsed:null};
+let HF={sup:'all',proj:'all',type:'all'};
+
+async function api(path,method='GET',body=null){
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if(body)opts.body=JSON.stringify(body);
+  const r=await fetch(path,opts);
+  return r.json();
+}
+
+async function initApp(){
+  DB=await api('/api/db');
+}
+
+function fmt(n){return Number(n||0).toLocaleString('ar-SA');}
+function today(){return new Date().toISOString().split('T')[0];}
+function tl(t){return t==='petty'?'نثرية':t==='tax'?'ضريبية':'أخرى';}
+function pl(p){return p==='cash'?'كاش':p==='transfer'?'تحويل':'—';}
+function tb(t){return `<span class="badge b${t==='petty'?'p':t==='tax'?'t':'o'}">${tl(t)}</span>`;}
+function pb(p){return `<span class="badge b${p==='cash'?'c':'tr'}">${pl(p)}</span>`;}
+function gs(id){return DB.entries.filter(e=>e.supId===id).reduce((a,e)=>a+(e.total||0),0);}
+function gn(id){return DB.supervisors.find(s=>s.id===id)?.name||'—';}
+function gc(i){return C[i%C.length];}
+
+// ── LOGIN ──────────────────────────────────────
+function selRole(r){
+  SR=r;
+  document.querySelectorAll('.rbtn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('rbtn-'+(r==='supervisor'?'sup':'mgr')).classList.add('sel');
+  const g=document.getElementById('sup-grp');
+  if(r==='supervisor'){
+    const s=document.getElementById('sup-sel');
+    s.innerHTML='<option value="">اختر...</option>';
+    DB.supervisors.forEach(x=>s.innerHTML+=`<option value="${x.id}">${x.name}</option>`);
+    g.style.display='block';
+  } else g.style.display='none';
+}
+function showLErr(m){const e=document.getElementById('lerr');e.textContent=m;e.style.display='block';}
+function doLogin(){
+  if(!SR){showLErr('اختر صفتك أولاً');return;}
+  if(SR==='supervisor'){
+    const id=parseInt(document.getElementById('sup-sel').value);
+    if(!id){showLErr('اختر اسمك');return;}
+    CU=DB.supervisors.find(s=>s.id===id);ROLE='supervisor';
+  } else {CU={id:0,name:'المدير',budget:0};ROLE='manager';}
+  document.getElementById('login-view').style.display='none';
+  document.getElementById('app-view').style.display='block';
+  document.getElementById('tbav').textContent=CU.name[0];
+  document.getElementById('tbname').textContent=CU.name;
+  document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':'مشرف';
+  buildNav();
+  ROLE==='manager'?renderDash():renderUpload();
+}
+function doLogout(){CU=null;ROLE=null;SR=null;document.getElementById('app-view').style.display='none';document.getElementById('login-view').style.display='flex';document.querySelectorAll('.rbtn').forEach(b=>b.classList.remove('sel'));document.getElementById('sup-grp').style.display='none';document.getElementById('lerr').style.display='none';}
+
+// ── NAV ──────────────────────────────────────
+const MN=[['dashboard','لوحة التحكم','<path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>'],['history','المعاملات','<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>'],['reports','التقارير','<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'],['settings','الإعدادات','<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>']];
+const SN=[['upload','رفع فاتورة','<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>'],['history','سجلاتي','<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'],['balance','رصيدي','<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>']];
+const RENDERS={dashboard:renderDash,history:renderHistory,reports:renderReports,settings:renderSettings,upload:renderUpload,balance:renderBalance};
+
+function buildNav(){
+  const items=ROLE==='manager'?MN:SN;
+  document.getElementById('bnav').innerHTML=items.map(([id,lbl,path],i)=>`
+    <button class="ni${i===0?' active':''}" onclick="navTo('${id}',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">${path}</svg>${lbl}
+    </button>`).join('');
+}
+function navTo(id,btn){
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  RENDERS[id]?.();
+}
+
+// ── IMAGE COMPRESS ────────────────────────────
+function compressImg(file){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=1024;let w=img.width,h=img.height;
+        if(w>MAX||h>MAX){const r=Math.min(MAX/w,MAX/h);w=Math.round(w*r);h=Math.round(h*r);}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        const src=cv.toDataURL('image/jpeg',0.85);
+        resolve({b64:src.split(',')[1],src});
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ══════════════════════════════════════════
+//  UPLOAD PAGE
+// ══════════════════════════════════════════
+function renderUpload(){
+  SS={b64:null,src:null,parsed:null};
+  const pOpts=DB.projects.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('mc').innerHTML=`
+    <div id="su">
+      <div class="card">
+        <div class="ctitle">رفع فاتورة جديدة</div>
+        <label class="drop" for="finp" id="dlbl">
+          <svg width="40" height="40" fill="none" stroke="var(--g400)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <p>اضغط لرفع صورة الفاتورة</p>
+          <small>من الكاميرا أو من الواتساب</small>
+        </label>
+        <input type="file" id="finp" accept="image/*" style="display:none" onchange="handleFile(this)">
+        <img id="iprev" class="iprev">
+        <div class="frow">
+          <label class="flbl">أو اكتب نص الرسالة</label>
+          <textarea id="tinp" placeholder="مثال: فاتورة حديد 2300 ريال شركة النصر INV-005&#10;أو: أكل عمال 450 ريال كاش"></textarea>
+        </div>
+        <div class="frow">
+          <label class="flbl">المشروع</label>
+          <select id="sproj">${pOpts}</select>
+        </div>
+        <div class="err-box" id="serr"></div>
+        <button class="btn btn-p" onclick="runScan()">
+          <svg width="17" height="17" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          تحليل بالذكاء الاصطناعي
+        </button>
+      </div>
+    </div>
+    <div id="sl" class="loading"><div class="spinner"></div><p id="slmsg" style="font-size:14px;color:var(--g500)">جاري التحليل...</p></div>
+    <div id="sr" style="display:none"></div>
+    <div id="sd" style="display:none"></div>`;
+}
+
+async function handleFile(inp){
+  const file=inp.files[0];if(!file)return;
+  const {b64,src}=await compressImg(file);
+  SS.b64=b64;SS.src=src;
+  const p=document.getElementById('iprev');p.src=src;p.style.display='block';
+  document.getElementById('dlbl').style.display='none';
+}
+
+async function runScan(){
+  const txt=(document.getElementById('tinp')?.value||'').trim();
+  const err=document.getElementById('serr');
+  if(!SS.b64&&!txt){err.style.display='block';err.textContent='يرجى رفع صورة أو كتابة نص';return;}
+  err.style.display='none';
+  document.getElementById('su').style.display='none';
+  const ldg=document.getElementById('sl');ldg.style.display='block';
+  document.getElementById('slmsg').textContent=SS.b64?'جاري قراءة الصورة واستخراج البيانات...':'جاري تحليل النص...';
+  try{
+    const result=await api('/api/analyze','POST',{b64:SS.b64,text:txt});
+    if(result.error)throw new Error(result.error);
+    SS.parsed=result;
+    ldg.style.display='none';
+    showResult(result);
+  }catch(e){
+    ldg.style.display='none';
+    document.getElementById('su').style.display='block';
+    err.style.display='block';
+    err.textContent='خطأ: '+(e.message||'حاول مرة أخرى');
+  }
+}
+
+function showResult(p){
+  const curProj=document.getElementById('sproj')?.value||DB.projects[0]||'';
+  const pOpts=DB.projects.map(x=>`<option${x===curProj?' selected':''}>${x}</option>`).join('');
+  const res=document.getElementById('sr');res.style.display='block';
+  res.innerHTML=`
+    <div class="ok-box">
+      <svg width="18" height="18" fill="none" stroke="var(--grd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      تم استخراج البيانات — راجع وأكد الحفظ
+    </div>
+    ${SS.src?`<img src="${SS.src}" style="width:100%;border-radius:10px;max-height:180px;object-fit:cover;margin-bottom:12px;border:1px solid var(--g200)">`:''}
+    <div class="card">
+      <div class="ctitle">بيانات الفاتورة</div>
+      <div class="fr"><span style="color:var(--g400)">الوصف</span><span style="font-weight:600">${p.desc||'—'}</span></div>
+      <div class="fr"><span style="color:var(--g400)">المورد / الشركة</span><span>${p.supplier||'—'}</span></div>
+      <div class="fr"><span style="color:var(--g400)">رقم الفاتورة</span><span>${p.invoiceNo||'—'}</span></div>
+      <div class="fr"><span style="color:var(--g400)">التاريخ</span><span>${p.date||'—'}</span></div>
+      <div class="fr"><span style="color:var(--g400)">النوع</span>${tb(p.type)}</div>
+      <div class="fr"><span style="color:var(--g400)">طريقة الدفع</span>${pb(p.payMethod)}</div>
+      <div class="sep"></div>
+      <div class="fr"><span style="color:var(--g400)">قبل الضريبة</span><span>${fmt(p.subtotal)} ﷼</span></div>
+      <div class="fr"><span style="color:var(--g400)">ضريبة ${p.taxRate||0}%</span><span>${fmt(p.taxAmt)} ﷼</span></div>
+      <div class="tbox"><span style="font-size:13px;opacity:.85">الإجمالي الكلي</span><span style="font-size:20px;font-weight:700">${fmt(p.total)} ﷼</span></div>
+    </div>
+    ${p.items&&p.items.length?`<div class="card"><div class="ctitle">بنود الفاتورة (${p.items.length})</div>${p.items.map(it=>`<div class="item-chip"><div style="font-size:13px;font-weight:600">${it.desc}</div><div style="font-size:12px;color:var(--g400);margin-top:2px">${it.qty} ${it.unit} × ${fmt(it.unitPrice)} ﷼ = <strong>${fmt(it.total)} ﷼</strong></div></div>`).join('')}</div>`:''}
+    <div class="card">
+      <div class="ctitle">تأكيد وحفظ</div>
+      <div class="frow"><label class="flbl">المشروع</label><select id="cproj">${pOpts}</select></div>
+      <div class="brow">
+        <button class="btn btn-p" onclick="confirmSave()">
+          <svg width="16" height="16" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          حفظ في السجل
+        </button>
+        <button class="btn btn-s" onclick="renderUpload()">إلغاء</button>
+      </div>
+    </div>`;
+}
+
+async function confirmSave(){
+  const p=SS.parsed,project=document.getElementById('cproj').value;
+  const entry={supId:CU.id,project,type:p.type||'petty',desc:p.desc||'فاتورة',supplier:p.supplier||'',invoiceNo:p.invoiceNo||'',date:p.date||today(),payMethod:p.payMethod||'cash',subtotal:p.subtotal||0,taxRate:p.taxRate||0,taxAmt:p.taxAmt||0,total:p.total||p.subtotal||0,items:p.items||[]};
+  const res=await api('/api/entries','POST',entry);
+  DB=await api('/api/db');
+  document.getElementById('sr').style.display='none';
+  const done=document.getElementById('sd');done.style.display='block';
+  done.innerHTML=`<div class="card" style="text-align:center;padding:2rem">
+    <div style="width:64px;height:64px;background:var(--grl);border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center">
+      <svg width="32" height="32" fill="none" stroke="var(--gr)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div style="font-size:17px;font-weight:700;margin-bottom:6px">تم الحفظ بنجاح</div>
+    <div style="font-size:13px;color:var(--g400);margin-bottom:20px">${p.desc||'فاتورة'} · ${project}<br><strong style="color:var(--gr)">${fmt(p.total)} ﷼</strong></div>
+    <button class="btn btn-p" onclick="renderUpload()">إضافة فاتورة أخرى</button>
+  </div>`;
+}
+
+// ── HISTORY ────────────────────────────────────
+function renderHistory(){
+  const isMgr=ROLE==='manager';
+  const sOpts=DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const pOpts=DB.projects.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="padding:12px 14px">
+      ${isMgr?`<div class="frow"><select onchange="HF.sup=this.value;rHist()"><option value="all">كل المشرفين</option>${sOpts}</select></div>`:''}
+      <div class="frow"><select onchange="HF.proj=this.value;rHist()"><option value="all">كل المشاريع</option>${pOpts}</select></div>
+      <div class="ftabs">${[['all','الكل'],['petty','نثرية'],['tax','ضريبية'],['other','أخرى']].map(([v,l])=>`<button class="ftab${HF.type===v?' active':''}" onclick="HF.type='${v}';rHist()">${l}</button>`).join('')}</div>
+    </div>
+    <div id="hlist"></div>`;
+  rHist();
+}
+function rHist(){
+  const isMgr=ROLE==='manager';
+  const list=DB.entries.filter(e=>{
+    if(!isMgr&&e.supId!==CU.id)return false;
+    if(HF.sup!=='all'&&e.supId!=HF.sup)return false;
+    if(HF.proj!=='all'&&e.project!==HF.proj)return false;
+    if(HF.type!=='all'&&e.type!==HF.type)return false;
+    return true;
+  }).slice().reverse();
+  const total=list.reduce((a,e)=>a+(e.total||0),0);
+  const el=document.getElementById('hlist');
+  if(!list.length){el.innerHTML='<div class="empty">لا توجد معاملات</div>';return;}
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:12px;color:var(--g400)">${list.length} معاملة</span><span style="font-size:14px;font-weight:700;color:var(--rd)">${fmt(total)} ﷼</span></div>`+
+  list.map(e=>`<div class="card" style="padding:12px 14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600">${e.desc}</div>
+        <div style="font-size:11px;color:var(--g400);margin-top:2px">${isMgr?gn(e.supId)+' · ':''}${e.project}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''}</div>
+        <div style="font-size:11px;color:var(--g400);margin-top:1px">${e.date}</div>
+      </div>
+      <div style="text-align:left;flex-shrink:0;margin-right:8px">
+        ${tb(e.type)} ${pb(e.payMethod)}
+        <div style="font-size:15px;font-weight:700;color:var(--rd);margin-top:4px">${fmt(e.total)} ﷼</div>
+        ${e.taxAmt>0?`<div style="font-size:11px;color:var(--g400)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}
+      </div>
+    </div>
+    ${e.items&&e.items.length?`<div style="border-top:1px solid var(--g100);margin-top:8px;padding-top:8px">${e.items.map(it=>`<div style="font-size:12px;color:var(--g500);margin-bottom:2px">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
+    ${isMgr?`<button onclick="delEntry(${e.id})" style="margin-top:6px;border:none;background:none;color:var(--g400);cursor:pointer;font-size:12px;font-family:inherit">✕ حذف</button>`:''}
+  </div>`).join('');
+}
+async function delEntry(id){
+  if(!confirm('حذف؟'))return;
+  await api('/api/entries/'+id,'DELETE');
+  DB=await api('/api/db');
+  rHist();
+}
+
+// ── BALANCE ────────────────────────────────────
+function renderBalance(){
+  const entries=DB.entries.filter(e=>e.supId===CU.id);
+  const sp=entries.reduce((a,e)=>a+(e.total||0),0),rem=CU.budget-sp;
+  const pct=Math.min(100,Math.round(sp/(CU.budget||1)*100));
+  const pc=pct>85?'var(--rd)':pct>65?'var(--am)':'var(--gr)';
+  const petty=entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tax=entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const taxAmt=entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="text-align:center;padding:24px 16px">
+      <div style="font-size:13px;color:var(--g400);margin-bottom:6px">المتبقي من ميزانيتي</div>
+      <div style="font-size:40px;font-weight:800;color:${rem<500?'var(--rd)':'var(--gr)'}">${fmt(rem)} <span style="font-size:18px">﷼</span></div>
+      <div style="font-size:12px;color:var(--g400);margin-top:4px">من إجمالي ${fmt(CU.budget)} ﷼</div>
+      <div class="pbar"><div class="pfill" style="width:${pct}%;background:${pc}"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:11px;color:var(--g400)"><span>صرفت ${pct}%</span><span>متبقي ${100-pct}%</span></div>
+    </div>
+    <div class="sgrid">
+      <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:var(--gr)">${fmt(petty)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--bl)">${fmt(tax)} ﷼</div></div>
+      <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:var(--am)">${fmt(sp)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبة مدفوعة</div><div class="sv">${fmt(taxAmt)} ﷼</div></div>
+    </div>`;
+}
+
+// ── DASHBOARD ────────────────────────────────────
+function renderDash(){
+  const tB=DB.supervisors.reduce((a,s)=>a+s.budget,0);
+  const tS=DB.entries.reduce((a,e)=>a+(e.total||0),0);
+  const pt=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tx=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const sc=DB.supervisors.map((s,i)=>{
+    const sp=gs(s.id),rem=s.budget-sp,pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
+    const pc=pct>85?'var(--rd)':pct>65?'var(--am)':'var(--gr)';
+    return`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="display:flex;align-items:center;gap:10px"><div class="av" style="background:${gc(i)}22;color:${gc(i)}">${s.name[0]}</div><div><div style="font-weight:600;font-size:14px">${s.name}</div><div style="font-size:11px;color:var(--g400)">${DB.entries.filter(e=>e.supId===s.id).length} معاملة</div></div></div><div style="text-align:left"><div style="font-size:12px;color:var(--g400)">صرف: ${fmt(sp)}</div><div style="font-size:15px;font-weight:700;color:${rem<500?'var(--rd)':'var(--gr)'}">${fmt(rem)} ﷼</div></div></div><div class="pbar"><div class="pfill" style="width:${pct}%;background:${pc}"></div></div></div>`;
+  }).join('');
+  const rc=DB.entries.slice(-5).reverse();
+  document.getElementById('mc').innerHTML=`
+    <div class="sgrid">
+      <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:var(--am)">${fmt(tS)} ﷼</div></div>
+      <div class="stat"><div class="sl">المتبقي الكلي</div><div class="sv" style="color:var(--gr)">${fmt(tB-tS)} ﷼</div></div>
+      <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:var(--gr)">${fmt(pt)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--bl)">${fmt(tx)} ﷼</div></div>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--g400);margin-bottom:8px">حالة المشرفين</div>
+    ${sc}
+    <div style="font-size:12px;font-weight:600;color:var(--g400);margin-bottom:8px;margin-top:4px">آخر المعاملات</div>
+    <div class="card">${rc.length?rc.map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:11px;color:var(--g400);margin-top:2px">${gn(e.supId)} · ${e.project}</div></div><div style="text-align:left;flex-shrink:0;margin-right:8px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--rd);margin-top:3px">${fmt(e.total)} ﷼</div></div></div>`).join(''):'<div class="empty" style="padding:1.5rem">لا توجد معاملات بعد</div>'}</div>`;
+}
+
+// ── REPORTS ────────────────────────────────────
+function renderReports(){
+  const taxT=DB.entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const ptT=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const txT=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tot=ptT+txT||1;
+  const pm={};DB.entries.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
+  document.getElementById('mc').innerHTML=`
+    <div class="card"><div class="ctitle">تقرير المشرفين</div>
+      ${DB.supervisors.map((s,i)=>{const sp=gs(s.id),p=DB.entries.filter(e=>e.supId===s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),t=DB.entries.filter(e=>e.supId===s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),tx=DB.entries.filter(e=>e.supId===s.id).reduce((a,e)=>a+(e.taxAmt||0),0);return`<div class="txr"><div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${gc(i)};display:inline-block"></span>${s.name}</div><div style="font-size:11px;color:var(--g400);margin-top:2px">نثرية:${fmt(p)} · ضريبية:${fmt(t)} · ضريبة:${fmt(tx)}</div></div><div style="text-align:left"><div style="font-size:13px;font-weight:700;color:var(--rd)">${fmt(sp)} ﷼</div><div style="font-size:11px;color:var(--gr)">متبقي:${fmt(s.budget-sp)}</div></div></div>`;}).join('')}
+    </div>
+    <div class="card"><div class="ctitle">تقرير المشاريع</div>${DB.projects.map(p=>`<div class="txr"><span style="font-size:13px;font-weight:500">${p}</span><span style="font-size:13px;font-weight:700;color:var(--rd)">${fmt(pm[p]||0)} ﷼</span></div>`).join('')}</div>
+    <div class="card"><div class="ctitle">إجمالي ضريبة القيمة المضافة</div><div style="font-size:26px;font-weight:800;color:var(--bl);margin-bottom:6px">${fmt(taxT)} ﷼</div><div style="font-size:12px;color:var(--g400)">يمكن استخدامه في الإقرار الضريبي</div></div>
+    <div class="card"><div class="ctitle">توزيع المصاريف</div>${[['نثرية',ptT,'var(--gr)'],['ضريبية',txT,'var(--bl)']].map(([l,v,c])=>{const pc=Math.round(v/tot*100);return`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px"><span>${l}</span><span style="font-weight:700;color:${c}">${fmt(v)} ﷼ (${pc}%)</span></div><div class="pbar"><div style="height:100%;border-radius:3px;background:${c};width:${pc}%"></div></div></div>`;}).join('')}</div>`;
+}
+
+// ── SETTINGS ────────────────────────────────────
+function renderSettings(){
+  document.getElementById('mc').innerHTML=`
+    <div class="card"><div class="ctitle">المشرفون</div>
+      ${DB.supervisors.map((s,i)=>{const sp=gs(s.id);return`<div class="srow"><div style="display:flex;align-items:center;gap:8px"><div class="av" style="width:34px;height:34px;border-radius:10px;font-size:13px;background:${gc(i)}22;color:${gc(i)}">${s.name[0]}</div><div><div style="font-size:13px;font-weight:600">${s.name}</div><div style="font-size:11px;color:var(--g400)">ميزانية:${fmt(s.budget)} · متبقي:${fmt(s.budget-sp)}</div></div></div><button class="delbtn" onclick="delSup(${s.id})">✕</button></div>`;}).join('')}
+      <div class="addrow"><input id="ns" placeholder="اسم المشرف" style="flex:2"><input id="nb" placeholder="الميزانية" type="number" style="flex:1"><button class="btn btn-p" onclick="addSup()" style="width:auto;padding:9px 14px">+</button></div>
+    </div>
+    <div class="card"><div class="ctitle">المشاريع</div>
+      ${DB.projects.map(p=>`<div class="srow"><span style="font-size:13px">${p}</span><button class="delbtn" onclick="delProj('${p}')">✕</button></div>`).join('')}
+      <div class="addrow"><input id="np" placeholder="اسم المشروع"><button class="btn btn-p" onclick="addProj()" style="width:auto;padding:9px 14px">+</button></div>
+    </div>
+    <button class="btn btn-d" onclick="clearAll()" style="margin-top:4px">مسح كل المعاملات</button>`;
+}
+async function addSup(){const n=document.getElementById('ns').value.trim(),b=parseFloat(document.getElementById('nb').value)||0;if(!n||!b)return;await api('/api/supervisors','POST',{name:n,budget:b});DB=await api('/api/db');renderSettings();}
+async function delSup(id){if(!confirm('حذف؟'))return;await api('/api/supervisors/'+id,'DELETE');DB=await api('/api/db');renderSettings();}
+async function addProj(){const n=document.getElementById('np').value.trim();if(!n)return;await api('/api/projects','POST',{name:n});DB=await api('/api/db');renderSettings();}
+async function delProj(p){if(!confirm('حذف؟'))return;await api('/api/projects/'+encodeURIComponent(p),'DELETE');DB=await api('/api/db');renderSettings();}
+async function clearAll(){if(!confirm('مسح كل المعاملات؟ لا يمكن التراجع.'))return;const db=await api('/api/db');for(const e of db.entries)await api('/api/entries/'+e.id,'DELETE');DB=await api('/api/db');renderSettings();}
+
+// ── INIT ────────────────────────────────────
+initApp().then(()=>{
+  document.getElementById('login-view').style.display='flex';
+}).catch(()=>{
+  document.getElementById('login-view').innerHTML='<div style="color:#fff;text-align:center;padding:2rem"><h2>تعذر الاتصال بالسيرفر</h2><p style="margin-top:8px;opacity:.8">تأكد أن السيرفر يعمل</p></div>';
+  document.getElementById('login-view').style.display='flex';
+});
+</script>
+</body>
+</html>
