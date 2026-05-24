@@ -7,9 +7,16 @@ const PORT = process.env.PORT || 10000;
 const API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const DB_FILE = path.join(__dirname, 'data.json');
 
+// In-memory cache to prevent data loss on Render free tier
+let _dbCache = null;
+
 function loadDB() {
-  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch {}
-  return {
+  if (_dbCache) return _dbCache;
+  try { 
+    _dbCache = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    return _dbCache;
+  } catch {}
+  _dbCache = {
     supervisors: [
       { id: 1, name: 'المشرف', budget: 10000, password: '1234' }
     ],
@@ -18,35 +25,44 @@ function loadDB() {
     managerPassword: 'admin123',
     nextId: 1
   };
+  return _dbCache;
 }
-function saveDB(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
+
+function saveDB(db) { 
+  _dbCache = db;
+  try { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); } catch(e) { console.error('Save error:', e); }
+}
 
 async function analyzeInvoice(b64, text) {
   const { default: https } = await import('https');
   const prompt = `أنت نظام OCR متخصص. اقرأ هذه الفاتورة بدقة شديدة.
 
-## التصنيف:
-- type="tax": تحتوي على "كيان وبناء" أو رقم ضريبي 31130575740003
-- type="petty": لا تحتوي على ذلك
+## تصنيف الفاتورة (مهم جداً):
+الفاتورة تكون ضريبية (tax) إذا توفر أي من الشروط التالية:
+1. اسم العميل يحتوي على "كيان وبناء" أو "Kayan"
+2. الرقم الضريبي للعميل (Client VAT) هو 31130575740003
+3. الفاتورة مكتوب عليها "فاتورة ضريبية" أو "Tax Invoice"
+4. يوجد رقم ضريبي للمورد (VAT Number)
+5. يوجد خانة VAT أو ضريبة القيمة المضافة بقيمة أكبر من صفر
 
-## حقل "desc" - مهم جداً:
-- اكتب فقط: اسم المورد أو الشركة التي أصدرت الفاتورة
-- مثال صحيح: "شركة المنصوري للتجارة" أو "مؤسسة محمد نورين التجارية" أو "محطة الدريس"
-- مثال خاطئ: "مواد بناء - ازميل وسكين" أو "فاتورة ضريبية" — هذا خاطئ
+الفاتورة تكون نثرية (petty) فقط إذا:
+- لا يوجد أي من الشروط أعلاه
+- إيصال بسيط بدون ضريبة
 
 ## قراءة الأرقام:
 - الفاصلة في الأرقام = عشرية: 26,15 → 26.15
-- Total Amt With Tax = الإجمالي النهائي (total)
-- Total Excluding VAT = قبل الضريبة (subtotal)
-- Tax 15% = الضريبة (taxAmt)
+- Net Total أو الصافي = total
+- Total Excluding VAT = subtotal
+- VAT 15% = taxAmt
 
 ## قراءة البنود:
-ابحث عن جدول الأصناف. لكل سطر اقرأ عمود "اسم الصنف" أو "Item Name/Description" حرفياً:
-- أمثلة صحيحة: "ازميل تكسيره 8ملي بوز"، "سكين معجون 6"، "متر 7 مثر اصفر"
-- لا تكتب أبداً: "صنية" أو "بند" أو "منتج"
+اقرأ عمود البيان أو Description حرفياً:
+- مثال: "عازل لفة ارضيات طول 50 متر لياذ"
+- مثال: "نايلون اخضر 300 مكروم ثافل 4×15 م"
+- لا تكتب: "صنية" أو "بند"
 
-## الإخراج - JSON نقي فقط:
-{"desc":"اسم المورد أو الشركة فقط","type":"petty أو tax","supplier":"اسم المورد كاملاً","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":15,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم الصنف الحقيقي","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
+## الإخراج JSON نقي فقط:
+{"desc":"اسم المورد فقط","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":15,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم البند الحقيقي","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
 
 إذا لا ضريبة: taxRate=0, taxAmt=0, total=subtotal
 إذا لا بنود: items=[]
@@ -257,6 +273,32 @@ const server = http.createServer(async (req, res) => {
     db.supervisors.push({ id: Date.now(), name: body.name, budget: body.budget, password: body.password || '1234', visa: body.visa || '' });
     saveDB(db);
     return sendJSON(res, { ok: true });
+  }
+
+  // Add budget to supervisor
+  if (pathname.match(/\/api\/supervisors\/\d+\/budget/) && req.method === 'POST') {
+    const id = parseInt(pathname.split('/')[3]);
+    const { amount } = await parseBody(req);
+    const db = loadDB();
+    const sup = db.supervisors.find(s => s.id === id);
+    if (!sup) return sendJSON(res, { error: 'مشرف غير موجود' }, 404);
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) return sendJSON(res, { error: 'مبلغ غير صحيح' }, 400);
+    sup.budget += amt;
+    // Add budget log entry
+    db.entries.push({
+      id: db.nextId++,
+      supId: id, supName: sup.name,
+      project: 'إدارة الميزانية',
+      type: 'budget_add',
+      desc: `إضافة رصيد: ${amt} ﷼`,
+      date: new Date().toISOString().split('T')[0],
+      payMethod: 'transfer',
+      subtotal: 0, taxRate: 0, taxAmt: 0, total: 0,
+      items: [], budgetAdded: amt
+    });
+    saveDB(db);
+    return sendJSON(res, { ok: true, newBudget: sup.budget });
   }
 
   // Delete supervisor
