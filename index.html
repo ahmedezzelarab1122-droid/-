@@ -356,19 +356,23 @@ function showApp(){{
 }}
 
 async function restoreSession(){{
-  try{{
-    const saved = localStorage.getItem('kayan_session');
-    if(!saved) return false;
-    const sess = JSON.parse(saved);
-    // Re-login with saved credentials
-    const body={{role:sess.SR||sess.ROLE,password:sess.pw}};
-    if(sess.supId) body.supId=sess.supId;
-    const res = await api('/api/login','POST',body);
-    if(!res.ok) {{localStorage.removeItem('kayan_session');return false;}}
-    CU={{id:res.supId||0,name:res.name,budget:res.budget||0}};
-    ROLE=res.role;
-    return true;
-  }}catch(e){{return false;}}
+  const saved = localStorage.getItem('kayan_session');
+  if(!saved) return false;
+  
+  let sess;
+  try{{sess = JSON.parse(saved);}}catch(e){{localStorage.removeItem('kayan_session');return false;}}
+  
+  if(!sess || !sess.pw || !sess.ROLE) {{localStorage.removeItem('kayan_session');return false;}}
+  
+  const body={{role:sess.ROLE, password:sess.pw}};
+  if(sess.supId) body.supId = parseInt(sess.supId);
+  
+  const res = await api('/api/login','POST',body);
+  if(!res || !res.ok) {{localStorage.removeItem('kayan_session');return false;}}
+  
+  CU = {{id:res.supId||0, name:res.name, budget:res.budget||0}};
+  ROLE = res.role;
+  return true;
 }}
 
 // LOGIN
