@@ -345,6 +345,32 @@ if(isIOS&&!window.navigator.standalone&&!localStorage.getItem('ios_dismissed')){
   setTimeout(()=>document.getElementById('ios-banner').style.display='block',3000);
 }
 
+
+function showApp(){{
+  document.getElementById('lview').style.display='none';
+  document.getElementById('aview').style.display='block';
+  document.getElementById('tbname').textContent=CU.name;
+  document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':'مشرف';
+  buildTabs();
+  ROLE==='manager'?renderDash():renderSupHome();
+}}
+
+async function restoreSession(){{
+  try{{
+    const saved = localStorage.getItem('kayan_session');
+    if(!saved) return false;
+    const sess = JSON.parse(saved);
+    // Re-login with saved credentials
+    const body={{role:sess.SR||sess.ROLE,password:sess.pw}};
+    if(sess.supId) body.supId=sess.supId;
+    const res = await api('/api/login','POST',body);
+    if(!res.ok) {{localStorage.removeItem('kayan_session');return false;}}
+    CU={{id:res.supId||0,name:res.name,budget:res.budget||0}};
+    ROLE=res.role;
+    return true;
+  }}catch(e){{return false;}}
+}}
+
 // LOGIN
 async function initLogin(){
   try{DB=await api('/api/db');}catch(e){console.error(e);}
@@ -514,13 +540,29 @@ function renderSetup(){
   document.getElementById('mc').innerHTML=`<div class="pane on">
     <div class="card"><div class="ctitle">المشرفون</div>
       <div id="sl">${DB.supervisors.map((s,i)=>`<div class="srow"><div style="display:flex;align-items:center;gap:7px"><div class="av" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-size:12px;font-weight:600">${s.name}</div><div style="font-size:10px;color:var(--n4)">ميزانية:${fmt(s.budget)} · متبقي:${fmt(s.budget-gs(s.id))}</div></div></div><button class="xbtn" onclick="delSup(${s.id})">✕</button></div>`).join('')}</div>
-      <div class="addrow"><input id="nsn" placeholder="اسم المشرف" style="flex:2"><input id="nsb" type="number" placeholder="الميزانية" style="flex:1;max-width:100px"><input id="nsp" type="password" placeholder="الباسورد" style="flex:1;max-width:100px"><button class="btn p" onclick="addSup()" style="width:auto;padding:7px 11px">+</button></div>
+      <div class="addrow" style="flex-wrap:wrap">
+        <input id="nsn" placeholder="اسم المشرف" style="flex:2;min-width:120px">
+        <input id="nsb" type="number" placeholder="الميزانية" style="flex:1;max-width:100px">
+        <input id="nsp" type="password" placeholder="الباسورد" style="flex:1;max-width:100px">
+        <input id="nsv" placeholder="رقم الفيزا (اختياري)" style="flex:2;min-width:140px">
+        <button class="btn p" onclick="addSup()" style="width:auto;padding:7px 11px">+</button>
+      </div>
     </div>
     <div class="card"><div class="ctitle">المشاريع</div>
       <div id="pl">${DB.projects.map(p=>`<div class="srow"><span style="font-size:12px">${p}</span><button class="xbtn" onclick="delProj('${p}')">✕</button></div>`).join('')}</div>
       <div class="addrow"><input id="npn" placeholder="اسم المشروع"><button class="btn p" onclick="addProj()" style="width:auto;padding:7px 11px">+</button></div>
     </div>
-    <button class="btn d" onclick="clearAll()">مسح كل المعاملات</button>
+    <div class="card">
+      <div class="ctitle">النسخ الاحتياطي</div>
+      <div style="font-size:12px;color:var(--n4);margin-bottom:10px">حمّل نسخة من جميع بياناتك كملف JSON</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn ex" onclick="window.location.href='/api/backup'" style="flex:1">
+          <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          تحميل نسخة احتياطية
+        </button>
+        <button class="btn d" onclick="clearAll()">مسح المعاملات</button>
+      </div>
+    </div>
   </div>`;
 }
 async function addSup(){const n=document.getElementById('nsn').value.trim(),b=parseFloat(document.getElementById('nsb').value)||0,p=document.getElementById('nsp').value||'1234';if(!n||!b)return;await api('/api/supervisors','POST',{name:n,budget:b,password:p});DB=await api('/api/db');renderSetup();}
