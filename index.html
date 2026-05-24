@@ -339,7 +339,7 @@ function showApp(){
   document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':'مشرف';
   const items=ROLE==='manager'
     ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور'],['transfer','التحويلات']]
-    :[['home','الرئيسية'],['hist','سجلاتي'],['bal','رصيدي'],['stransfer','تحويل']];
+    :[['home','الرئيسية'],['hist','سجلاتي'],['bal','رصيدي']];
   document.getElementById('tabs').innerHTML=items.map(([id,lbl],i)=>`<button class="tab${i===0?' on':''}" onclick="goTab('${id}',this)">${lbl}</button>`).join('');
   ROLE==='manager'?rDash():rHome();
 }
