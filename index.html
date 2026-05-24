@@ -449,15 +449,34 @@ function rSetup(){
       ${DB.projects.map(p=>`<div class="srow"><span style="font-size:12px">${p}</span><button class="xb" onclick="delProj('${p}')">✕</button></div>`).join('')}
       <div class="ar"><input id="nproj" placeholder="اسم المشروع"><button class="btn bp" onclick="addProj()" style="width:auto;padding:7px 11px">+</button></div>
     </div>
-    <div class="card"><div class="ctitle">النسخ الاحتياطي</div>
-      <div style="font-size:12px;color:var(--n4);margin-bottom:10px">حمّل نسخة من جميع بياناتك</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn bx" onclick="location.href='/api/backup'" style="flex:1">
+    <div class="card">
+      <div class="ctitle">النسخ الاحتياطي</div>
+      <div style="font-size:12px;color:var(--n4);margin-bottom:12px">احفظ بياناتك أو استعدها من نسخة سابقة</div>
+      
+      <div style="margin-bottom:10px">
+        <label class="lbl">تحميل نسخة احتياطية</label>
+        <button class="btn bx" onclick="location.href='/api/backup'">
           <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          تحميل نسخة احتياطية
+          تحميل النسخة الاحتياطية
         </button>
-        <button class="btn bd" onclick="clearAll()">مسح المعاملات</button>
       </div>
+      
+      <div class="sep"></div>
+      
+      <div style="margin-bottom:10px">
+        <label class="lbl">استعادة من نسخة احتياطية</label>
+        <div style="font-size:11px;color:var(--n4);margin-bottom:8px">اختر ملف JSON من نسخة احتياطية سابقة لاستعادة البيانات</div>
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border:2px dashed var(--n3);border-radius:8px;cursor:pointer;background:var(--n1);font-size:13px;color:var(--n5);transition:.15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--n3)'">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          اختر ملف النسخة الاحتياطية (.json)
+          <input type="file" accept=".json" style="display:none" onchange="restoreBackup(this)">
+        </label>
+      </div>
+      
+      <div id="restore-status" style="display:none"></div>
+      
+      <div class="sep"></div>
+      <button class="btn bd" onclick="clearAll()">مسح كل المعاملات</button>
     </div>`;
 }
 async function addSup(){
@@ -474,6 +493,35 @@ async function addProj(){
 }
 async function delProj(p){if(!confirm('حذف؟'))return;await api('/api/projects/'+encodeURIComponent(p),'DELETE');DB=await api('/api/db');rSetup();}
 async function clearAll(){if(!confirm('مسح كل المعاملات؟'))return;for(const e of DB.entries)await api('/api/entries/'+e.id,'DELETE');DB=await api('/api/db');rSetup();}
+
+async function restoreBackup(inp){
+  const file=inp.files[0];if(!file)return;
+  const status=document.getElementById('restore-status');
+  
+  if(!confirm('تأكيد: سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية. هل أنت متأكد؟')){
+    inp.value='';return;
+  }
+  
+  status.style.display='block';
+  status.innerHTML='<div style="background:var(--al);border-radius:7px;padding:9px 12px;font-size:12px;color:var(--a)">جاري استعادة البيانات...</div>';
+  
+  try{
+    const text=await file.text();
+    const backup=JSON.parse(text);
+    const res=await api('/api/restore','POST',backup);
+    
+    if(res.ok){
+      DB=await api('/api/db');
+      status.innerHTML=`<div class="ok"><svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم الاستعادة بنجاح — ${res.entries} معاملة و${res.supervisors} مشرف</div>`;
+      setTimeout(()=>{rSetup();status.style.display='none';},2000);
+    }else{
+      status.innerHTML=`<div class="err" style="display:block">${res.error||'فشل في الاستعادة'}</div>`;
+    }
+  }catch(e){
+    status.innerHTML=`<div class="err" style="display:block">الملف غير صحيح — تأكد أنه ملف JSON من النسخة الاحتياطية</div>`;
+  }
+  inp.value='';
+}
 
 // ── PASSWORDS ─────────────────────
 function rPws(){
