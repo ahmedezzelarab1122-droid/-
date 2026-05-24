@@ -254,7 +254,7 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;const 
 function installApp(){if(dp){dp.prompt();dp.userChoice.then(()=>{dp=null;const b=document.getElementById('ibtn');if(b)b.style.display='none';});}}
 
 // SESSION
-function saveSession(pw,supId){localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId:supId||null}_));}
+function saveSession(pw,supId){localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId:supId||null}));}
 async function restoreSession(){
   try{
     const s=localStorage.getItem('ks');
