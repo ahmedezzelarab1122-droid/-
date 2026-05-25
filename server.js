@@ -4,6 +4,9 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 10000;
+const CLOUDINARY_CLOUD = process.env.CLOUDINARY_CLOUD || 'dqgjqmwpy';
+const CLOUDINARY_KEY = process.env.CLOUDINARY_KEY || '458945749658771';
+const CLOUDINARY_SECRET = process.env.CLOUDINARY_SECRET || 'kmhpQlDaDsfxi04i5L7MZvvQCGl';
 const API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ahmedezzelarab1122_db_user:D6hxMuamTPmqKkUO@cluster0.ukmtckx.mongodb.net/kayan_expenses?appName=Cluster0';
 
@@ -162,6 +165,48 @@ ${text ? '\nنص: ' + text : ''}`;
   });
 }
 
+
+// ── Cloudinary Upload ─────────────────────────────────
+async function uploadToCloudinary(b64) {
+  const { default: https } = await import('https');
+  const crypto = require('crypto');
+  
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = 'kayan_invoices';
+  const str = `folder=${folder}&timestamp=${timestamp}${CLOUDINARY_SECRET}`;
+  const signature = crypto.createHash('sha1').update(str).digest('hex');
+  
+  const formData = [
+    `file=data:image/jpeg;base64,${b64}`,
+    `api_key=${CLOUDINARY_KEY}`,
+    `timestamp=${timestamp}`,
+    `folder=${folder}`,
+    `signature=${signature}`
+  ].join('&');
+  
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.cloudinary.com',
+      path: `/v1_1/${CLOUDINARY_CLOUD}/image/upload`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(formData) }
+    }, res => {
+      let data = '';
+      res.on('data', d => data += d);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.secure_url) resolve(json.secure_url);
+          else reject(new Error(json.error?.message || 'Upload failed'));
+        } catch(e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(formData);
+    req.end();
+  });
+}
+
 // ── Helpers ────────────────────────────────────────────
 function parseBody(req) {
   return new Promise((resolve, reject) => {
@@ -293,6 +338,13 @@ const server = http.createServer(async (req, res) => {
       if (dup2) return sendJSON(res, { error: `⚠️ يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ` });
     }
     const entry = { ...body, id: data.nextId++ };
+    // Upload image if provided
+    if (body.b64Image) {
+      try {
+        entry.imageUrl = await uploadToCloudinary(body.b64Image);
+      } catch(e) { console.error('Image upload failed:', e.message); }
+      delete entry.b64Image;
+    }
     await addEntry(entry);
     await saveConfig(data);
     return sendJSON(res, { ok: true, entry });
@@ -353,6 +405,20 @@ const server = http.createServer(async (req, res) => {
     data.projects = data.projects.filter(p => p !== name);
     await saveConfig(data);
     return sendJSON(res, { ok: true });
+  }
+
+
+  // Upload invoice image to Cloudinary
+  if (pathname === '/api/upload-image' && req.method === 'POST') {
+    try {
+      const { b64 } = await parseBody(req);
+      if (!b64) return sendJSON(res, { error: 'لا توجد صورة' }, 400);
+      const url = await uploadToCloudinary(b64);
+      return sendJSON(res, { ok: true, url });
+    } catch(e) {
+      console.error('Cloudinary error:', e.message);
+      return sendJSON(res, { error: 'فشل رفع الصورة: ' + e.message }, 500);
+    }
   }
 
   // Analyze invoice
