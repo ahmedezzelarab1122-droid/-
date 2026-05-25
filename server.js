@@ -172,19 +172,21 @@ ${text ? '\nنص: ' + text : ''}`;
 
 
 // ── Cloudinary Upload ─────────────────────────────────
-async function uploadToCloudinary(b64) {
+async function uploadToCloudinary(b64, isPdf=false) {
   const { default: https } = await import('https');
   
-  // Use unsigned upload preset - no signature needed
   const UPLOAD_PRESET = 'kayan_invoices';
   const boundary = 'CloudinaryBoundary' + Date.now();
   const fileData = Buffer.from(b64, 'base64');
+  const fileName = isPdf ? 'invoice.pdf' : 'invoice.jpg';
+  const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+  const resourceType = isPdf ? 'raw' : 'image';
   
   const textField = (name, value) => 
     Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`);
   
   const filePart = Buffer.from(
-    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="invoice.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`
+    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: ${mimeType}\r\n\r\n`
   );
   
   const body = Buffer.concat([
@@ -197,7 +199,7 @@ async function uploadToCloudinary(b64) {
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: 'api.cloudinary.com',
-      path: `/v1_1/${CLOUDINARY_CLOUD}/image/upload`,
+      path: `/v1_1/${CLOUDINARY_CLOUD}/${resourceType}/upload`,
       method: 'POST',
       headers: {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
@@ -355,7 +357,7 @@ const server = http.createServer(async (req, res) => {
     if (body.b64Image) {
       console.log('Uploading image to Cloudinary, size:', body.b64Image.length);
       try {
-        entry.imageUrl = await uploadToCloudinary(body.b64Image);
+        entry.imageUrl = await uploadToCloudinary(body.b64Image, body.isPdf||false);
         console.log('Image uploaded:', entry.imageUrl);
       } catch(e) { console.error('Image upload failed:', e.message); }
       delete entry.b64Image;
