@@ -1192,19 +1192,19 @@ function rLaborMgr(){
       </div>
     </div>
     <div class="shdr">سجل العمالة</div>
-    ${laborEntries.length ? `<div class="card">${laborEntries.map(e=>`<div class="txr">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:600">${e.desc}</div>
-        <div style="font-size:10px;color:var(--n4);margin-top:1px">${gn(e.supId)} · ${e.project} · ${e.date}</div>
-        ${e.laborDetails?.companyNames?`<div style="font-size:10px;color:var(--n4)">شركة: ${e.laborDetails.companyNames}</div>`:''}
-        ${e.laborDetails?.externalNames?`<div style="font-size:10px;color:var(--n4)">خارجي: ${e.laborDetails.externalNames}</div>`:''}
-      </div>
-      <div style="text-align:left;flex-shrink:0;margin-right:7px">
+    ${laborEntries.length ? laborEntries.map(e=>`<div class="card" style="padding:11px 13px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:700;color:var(--brown)">${e.date}</div>
         <span class="badge blabor">عمالة</span>
-        <div style="font-size:11px;color:var(--n5);margin-top:3px">${(e.laborDetails?.companyCount||0)} شركة + ${(e.laborDetails?.externalCount||0)} خارجي</div>
-        <div style="font-size:12px;color:var(--brown);font-weight:600">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
       </div>
-    </div>`).join('')}</div>` : '<div class="empty">لا توجد سجلات عمالة بعد</div>'}`;
+      <div style="font-size:11px;color:var(--n5);margin-bottom:6px">${gn(e.supId)} · ${e.project}</div>
+      ${e.laborDetails?.presentWorkers?.length?`<div style="background:var(--gl);border-radius:6px;padding:7px 10px;margin-bottom:5px"><div style="font-size:11px;font-weight:600;color:var(--brown);margin-bottom:3px">🏢 عمال الشركة (${e.laborDetails.companyCount})</div><div style="font-size:11px;color:var(--n5)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</div></div>`:''}
+      ${e.laborDetails?.externalWorkersList?.length?`<div style="background:#f0f9ff;border-radius:6px;padding:7px 10px;margin-bottom:5px"><div style="font-size:11px;font-weight:600;color:var(--b);margin-bottom:3px">👷 عمال خارجيون (${e.laborDetails.externalCount})</div><div style="font-size:11px;color:var(--n5)">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</div></div>`:''}
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding-top:5px;border-top:1px solid var(--n2)">
+        <span style="color:var(--n4)">${(e.laborDetails?.companyCount||0)} شركة + ${(e.laborDetails?.externalCount||0)} خارجي</span>
+        <span style="font-weight:700;color:var(--r)">${fmt(e.laborDetails?.laborTotal||0)} ﷼</span>
+      </div>
+    </div>`).join('') : '<div class="empty">لا توجد سجلات عمالة بعد</div>'}`;
 }
 
 async function addWorker(){
