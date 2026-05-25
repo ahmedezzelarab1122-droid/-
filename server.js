@@ -5,34 +5,80 @@ const url = require('url');
 
 const PORT = process.env.PORT || 10000;
 const API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const DB_FILE = path.join(__dirname, 'data.json');
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ahmedezzelarab1122_db_user:D6hxMuamTPmqKkUO@cluster0.ukmtckx.mongodb.net/kayan_expenses?appName=Cluster0';
 
-// In-memory cache to prevent data loss on Render free tier
-let _dbCache = null;
+// ── MongoDB Connection ────────────────────────────────
+const { MongoClient } = require('mongodb');
+let mongoClient = null;
+let db = null;
 
-function loadDB() {
-  if (_dbCache) return _dbCache;
-  try { 
-    _dbCache = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    return _dbCache;
-  } catch {}
-  _dbCache = {
-    supervisors: [
-      { id: 1, name: 'المشرف', budget: 10000, password: '1234' }
-    ],
-    projects: ['المشروع الأول'],
-    entries: [],
-    managerPassword: 'admin123',
-    nextId: 1
-  };
-  return _dbCache;
+async function connectMongo() {
+  try {
+    mongoClient = new MongoClient(MONGO_URI);
+    await mongoClient.connect();
+    db = mongoClient.db('kayan_expenses');
+    console.log('✅ MongoDB connected');
+    // Init default data if empty
+    const cfg = await db.collection('config').findOne({ _id: 'main' });
+    if (!cfg) {
+      await db.collection('config').insertOne({
+        _id: 'main',
+        supervisors: [{ id: 1, name: 'المشرف', budget: 10000, password: '1234' }],
+        projects: ['المشروع الأول'],
+        managerPassword: 'admin123',
+        nextId: 1
+      });
+      console.log('✅ Default data created');
+    }
+  } catch (e) {
+    console.error('❌ MongoDB error:', e.message);
+  }
 }
 
-function saveDB(db) { 
-  _dbCache = db;
-  try { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); } catch(e) { console.error('Save error:', e); }
+async function loadDB() {
+  if (!db) return getFallback();
+  try {
+    const cfg = await db.collection('config').findOne({ _id: 'main' });
+    const entries = await db.collection('entries').find({}).toArray();
+    return {
+      supervisors: cfg.supervisors || [],
+      projects: cfg.projects || [],
+      managerPassword: cfg.managerPassword || 'admin123',
+      nextId: cfg.nextId || 1,
+      entries: entries.map(e => { const { _id, ...rest } = e; return rest; })
+    };
+  } catch (e) {
+    console.error('loadDB error:', e.message);
+    return getFallback();
+  }
 }
 
+async function saveConfig(data) {
+  if (!db) return;
+  try {
+    await db.collection('config').updateOne(
+      { _id: 'main' },
+      { $set: { supervisors: data.supervisors, projects: data.projects, managerPassword: data.managerPassword, nextId: data.nextId } },
+      { upsert: true }
+    );
+  } catch (e) { console.error('saveConfig error:', e.message); }
+}
+
+async function addEntry(entry) {
+  if (!db) return;
+  try { await db.collection('entries').insertOne(entry); } catch (e) { console.error('addEntry error:', e.message); }
+}
+
+async function deleteEntry(id) {
+  if (!db) return;
+  try { await db.collection('entries').deleteOne({ id: id }); } catch (e) { console.error('deleteEntry error:', e.message); }
+}
+
+function getFallback() {
+  return { supervisors: [{ id: 1, name: 'المشرف', budget: 10000, password: '1234' }], projects: ['المشروع الأول'], entries: [], managerPassword: 'admin123', nextId: 1 };
+}
+
+// ── AI Analysis ───────────────────────────────────────
 async function analyzeInvoice(b64, text) {
   const { default: https } = await import('https');
   const prompt = `أنت نظام OCR متخصص. اقرأ هذه الفاتورة بدقة شديدة.
@@ -45,9 +91,7 @@ async function analyzeInvoice(b64, text) {
 4. يوجد رقم ضريبي للمورد (VAT Number)
 5. يوجد خانة VAT أو ضريبة القيمة المضافة بقيمة أكبر من صفر
 
-الفاتورة تكون نثرية (petty) فقط إذا:
-- لا يوجد أي من الشروط أعلاه
-- إيصال بسيط بدون ضريبة
+الفاتورة تكون نثرية (petty) فقط إذا لا يوجد أي من الشروط أعلاه.
 
 ## قراءة الأرقام:
 - الفاصلة في الأرقام = عشرية: 26,15 → 26.15
@@ -56,24 +100,22 @@ async function analyzeInvoice(b64, text) {
 - VAT 15% = taxAmt
 
 ## قراءة البنود:
-اقرأ عمود البيان أو Description حرفياً:
-- مثال: "عازل لفة ارضيات طول 50 متر لياذ"
-- مثال: "نايلون اخضر 300 مكروم ثافل 4×15 م"
-- لا تكتب: "صنية" أو "بند"
+اقرأ عمود البيان أو Description حرفياً. لا تكتب "صنية" أو "بند".
+مثال صحيح: "عازل لفة ارضيات طول 50 متر لياذ"
 
 ## الإخراج JSON نقي فقط:
 {"desc":"اسم المورد فقط","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم الفاتورة","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":15,"taxAmt":رقم,"total":رقم,"items":[{"desc":"اسم البند الحقيقي","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
 
 إذا لا ضريبة: taxRate=0, taxAmt=0, total=subtotal
 إذا لا بنود: items=[]
-${text ? '\nنص: ' + text : ''}\``;
+${text ? '\nنص: ' + text : ''}`;
 
   const content = b64
     ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
     : [{ type: 'text', text: prompt }];
 
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 1200, messages: [{ role: 'user', content }] });
+    const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 1500, messages: [{ role: 'user', content }] });
     const req = https.request({
       hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
@@ -87,8 +129,17 @@ ${text ? '\nنص: ' + text : ''}\``;
           const raw = json.content.map(x => x.text || '').join('');
           const match = raw.match(/\{[\s\S]*\}/);
           if (!match) return reject(new Error('لم يُستخرج JSON'));
-          const parsed = JSON.parse(match[0]);
-          if (!parsed.total) parsed.total = (parsed.subtotal || 0) + (parsed.taxAmt || 0);
+          let parsed = JSON.parse(match[0]);
+          // Fix numbers
+          const fixNum = v => { if (typeof v === 'string') { v = v.replace(/,/g, '.').replace(/[^0-9.]/g, ''); } return parseFloat(v) || 0; };
+          parsed.subtotal = fixNum(parsed.subtotal);
+          parsed.taxAmt = fixNum(parsed.taxAmt);
+          parsed.taxRate = fixNum(parsed.taxRate);
+          parsed.total = fixNum(parsed.total);
+          if (parsed.items && Array.isArray(parsed.items)) {
+            parsed.items = parsed.items.map(it => ({ ...it, qty: fixNum(it.qty), unitPrice: fixNum(it.unitPrice), total: fixNum(it.total) }));
+          }
+          if (!parsed.total || parsed.total === 0) parsed.total = parsed.subtotal + parsed.taxAmt;
           if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0];
           resolve(parsed);
         } catch (e) { reject(e); }
@@ -100,6 +151,7 @@ ${text ? '\nنص: ' + text : ''}\``;
   });
 }
 
+// ── Helpers ────────────────────────────────────────────
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -114,17 +166,15 @@ function sendJSON(res, data, status = 200) {
   res.end(JSON.stringify(data));
 }
 
-// Generate Excel XML
-function generateExcel(db) {
+// ── Excel Export ────────────────────────────────────────
+function generateExcel(dbData) {
   const supMap = {};
-  db.supervisors.forEach(s => supMap[s.id] = s.name);
-
-  let rows = db.entries.map(e => {
+  dbData.supervisors.forEach(s => supMap[s.id] = s.name);
+  const rows = dbData.entries.map(e => {
     const itemsDesc = (e.items && e.items.length > 0)
       ? e.items.map(it => it.desc + ' (' + it.qty + ' ' + it.unit + ')').join(' | ')
       : (e.desc || '');
-    return `
-    <Row>
+    return `<Row>
       <Cell><Data ss:Type="Number">${e.id}</Data></Cell>
       <Cell><Data ss:Type="String">${supMap[e.supId] || ''}</Data></Cell>
       <Cell><Data ss:Type="String">${e.project || ''}</Data></Cell>
@@ -143,8 +193,7 @@ function generateExcel(db) {
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
   <Worksheet ss:Name="المصروفات">
     <Table>
       <Row>
@@ -168,6 +217,7 @@ function generateExcel(db) {
 </Workbook>`;
 }
 
+// ── Server ─────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
   const { pathname } = url.parse(req.url);
 
@@ -179,13 +229,13 @@ const server = http.createServer(async (req, res) => {
   // Login
   if (pathname === '/api/login' && req.method === 'POST') {
     const { role, password, supId } = await parseBody(req);
-    const db = loadDB();
+    const data = await loadDB();
     if (role === 'manager') {
-      if (password === db.managerPassword) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
+      if (password === data.managerPassword) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
       return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
     }
     if (role === 'supervisor') {
-      const sup = db.supervisors.find(s => s.id === parseInt(supId));
+      const sup = data.supervisors.find(s => s.id === parseInt(supId));
       if (!sup) return sendJSON(res, { ok: false, error: 'المشرف غير موجود' }, 404);
       if (sup.password !== password) return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
       return sendJSON(res, { ok: true, role: 'supervisor', name: sup.name, supId: sup.id, budget: sup.budget });
@@ -195,9 +245,8 @@ const server = http.createServer(async (req, res) => {
 
   // Get DB
   if (pathname === '/api/db' && req.method === 'GET') {
-    const db = loadDB();
-    // Don't send passwords to client
-    const safe = { ...db, supervisors: db.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget })) };
+    const data = await loadDB();
+    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })) };
     delete safe.managerPassword;
     return sendJSON(res, safe);
   }
@@ -205,73 +254,52 @@ const server = http.createServer(async (req, res) => {
   // Update passwords
   if (pathname === '/api/passwords' && req.method === 'POST') {
     const body = await parseBody(req);
-    const db = loadDB();
-    if (body.managerPassword) db.managerPassword = body.managerPassword;
+    const data = await loadDB();
+    if (body.managerPassword) data.managerPassword = body.managerPassword;
     if (body.supervisors) {
       body.supervisors.forEach(({ id, password }) => {
-        const sup = db.supervisors.find(s => s.id === id);
+        const sup = data.supervisors.find(s => s.id == id);
         if (sup && password) sup.password = password;
       });
     }
-    saveDB(db);
+    await saveConfig(data);
     return sendJSON(res, { ok: true });
   }
 
   // Add entry
   if (pathname === '/api/entries' && req.method === 'POST') {
     const body = await parseBody(req);
-    const db = loadDB();
-    
-    // Check duplicate - by invoice number OR by (supplier + total + date)
+    const data = await loadDB();
     const normalize = s => (s || '').toString().trim().toLowerCase().replace(/\s+/g, '');
-    
-    // Check 1: same invoice number
+    // Duplicate check by invoice number
     if (body.invoiceNo && body.invoiceNo.trim()) {
-      const dup = db.entries.find(e =>
-        e.invoiceNo && normalize(e.invoiceNo) === normalize(body.invoiceNo)
-      );
-      if (dup) {
-        return sendJSON(res, {
-          error: `⚠️ تنبيه: الفاتورة رقم ${body.invoiceNo} مسجلة مسبقاً بتاريخ ${dup.date}`
-        }, 200);
-      }
+      const dup = data.entries.find(e => e.invoiceNo && normalize(e.invoiceNo) === normalize(body.invoiceNo));
+      if (dup) return sendJSON(res, { error: `⚠️ الفاتورة رقم ${body.invoiceNo} مسجلة مسبقاً بتاريخ ${dup.date}` });
     }
-    
-    // Check 2: same supplier + total + date (even if invoice number differs)
+    // Duplicate check by supplier + total + date
     if (body.supplier && body.total && body.date) {
-      const dup2 = db.entries.find(e =>
-        normalize(e.supplier) === normalize(body.supplier) &&
-        Math.abs((e.total || 0) - (body.total || 0)) < 0.1 &&
-        e.date === body.date
-      );
-      if (dup2) {
-        return sendJSON(res, {
-          error: `⚠️ تنبيه: يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ (${dup2.date})`
-        }, 200);
-      }
+      const dup2 = data.entries.find(e => normalize(e.supplier) === normalize(body.supplier) && Math.abs((e.total||0)-(body.total||0)) < 0.1 && e.date === body.date);
+      if (dup2) return sendJSON(res, { error: `⚠️ يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ` });
     }
-    
-    const entry = { ...body, id: db.nextId++ };
-    db.entries.push(entry);
-    saveDB(db);
+    const entry = { ...body, id: data.nextId++ };
+    await addEntry(entry);
+    await saveConfig(data);
     return sendJSON(res, { ok: true, entry });
   }
 
   // Delete entry
   if (pathname.startsWith('/api/entries/') && req.method === 'DELETE') {
     const id = parseInt(pathname.split('/').pop());
-    const db = loadDB();
-    db.entries = db.entries.filter(e => e.id !== id);
-    saveDB(db);
+    await deleteEntry(id);
     return sendJSON(res, { ok: true });
   }
 
   // Add supervisor
   if (pathname === '/api/supervisors' && req.method === 'POST') {
     const body = await parseBody(req);
-    const db = loadDB();
-    db.supervisors.push({ id: Date.now(), name: body.name, budget: body.budget, password: body.password || '1234', visa: body.visa || '' });
-    saveDB(db);
+    const data = await loadDB();
+    data.supervisors.push({ id: Date.now(), name: body.name, budget: body.budget, password: body.password || '1234', visa: body.visa || '' });
+    await saveConfig(data);
     return sendJSON(res, { ok: true });
   }
 
@@ -279,52 +307,40 @@ const server = http.createServer(async (req, res) => {
   if (pathname.match(/\/api\/supervisors\/\d+\/budget/) && req.method === 'POST') {
     const id = parseInt(pathname.split('/')[3]);
     const { amount } = await parseBody(req);
-    const db = loadDB();
-    const sup = db.supervisors.find(s => s.id === id);
+    const data = await loadDB();
+    const sup = data.supervisors.find(s => s.id === id);
     if (!sup) return sendJSON(res, { error: 'مشرف غير موجود' }, 404);
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) return sendJSON(res, { error: 'مبلغ غير صحيح' }, 400);
     sup.budget += amt;
-    // Add budget log entry
-    db.entries.push({
-      id: db.nextId++,
-      supId: id, supName: sup.name,
-      project: 'إدارة الميزانية',
-      type: 'budget_add',
-      desc: `إضافة رصيد: ${amt} ﷼`,
-      date: new Date().toISOString().split('T')[0],
-      payMethod: 'transfer',
-      subtotal: 0, taxRate: 0, taxAmt: 0, total: 0,
-      items: [], budgetAdded: amt
-    });
-    saveDB(db);
+    await saveConfig(data);
     return sendJSON(res, { ok: true, newBudget: sup.budget });
   }
 
   // Delete supervisor
-  if (pathname.startsWith('/api/supervisors/') && req.method === 'DELETE') {
+  if (pathname.startsWith('/api/supervisors/') && !pathname.includes('/budget') && req.method === 'DELETE') {
     const id = parseInt(pathname.split('/').pop());
-    const db = loadDB();
-    db.supervisors = db.supervisors.filter(s => s.id !== id);
-    saveDB(db);
+    const data = await loadDB();
+    data.supervisors = data.supervisors.filter(s => s.id !== id);
+    await saveConfig(data);
     return sendJSON(res, { ok: true });
   }
 
   // Add project
   if (pathname === '/api/projects' && req.method === 'POST') {
     const { name } = await parseBody(req);
-    const db = loadDB();
-    if (name && !db.projects.includes(name)) db.projects.push(name);
-    saveDB(db);
+    const data = await loadDB();
+    if (name && !data.projects.includes(name)) data.projects.push(name);
+    await saveConfig(data);
     return sendJSON(res, { ok: true });
   }
 
   // Delete project
   if (pathname.startsWith('/api/projects/') && req.method === 'DELETE') {
     const name = decodeURIComponent(pathname.split('/').pop());
-    const db = loadDB();
-    db.projects = db.projects.filter(p => p !== name);
-    saveDB(db);
+    const data = await loadDB();
+    data.projects = data.projects.filter(p => p !== name);
+    await saveConfig(data);
     return sendJSON(res, { ok: true });
   }
 
@@ -335,144 +351,82 @@ const server = http.createServer(async (req, res) => {
       const { b64, text } = await parseBody(req);
       const result = await analyzeInvoice(b64 || null, text || '');
       return sendJSON(res, result);
-    } catch (e) {
-      return sendJSON(res, { error: e.message }, 500);
-    }
+    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
   }
-
-
-  // Auto backup - save DB snapshot
-  if (pathname === '/api/backup' && req.method === 'GET') {
-    const db = loadDB();
-    const timestamp = new Date().toISOString().split('T')[0];
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Content-Disposition': `attachment; filename="kayan_backup_${timestamp}.json"` });
-    return res.end(JSON.stringify(db, null, 2));
-  }
-
 
   // Transfer between supervisors
   if (pathname === '/api/transfer' && req.method === 'POST') {
-    try {
-      const { fromId, toId, amount, note } = await parseBody(req);
-      const db = loadDB();
-      
-      const fromSup = db.supervisors.find(s => s.id == fromId);
-      const toSup = db.supervisors.find(s => s.id == toId);
-      
-      if (!fromSup || !toSup) return sendJSON(res, { error: 'مشرف غير موجود' }, 400);
-      if (fromId == toId) return sendJSON(res, { error: 'لا يمكن التحويل لنفس المشرف' }, 400);
-      
-      const amt = parseFloat(amount);
-      if (!amt || amt <= 0) return sendJSON(res, { error: 'المبلغ غير صحيح' }, 400);
-      
-      const fromSpent = db.entries.filter(e => e.supId == fromId).reduce((a,e) => a+(e.total||0), 0);
-      const fromBalance = fromSup.budget - fromSpent;
-      
-      if (amt > fromBalance) {
-        return sendJSON(res, { error: `الرصيد غير كافٍ — المتبقي عند ${fromSup.name}: ${fromBalance.toFixed(2)} ﷼` }, 400);
-      }
-      
-      const today = new Date().toISOString().split('T')[0];
-      const transferNote = note || `تحويل من ${fromSup.name} إلى ${toSup.name}`;
-      
-      // Deduct from sender as expense entry
-      const debitEntry = {
-        id: db.nextId++,
-        supId: parseInt(fromId),
-        supName: fromSup.name,
-        project: 'تحويل داخلي',
-        type: 'transfer',
-        desc: `تحويل إلى ${toSup.name}`,
-        supplier: '',
-        invoiceNo: 'TRF-' + Date.now(),
-        date: today,
-        payMethod: 'transfer',
-        subtotal: amt,
-        taxRate: 0,
-        taxAmt: 0,
-        total: amt,
-        items: [],
-        transferTo: toSup.name,
-        transferNote: transferNote
-      };
-      
-      // Add to receiver as negative expense (increases balance effectively via budget)
-      toSup.budget = (toSup.budget || 0) + amt;
-      
-      db.entries.push(debitEntry);
-      saveDB(db);
-      
-      return sendJSON(res, { 
-        ok: true, 
-        message: `تم تحويل ${amt} ﷼ من ${fromSup.name} إلى ${toSup.name}`,
-        newFromBalance: fromBalance - amt,
-        newToBudget: toSup.budget
-      });
-    } catch(e) {
-      return sendJSON(res, { error: e.message }, 500);
-    }
+    const { fromId, toId, amount, note } = await parseBody(req);
+    const data = await loadDB();
+    const fromSup = data.supervisors.find(s => s.id == fromId);
+    const toSup = data.supervisors.find(s => s.id == toId);
+    if (!fromSup || !toSup) return sendJSON(res, { error: 'مشرف غير موجود' }, 400);
+    if (fromId == toId) return sendJSON(res, { error: 'لا يمكن التحويل لنفس المشرف' }, 400);
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) return sendJSON(res, { error: 'المبلغ غير صحيح' }, 400);
+    const fromSpent = data.entries.filter(e => e.supId == fromId && e.type !== 'budget_add').reduce((a, e) => a + (e.total || 0), 0);
+    const fromBalance = fromSup.budget - fromSpent;
+    if (amt > fromBalance) return sendJSON(res, { error: `الرصيد غير كافٍ — المتبقي: ${fromBalance.toFixed(2)} ﷼` }, 400);
+    const today = new Date().toISOString().split('T')[0];
+    const entry = { id: data.nextId++, supId: parseInt(fromId), supName: fromSup.name, project: 'تحويل داخلي', type: 'transfer', desc: `تحويل إلى ${toSup.name}`, supplier: '', invoiceNo: 'TRF-' + Date.now(), date: today, payMethod: 'transfer', subtotal: amt, taxRate: 0, taxAmt: 0, total: amt, items: [], transferTo: toSup.name, transferNote: note || '' };
+    toSup.budget += amt;
+    await addEntry(entry);
+    await saveConfig(data);
+    return sendJSON(res, { ok: true, message: `تم تحويل ${amt} ﷼ من ${fromSup.name} إلى ${toSup.name}` });
+  }
+
+  // Backup
+  if (pathname === '/api/backup' && req.method === 'GET') {
+    const data = await loadDB();
+    const timestamp = new Date().toISOString().split('T')[0];
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Content-Disposition': `attachment; filename="kayan_backup_${timestamp}.json"` });
+    return res.end(JSON.stringify(data, null, 2));
   }
 
   // Restore backup
   if (pathname === '/api/restore' && req.method === 'POST') {
     try {
       const body = await parseBody(req);
-      // Validate backup structure
-      if (!body.supervisors || !body.projects || !body.entries) {
-        return sendJSON(res, { error: 'ملف النسخة الاحتياطية غير صحيح' }, 400);
-      }
-      // Ensure managerPassword exists
+      if (!body.supervisors || !body.projects) return sendJSON(res, { error: 'ملف غير صحيح' }, 400);
       if (!body.managerPassword) body.managerPassword = 'admin123';
-      // Save restored data
-      saveDB(body);
-      return sendJSON(res, { ok: true, message: 'تم استعادة البيانات بنجاح', entries: body.entries.length, supervisors: body.supervisors.length });
-    } catch (e) {
-      return sendJSON(res, { error: 'فشل في استعادة البيانات: ' + e.message }, 500);
-    }
+      // Clear and restore entries
+      if (db) {
+        await db.collection('entries').deleteMany({});
+        if (body.entries && body.entries.length > 0) await db.collection('entries').insertMany(body.entries);
+      }
+      await saveConfig(body);
+      return sendJSON(res, { ok: true, message: 'تم الاستعادة', entries: body.entries ? body.entries.length : 0, supervisors: body.supervisors.length });
+    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
   }
 
   // Export Excel
   if (pathname === '/api/export' && req.method === 'GET') {
-    const db = loadDB();
-    const xml = generateExcel(db);
-    res.writeHead(200, {
-      'Content-Type': 'application/vnd.ms-excel',
-      'Content-Disposition': 'attachment; filename="expenses.xls"',
-      'Access-Control-Allow-Origin': '*'
-    });
+    const data = await loadDB();
+    const xml = generateExcel(data);
+    res.writeHead(200, { 'Content-Type': 'application/vnd.ms-excel', 'Content-Disposition': 'attachment; filename="expenses.xls"', 'Access-Control-Allow-Origin': '*' });
     return res.end(xml);
   }
 
-  // Serve PWA files
-  // Serve icons
-  if (pathname === '/icon-192.png') {
-    const b64 = require('fs').readFileSync(path.join(__dirname, 'icon-192.b64'), 'utf8');
-    const buf = Buffer.from(b64, 'base64');
-    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public,max-age=86400' });
-    return res.end(buf);
-  }
-  if (pathname === '/icon-512.png') {
-    const b64 = require('fs').readFileSync(path.join(__dirname, 'icon-512.b64'), 'utf8');
-    const buf = Buffer.from(b64, 'base64');
-    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public,max-age=86400' });
-    return res.end(buf);
-  }
+  // PWA files
   if (pathname === '/manifest.json') {
-    res.writeHead(200, { 'Content-Type': 'application/manifest+json' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'manifest.json'), 'utf8'));
+    const f = path.join(__dirname, 'manifest.json');
+    if (fs.existsSync(f)) { res.writeHead(200, { 'Content-Type': 'application/manifest+json' }); return res.end(fs.readFileSync(f, 'utf8')); }
   }
   if (pathname === '/sw.js') {
-    res.writeHead(200, { 'Content-Type': 'application/javascript' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8'));
+    const f = path.join(__dirname, 'sw.js');
+    if (fs.existsSync(f)) { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end(fs.readFileSync(f, 'utf8')); }
   }
-  if (pathname === '/icon.svg') {
-    res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'icon.svg'), 'utf8'));
+  if (pathname === '/icon-192.png' || pathname === '/icon-512.png') {
+    const f = path.join(__dirname, pathname.replace('/', '') + '.b64');
+    if (fs.existsSync(f)) { const buf = Buffer.from(fs.readFileSync(f, 'utf8'), 'base64'); res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(buf); }
   }
 
-  // Serve HTML
+  // HTML
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'));
 });
 
-server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+// Start
+connectMongo().then(() => {
+  server.listen(PORT, () => console.log(`✅ Server on port ${PORT}`));
+});
