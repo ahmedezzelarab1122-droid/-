@@ -169,38 +169,32 @@ ${text ? '\nنص: ' + text : ''}`;
 // ── Cloudinary Upload ─────────────────────────────────
 async function uploadToCloudinary(b64) {
   const { default: https } = await import('https');
-  const crypto = require('crypto');
   
-  const timestamp = Math.floor(Date.now() / 1000);
-  const folder = 'kayan_invoices';
-  
-  // Correct signature: sort params alphabetically, exclude file and api_key
-  const paramsToSign = `folder=${folder}&timestamp=${timestamp}`;
-  const signature = crypto.createHash('sha1').update(paramsToSign + CLOUDINARY_SECRET).digest('hex');
-  
-  // Use multipart form data approach via direct upload
-  const boundary = '----CloudinaryBoundary' + Date.now();
+  // Use unsigned upload preset - no signature needed
+  const UPLOAD_PRESET = 'kayan_invoices';
+  const boundary = 'CloudinaryBoundary' + Date.now();
   const fileData = Buffer.from(b64, 'base64');
   
-  const parts = [
-    `--${boundary}\r\nContent-Disposition: form-data; name="api_key"\r\n\r\n${CLOUDINARY_KEY}`,
-    `--${boundary}\r\nContent-Disposition: form-data; name="timestamp"\r\n\r\n${timestamp}`,
-    `--${boundary}\r\nContent-Disposition: form-data; name="folder"\r\n\r\n${folder}`,
-    `--${boundary}\r\nContent-Disposition: form-data; name="signature"\r\n\r\n${signature}`,
-  ];
+  const textField = (name, value) => 
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`);
   
-  const prefix = Buffer.from(parts.join('\r\n') + '\r\n');
-  const filePart = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="invoice.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`);
-  const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
+  const filePart = Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="invoice.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`
+  );
   
-  const body = Buffer.concat([prefix, filePart, fileData, suffix]);
+  const body = Buffer.concat([
+    textField('upload_preset', UPLOAD_PRESET),
+    filePart,
+    fileData,
+    Buffer.from(`\r\n--${boundary}--\r\n`)
+  ]);
   
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: 'api.cloudinary.com',
       path: `/v1_1/${CLOUDINARY_CLOUD}/image/upload`,
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
         'Content-Length': body.length
       }
