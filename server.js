@@ -196,6 +196,8 @@ async function uploadToCloudinary(b64, isPdf=false) {
     Buffer.from(`\r\n--${boundary}--\r\n`)
   ]);
   
+  // Use correct resource type path
+  
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: 'api.cloudinary.com',
@@ -353,20 +355,16 @@ const server = http.createServer(async (req, res) => {
       if (dup2) return sendJSON(res, { error: `⚠️ يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ` });
     }
     const entry = { ...body, id: data.nextId++ };
-    // Handle file upload
+    // Handle file upload - both images and PDFs go to Cloudinary
     if (body.b64Image) {
-      if (body.isPdf) {
-        // Store PDF as base64 data URL directly
-        entry.imageUrl = 'data:application/pdf;base64,' + body.b64Image;
-        entry.isPdf = true;
-        console.log('PDF stored as base64');
-      } else {
-        // Upload image to Cloudinary
-        console.log('Uploading image to Cloudinary, size:', body.b64Image.length);
-        try {
-          entry.imageUrl = await uploadToCloudinary(body.b64Image, false);
-          console.log('Image uploaded:', entry.imageUrl);
-        } catch(e) { console.error('Image upload failed:', e.message); }
+      const isPdf = body.isPdf || false;
+      console.log('Uploading to Cloudinary, isPdf:', isPdf, 'size:', body.b64Image.length);
+      try {
+        entry.imageUrl = await uploadToCloudinary(body.b64Image, isPdf);
+        entry.isPdf = isPdf;
+        console.log('Uploaded:', entry.imageUrl);
+      } catch(e) { 
+        console.error('Upload failed:', e.message);
       }
       delete entry.b64Image;
     }
