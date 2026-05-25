@@ -1291,18 +1291,16 @@ function rLaborSup(){
         تسجيل العمالة
       </button>
     </div>
-    ${myLabor.length ? `<div class="shdr">آخر سجلات العمالة</div><div class="card">${myLabor.map(e=>`<div class="txr">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:600">${e.desc}</div>
-        <div style="font-size:10px;color:var(--n4)">${e.project} · ${e.date}</div>
-        ${e.laborDetails?.companyNames?`<div style="font-size:10px;color:var(--n4)">شركة: ${e.laborDetails.companyNames}</div>`:''}
-        ${e.laborDetails?.externalNames?`<div style="font-size:10px;color:var(--n4)">خارجي: ${e.laborDetails.externalNames}</div>`:''}
-      </div>
-      <div style="text-align:left;flex-shrink:0;margin-right:7px">
+    ${myLabor.length ? `<div class="shdr">آخر سجلات العمالة</div>${myLabor.map(e=>`<div class="card" style="padding:10px 13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <div style="font-weight:700;color:var(--brown)">${e.date}</div>
         <span class="badge blabor">عمالة</span>
-        <div style="font-size:11px;color:var(--n5);margin-top:3px">${(e.laborDetails?.companyCount||0)}+${(e.laborDetails?.externalCount||0)} عامل</div>
       </div>
-    </div>`).join('')}</div>` : ''}`;
+      <div style="font-size:11px;color:var(--n4);margin-bottom:4px">${e.project}</div>
+      ${e.laborDetails?.presentWorkers?.length?`<div style="font-size:11px;color:var(--n5)">🏢 ${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</div>`:''}
+      ${e.laborDetails?.externalWorkersList?.length?`<div style="font-size:11px;color:var(--n5);margin-top:2px">👷 ${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</div>`:''}
+      <div style="margin-top:5px;font-size:11px;color:var(--n4)">${(e.laborDetails?.companyCount||0)} شركة + ${(e.laborDetails?.externalCount||0)} خارجي</div>
+    </div>`).join('')}` : ''}`;
 }
 
 let extWorkerCount = 0;
@@ -1481,10 +1479,12 @@ function rOwnerLabor(){
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
         const key=w.name+'__'+w.jobTitle;
-        if(!extWorkers[key])extWorkers[key]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,projects:[]};
+        if(!extWorkers[key])extWorkers[key]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,projects:[],dates:[]};
         extWorkers[key].days++;
         extWorkers[key].total+=externalRate;
         if(e.project&&!extWorkers[key].projects.includes(e.project))extWorkers[key].projects.push(e.project);
+        if(e.date&&!extWorkers[key].dates)extWorkers[key].dates=[];
+        if(e.date&&!extWorkers[key].dates.includes(e.date))extWorkers[key].dates.push(e.date);
       });
     }
   });
@@ -1495,8 +1495,9 @@ function rOwnerLabor(){
   laborEntries.forEach(e=>{
     if(e.laborDetails?.presentWorkers){
       e.laborDetails.presentWorkers.forEach(w=>{
-        if(!compWorkers[w.name])compWorkers[w.name]={name:w.name,days:0};
+        if(!compWorkers[w.name])compWorkers[w.name]={name:w.name,days:0,dates:[]};
         compWorkers[w.name].days++;
+        if(e.date&&!compWorkers[w.name].dates.includes(e.date))compWorkers[w.name].dates.push(e.date);
       });
     }
   });
@@ -1521,7 +1522,7 @@ function rOwnerLabor(){
           <span style="font-weight:600">${w.name}</span>
           <span style="text-align:center;color:var(--n5)">${w.jobTitle}</span>
           <span style="text-align:center;color:var(--n4);font-size:10px">${[...new Set(w.projects)].join('،')}</span>
-          <span style="text-align:center;font-weight:700;color:var(--b)">${w.days}</span>
+          <span style="text-align:center;font-weight:700;color:var(--b)">${w.days}<div style="font-size:9px;color:var(--n4);font-weight:400">${(w.dates||[]).sort().join(' · ')}</div></span>
           <span style="text-align:left;font-weight:700;color:var(--r)">${fmt(w.total)} ﷼</span>
         </div>`).join('')}
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:9px 13px;background:var(--gl);border-radius:0 0 11px 11px;font-size:12px;font-weight:700">
@@ -1538,9 +1539,12 @@ function rOwnerLabor(){
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:0;background:var(--brown);color:#fff;padding:9px 13px;border-radius:11px 11px 0 0;font-size:11px;font-weight:600">
         <span>اسم العامل</span><span style="text-align:left">أيام الحضور</span>
       </div>
-      ${compList.map((w,i)=>`<div style="display:grid;grid-template-columns:2fr 1fr;padding:9px 13px;border-bottom:1px solid var(--n2);font-size:12px;background:${i%2===0?'#fff':'var(--n1)'}">
-        <span style="font-weight:600">${w.name}</span>
-        <span style="text-align:left;font-weight:700;color:var(--brown)">${w.days} يوم</span>
+      ${compList.map((w,i)=>`<div style="padding:9px 13px;border-bottom:1px solid var(--n2);font-size:12px;background:${i%2===0?'#fff':'var(--n1)'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-weight:600">${w.name}</span>
+          <span style="font-weight:700;color:var(--brown)">${w.days} يوم</span>
+        </div>
+        <div style="font-size:10px;color:var(--n4)">${(w.dates||[]).sort().join(' · ')}</div>
       </div>`).join('')}
     </div>`:''}
 
