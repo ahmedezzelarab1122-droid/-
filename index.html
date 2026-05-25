@@ -422,6 +422,10 @@ function rfT(){
       <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:var(--n4)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
     </div>
     ${e.items?.length?`<div style="border-top:1px solid var(--n2);margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:var(--n5)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
+    ${e.imageUrl ? `<div style="margin-top:7px"><a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--brown);text-decoration:none;border:1px solid var(--n3);border-radius:5px;padding:3px 8px">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      عرض الفاتورة
+    </a></div>` : ''}
     <button onclick="delE(${e.id})" style="margin-top:5px;border:none;background:none;color:var(--n4);cursor:pointer;font-size:11px;font-family:inherit">✕ حذف</button>
   </div>`).join('');
 }
