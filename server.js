@@ -93,7 +93,7 @@ function getFallback() {
 }
 
 // ── AI Analysis ───────────────────────────────────────
-async function analyzeInvoice(b64, text) {
+async function analyzeInvoice(b64, text, isPdf=false) {
   const { default: https } = await import('https');
   const prompt = `أنت نظام OCR متخصص. اقرأ هذه الفاتورة بدقة شديدة.
 
@@ -124,8 +124,13 @@ async function analyzeInvoice(b64, text) {
 إذا لا بنود: items=[]
 ${text ? '\nنص: ' + text : ''}`;
 
+  let mediaType = 'image/jpeg';
+  if (isPdf) mediaType = 'application/pdf';
+  
   const content = b64
-    ? [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
+    ? isPdf
+      ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }]
+      : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
     : [{ type: 'text', text: prompt }];
 
   return new Promise((resolve, reject) => {
@@ -435,8 +440,8 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/analyze' && req.method === 'POST') {
     if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
     try {
-      const { b64, text } = await parseBody(req);
-      const result = await analyzeInvoice(b64 || null, text || '');
+      const { b64, text, isPdf } = await parseBody(req);
+      const result = await analyzeInvoice(b64 || null, text || '', isPdf);
       return sendJSON(res, result);
     } catch (e) { return sendJSON(res, { error: e.message }, 500); }
   }
