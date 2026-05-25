@@ -383,7 +383,11 @@ function rTxns(){
     <div class="card" style="padding:10px 12px;margin-bottom:10px">
       <div style="margin-bottom:7px"><select id="fs" onchange="rfT()"><option value="all">كل المشرفين</option>${sO}</select></div>
       <div style="margin-bottom:7px"><select id="fp" onchange="rfT()"><option value="all">كل المشاريع</option>${pO}</select></div>
-      <div class="ftabs"><button class="ftab on" onclick="setFT('all',this)">الكل</button><button class="ftab" onclick="setFT('petty',this)">نثرية</button><button class="ftab" onclick="setFT('tax',this)">ضريبية</button></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px">
+        <div><label style="font-size:11px;color:var(--n4);display:block;margin-bottom:3px">من تاريخ</label><input type="date" id="fd-from" onchange="rfT()" style="width:100%;font-size:12px;padding:6px 8px"></div>
+        <div><label style="font-size:11px;color:var(--n4);display:block;margin-bottom:3px">إلى تاريخ</label><input type="date" id="fd-to" onchange="rfT()" style="width:100%;font-size:12px;padding:6px 8px"></div>
+      </div>
+            <div class="ftabs"><button class="ftab on" onclick="setFT('all',this)">الكل</button><button class="ftab" onclick="setFT('petty',this)">نثرية</button><button class="ftab" onclick="setFT('tax',this)">ضريبية</button></div>
     </div>
     <button class="btn bx" onclick="location.href='/api/export'" style="margin-bottom:10px">
       <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
@@ -396,10 +400,15 @@ function setFT(v,btn){fType=v;document.querySelectorAll('.ftab').forEach(b=>b.cl
 function rfT(){
   const fS=document.getElementById('fs')?.value||'all';
   const fP=document.getElementById('fp')?.value||'all';
+  const fFrom=document.getElementById('fd-from')?.value||'';
+  const fTo=document.getElementById('fd-to')?.value||'';
   const list=DB.entries.filter(e=>{
     if(fS!=='all'&&e.supId!=fS)return false;
     if(fP!=='all'&&e.project!==fP)return false;
     if(fType!=='all'&&e.type!==fType)return false;
+    if(e.type==='budget_add')return false;
+    if(fFrom&&e.date&&e.date<fFrom)return false;
+    if(fTo&&e.date&&e.date>fTo)return false;
     return true;
   }).slice().reverse();
   const total=list.reduce((a,e)=>a+(e.total||0),0);
