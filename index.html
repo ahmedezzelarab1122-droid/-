@@ -362,7 +362,7 @@ function showApp(){
   document.getElementById('tbname').textContent=CU.name;
   document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
   const items=ROLE==='manager'
-    ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور'],['transfer','التحويلات'],['labor-mgr','العمالة'],['images','الفواتير']]
+    ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور'],['transfer','التحويلات'],['labor-mgr','العمالة']]
     :ROLE==='owner'
     ?[['owner-dash','الملخص'],['owner-sup','المشرفون'],['owner-proj','المشاريع'],['owner-labor','العمالة'],['owner-inv','الفواتير']]
     :[['home','الرئيسية'],['labor','تسجيل عمالة'],['hist','سجلاتي'],['bal','رصيدي']];
@@ -375,7 +375,7 @@ function showApp(){
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,images:rImages,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'owner-inv':rOwnerInv};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'owner-inv':rOwnerInv};
   map[id]?.();
 }
 
