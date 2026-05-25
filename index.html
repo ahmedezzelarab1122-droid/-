@@ -446,7 +446,8 @@ function rReports(){
     ${[['نثرية',ptT,'#166534'],['ضريبية',txT,'var(--b)']].map(([l,v,c])=>{
       const pc=Math.round(v/tot*100);
       return`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px"><span>${l}</span><span style="font-weight:600;color:${c}">${fmt(v)} ﷼ (${pc}%)</span></div><div class="pbar"><div class="pf" style="width:${pc}%;background:${c}"></div></div></div>`;
-    }).join('')}</div>`;
+    }).join('')}</div>
+    ${rLaborReport()}`;
 }
 
 // ── SETUP ──────────────────────────
