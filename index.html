@@ -949,6 +949,75 @@ async function doSTransfer(){
 }
 
 
+
+// ── LABOR REPORT ───────────────────────
+function rLaborReport(){
+  const laborEntries = DB.entries.filter(e=>e.type==='labor');
+  if(!laborEntries.length) return '<div class="card"><div class="ctitle">تقرير العمالة</div><div class="empty">لا توجد سجلات عمالة بعد</div></div>';
+  
+  // Group by date
+  const byDate = {};
+  laborEntries.forEach(e=>{
+    const d = e.date;
+    if(!byDate[d]) byDate[d] = {date:d, company:0, external:0, cost:0, projects:new Set(), workers:[]};
+    byDate[d].company += e.laborDetails?.companyCount||0;
+    byDate[d].external += e.laborDetails?.externalCount||0;
+    byDate[d].cost += e.laborDetails?.laborTotal||0;
+    byDate[d].projects.add(e.project);
+    if(e.laborDetails?.companyNames) byDate[d].workers.push(...(e.laborDetails.companyNames.split('، ')));
+  });
+
+  // Group by worker (attendance)
+  const workerAttendance = {};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!workerAttendance[w.name]) workerAttendance[w.name]={name:w.name,days:0};
+        workerAttendance[w.name].days++;
+      });
+    }
+  });
+
+  const sortedDates = Object.values(byDate).sort((a,b)=>b.date.localeCompare(a.date));
+  const totalCompany = laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
+  const totalExternal = laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
+  const totalCost = laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+
+  return `
+    <div class="card">
+      <div class="ctitle">تقرير العمالة</div>
+      <div class="sg" style="margin-bottom:12px">
+        <div class="stat"><div class="sl">إجمالي عمال الشركة</div><div class="sv" style="color:var(--brown)">${totalCompany} <span style="font-size:12px">يوم عمل</span></div></div>
+        <div class="stat"><div class="sl">إجمالي العمال الخارجيين</div><div class="sv" style="color:var(--b)">${totalExternal} <span style="font-size:12px">يوم عمل</span></div></div>
+        <div class="stat"><div class="sl">إجمالي التكلفة</div><div class="sv" style="color:var(--r)">${fmt(totalCost)} <span style="font-size:12px">﷼</span></div></div>
+        <div class="stat"><div class="sl">أيام العمل المسجلة</div><div class="sv">${Object.keys(byDate).length} <span style="font-size:12px">يوم</span></div></div>
+      </div>
+      
+      <div class="ctitle" style="margin-bottom:8px">تفاصيل يومية</div>
+      ${sortedDates.map(d=>`
+        <div style="border:1px solid var(--n3);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:13px;font-weight:700;color:var(--brown)">${d.date}</div>
+            <div style="font-size:12px;color:var(--n4)">${fmt(d.cost)} ﷼</div>
+          </div>
+          <div style="display:flex;gap:12px;font-size:12px">
+            <span style="color:#166534">🏢 شركة: <strong>${d.company}</strong></span>
+            <span style="color:var(--b)">👷 خارجي: <strong>${d.external}</strong></span>
+            <span style="color:var(--n4)">📋 ${Array.from(d.projects).join('، ')}</span>
+          </div>
+        </div>`).join('')}
+    </div>
+    ${Object.keys(workerAttendance).length ? `
+    <div class="card">
+      <div class="ctitle">حضور عمال الشركة</div>
+      ${Object.values(workerAttendance).sort((a,b)=>b.days-a.days).map(w=>`
+        <div class="txr">
+          <div style="font-size:13px;font-weight:600">${w.name}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--brown)">${w.days} يوم</div>
+        </div>`).join('')}
+    </div>` : ''}`;
+}
+
 // ── LABOR MANAGER ──────────────────────
 function rLaborMgr(){
   const rates = DB.laborRates || {company:100, external:150};
