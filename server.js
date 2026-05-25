@@ -31,7 +31,8 @@ async function connectMongo() {
         managerPassword: 'admin123',
         nextId: 1,
         laborRates: { company: 100, external: 150 },
-        companyWorkers: []
+        companyWorkers: [],
+        ownerPassword: 'owner123'
       });
       console.log('✅ Default data created');
     }
@@ -52,6 +53,7 @@ async function loadDB() {
       nextId: cfg.nextId || 1,
       laborRates: cfg.laborRates || { company: 100, external: 150 },
       companyWorkers: cfg.companyWorkers || [],
+      ownerPassword: cfg.ownerPassword || 'owner123',
       entries: entries.map(e => { const { _id, ...rest } = e; return rest; })
     };
   } catch (e) {
@@ -71,7 +73,8 @@ async function saveConfig(data) {
         managerPassword: data.managerPassword, 
         nextId: data.nextId,
         laborRates: data.laborRates || { company: 100, external: 150 },
-        companyWorkers: data.companyWorkers || []
+        companyWorkers: data.companyWorkers || [],
+        ownerPassword: data.ownerPassword || 'owner123'
       }},
       { upsert: true }
     );
@@ -315,6 +318,11 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/login' && req.method === 'POST') {
     const { role, password, supId } = await parseBody(req);
     const data = await loadDB();
+    if (role === 'owner') {
+      const ownerPass = data.ownerPassword || 'owner123';
+      if (password === ownerPass) return sendJSON(res, { ok: true, role: 'owner', name: 'المالك' });
+      return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
+    }
     if (role === 'manager') {
       if (password === data.managerPassword) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
       return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
@@ -341,6 +349,7 @@ const server = http.createServer(async (req, res) => {
     const body = await parseBody(req);
     const data = await loadDB();
     if (body.managerPassword) data.managerPassword = body.managerPassword;
+    if (body.ownerPassword) data.ownerPassword = body.ownerPassword;
     if (body.supervisors) {
       body.supervisors.forEach(({ id, password }) => {
         const sup = data.supervisors.find(s => s.id == id);
@@ -524,10 +533,10 @@ const server = http.createServer(async (req, res) => {
       invoiceNo: 'LAB-' + Date.now(),
       date: today,
       payMethod: 'cash',
-      subtotal: total,
+      subtotal: externalTotal,
       taxRate: 0,
       taxAmt: 0,
-      total: 0,
+      total: externalTotal,  // Only external workers deducted from budget
       items: [
         ...presentWorkers.map(w => ({ desc: w.name, qty: 1, unit: 'يوم', unitPrice: rates.company, total: rates.company, type: 'company' })),
         ...externalWorkersList.map(w => ({ desc: `${w.name} - ${w.jobTitle}`, qty: 1, unit: 'يوم', unitPrice: rates.external, total: rates.external, type: 'external' }))
