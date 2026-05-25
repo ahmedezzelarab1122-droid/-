@@ -121,14 +121,18 @@ textarea{resize:none;min-height:65px}
       <div style="font-size:17px;font-weight:700;color:var(--brown)">مصروفات كيان</div>
       <div style="font-size:12px;color:var(--n4);margin-top:3px">شركة كيان وبناء للمقاولات</div>
     </div>
-    <div class="rg">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
       <button class="rb" id="rb-sup" onclick="selRole('supervisor')">
-        <svg width="22" height="22" fill="none" stroke="var(--n4)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+        <svg width="20" height="20" fill="none" stroke="var(--n4)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
         <span>مشرف</span>
       </button>
       <button class="rb" id="rb-mgr" onclick="selRole('manager')">
-        <svg width="22" height="22" fill="none" stroke="var(--n4)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        <svg width="20" height="20" fill="none" stroke="var(--n4)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
         <span>مدير</span>
+      </button>
+      <button class="rb" id="rb-owner" onclick="selRole('owner')">
+        <svg width="20" height="20" fill="none" stroke="var(--n4)" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 3h18v18H3z"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+        <span>المالك</span>
       </button>
     </div>
     <div class="fg" id="sup-grp" style="display:none">
@@ -309,7 +313,8 @@ async function start(){
 function selRole(r){
   SR=r;
   document.querySelectorAll('.rb').forEach(b=>b.classList.remove('sel'));
-  document.getElementById('rb-'+(r==='supervisor'?'sup':'mgr')).classList.add('sel');
+  const idMap={supervisor:'sup',manager:'mgr',owner:'owner'};
+  document.getElementById('rb-'+idMap[r]).classList.add('sel');
   const g=document.getElementById('sup-grp');
   if(r==='supervisor'){
     document.getElementById('sup-sel').innerHTML='<option value="">اختر...</option>'+DB.supervisors.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
@@ -355,18 +360,22 @@ function showApp(){
   document.getElementById('lview').style.display='none';
   document.getElementById('aview').style.display='block';
   document.getElementById('tbname').textContent=CU.name;
-  document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':'مشرف';
+  document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
   const items=ROLE==='manager'
     ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور'],['transfer','التحويلات'],['labor-mgr','العمالة'],['images','الفواتير']]
+    :ROLE==='owner'
+    ?[['owner-dash','الملخص'],['owner-sup','المشرفون'],['owner-proj','المشاريع'],['owner-labor','العمالة'],['owner-inv','الفواتير']]
     :[['home','الرئيسية'],['labor','تسجيل عمالة'],['hist','سجلاتي'],['bal','رصيدي']];
   document.getElementById('tabs').innerHTML=items.map(([id,lbl],i)=>`<button class="tab${i===0?' on':''}" onclick="goTab('${id}',this)">${lbl}</button>`).join('');
-  ROLE==='manager'?rDash():rHome();
+  if(ROLE==='manager') rDash();
+  else if(ROLE==='owner') rOwnerDash();
+  else rHome();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,images:rImages};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,images:rImages,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'owner-inv':rOwnerInv};
   map[id]?.();
 }
 
@@ -1371,6 +1380,147 @@ async function submitLabor(){
   }catch(e){
     err.style.display='block';err.textContent='خطأ في الاتصال';
   }
+}
+
+
+// ── OWNER REPORTS ──────────────────────
+function rOwnerDash(){
+  const tBudget=DB.supervisors.reduce((a,s)=>a+s.budget,0);
+  const tSpent=DB.entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0);
+  const tTax=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tPetty=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tVat=DB.entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const tLabor=DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const tExternal=DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.externalCount||0)*(e.laborDetails?.externalRate||0),0);
+
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="background:linear-gradient(135deg,var(--brown),#6b3810);color:#fff;border:none">
+      <div style="font-size:12px;opacity:.8;margin-bottom:4px">إجمالي الصرف</div>
+      <div style="font-size:32px;font-weight:800">${fmt(tSpent)} ﷼</div>
+      <div style="font-size:11px;opacity:.7;margin-top:4px">من إجمالي ميزانية ${fmt(tBudget)} ﷼</div>
+      <div style="margin-top:10px;background:rgba(255,255,255,.15);border-radius:6px;height:6px"><div style="width:${Math.min(100,Math.round(tSpent/tBudget*100))}%;height:100%;border-radius:6px;background:#e8c87a"></div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:2px">
+      <div class="stat"><div class="sl">فواتير ضريبية</div><div class="sv" style="color:var(--b)">${fmt(tTax)} ﷼</div></div>
+      <div class="stat"><div class="sl">فواتير نثرية</div><div class="sv" style="color:#166534">${fmt(tPetty)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبة القيمة المضافة</div><div class="sv" style="color:var(--r)">${fmt(tVat)} ﷼</div></div>
+      <div class="stat"><div class="sl">تكلفة العمالة</div><div class="sv" style="color:var(--a)">${fmt(tLabor)} ﷼</div></div>
+    </div>
+    <div class="shdr">أداء المشرفين</div>
+    ${DB.supervisors.map((s,i)=>{
+      const spent=DB.entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0);
+      const rem=s.budget-spent;
+      const pct=Math.min(100,Math.round(spent/(s.budget||1)*100));
+      return`<div class="card" style="padding:11px 13px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+          <div style="font-weight:600;font-size:13px">${s.name}</div>
+          <div style="font-size:12px;color:${rem<500?'var(--r)':'var(--brown)'};font-weight:700">${fmt(rem)} ﷼ متبقي</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--n4);margin-bottom:5px">
+          <span>صرف: ${fmt(spent)} ﷼</span><span>ميزانية: ${fmt(s.budget)} ﷼</span>
+        </div>
+        <div class="pbar"><div class="pf" style="width:${pct}%;background:${pct>85?'var(--r)':pct>65?'var(--a)':'var(--gold)'}"></div></div>
+      </div>`;
+    }).join('')}`;
+}
+
+function rOwnerSup(){
+  document.getElementById('mc').innerHTML=`
+    <div class="shdr">تفاصيل المشرفين</div>
+    ${DB.supervisors.map((s,i)=>{
+      const entries=DB.entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add');
+      const spent=entries.reduce((a,e)=>a+(e.total||0),0);
+      const tax=entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+      const petty=entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+      const vat=entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+      return`<div class="card">
+        <div style="font-size:14px;font-weight:700;color:var(--brown);margin-bottom:10px">${s.name}</div>
+        <div class="sg">
+          <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:var(--r);font-size:16px">${fmt(spent)} ﷼</div></div>
+          <div class="stat"><div class="sl">المتبقي</div><div class="sv" style="color:var(--gold);font-size:16px">${fmt(s.budget-spent)} ﷼</div></div>
+          <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b);font-size:14px">${fmt(tax)} ﷼</div></div>
+          <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534;font-size:14px">${fmt(petty)} ﷼</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--n4);margin-top:5px">${entries.length} معاملة · ضريبة VAT: ${fmt(vat)} ﷼</div>
+      </div>`;
+    }).join('')}`;
+}
+
+function rOwnerProj(){
+  const pm={};
+  DB.entries.filter(e=>e.type!=='labor'&&e.type!=='budget_add').forEach(e=>{
+    if(!pm[e.project])pm[e.project]={total:0,tax:0,petty:0,count:0};
+    pm[e.project].total+=(e.total||0);
+    pm[e.project][e.type]=(pm[e.project][e.type]||0)+(e.total||0);
+    pm[e.project].count++;
+  });
+  const sorted=Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('mc').innerHTML=`
+    <div class="shdr">تقرير المشاريع</div>
+    ${sorted.map(([proj,d])=>`<div class="card">
+      <div style="font-size:14px;font-weight:700;color:var(--brown);margin-bottom:8px">${proj}</div>
+      <div class="sg">
+        <div class="stat"><div class="sl">إجمالي</div><div class="sv" style="color:var(--r);font-size:15px">${fmt(d.total)} ﷼</div></div>
+        <div class="stat"><div class="sl">عدد المعاملات</div><div class="sv" style="font-size:15px">${d.count}</div></div>
+        <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b);font-size:14px">${fmt(d.tax||0)} ﷼</div></div>
+        <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534;font-size:14px">${fmt(d.petty||0)} ﷼</div></div>
+      </div>
+    </div>`).join('')||'<div class="empty">لا توجد بيانات</div>'}`;
+}
+
+function rOwnerLabor(){
+  const laborEntries=DB.entries.filter(e=>e.type==='labor').slice().reverse();
+  const totalCompany=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
+  const totalExternal=laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
+  const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const byDate={};
+  laborEntries.forEach(e=>{
+    if(!byDate[e.date])byDate[e.date]={company:0,external:0,cost:0};
+    byDate[e.date].company+=(e.laborDetails?.companyCount||0);
+    byDate[e.date].external+=(e.laborDetails?.externalCount||0);
+    byDate[e.date].cost+=(e.laborDetails?.laborTotal||0);
+  });
+  document.getElementById('mc').innerHTML=`
+    <div class="sg">
+      <div class="stat"><div class="sl">إجمالي عمال الشركة</div><div class="sv" style="color:var(--brown)">${totalCompany} يوم</div></div>
+      <div class="stat"><div class="sl">إجمالي عمال خارجيين</div><div class="sv" style="color:var(--b)">${totalExternal} يوم</div></div>
+      <div class="stat"><div class="sl">إجمالي تكلفة العمالة</div><div class="sv" style="color:var(--r)">${fmt(totalCost)} ﷼</div></div>
+      <div class="stat"><div class="sl">أيام مسجلة</div><div class="sv">${Object.keys(byDate).length}</div></div>
+    </div>
+    <div class="shdr">تفاصيل يومية</div>
+    ${Object.entries(byDate).sort((a,b)=>b[0].localeCompare(a[0])).map(([date,d])=>`
+      <div class="card" style="padding:10px 13px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <div style="font-weight:700;color:var(--brown)">${date}</div>
+          <div style="font-size:12px;color:var(--r);font-weight:600">${fmt(d.cost)} ﷼</div>
+        </div>
+        <div style="display:flex;gap:12px;font-size:12px">
+          <span style="color:#166534">🏢 شركة: <strong>${d.company}</strong></span>
+          <span style="color:var(--b)">👷 خارجي: <strong>${d.external}</strong></span>
+        </div>
+      </div>`).join('')}`;
+}
+
+function rOwnerInv(){
+  const withImg=DB.entries.filter(e=>e.imageUrl).slice().reverse();
+  document.getElementById('mc').innerHTML=`
+    <div style="margin-bottom:10px;font-size:12px;color:var(--n4)">${withImg.length} فاتورة مع صورة</div>
+    ${withImg.length===0?'<div class="empty">لا توجد صور فواتير بعد</div>':`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${withImg.map(e=>`<div style="background:#fff;border:1px solid var(--n3);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="position:relative;padding-top:70%;overflow:hidden;background:var(--n2)">
+          ${e.isPdf
+            ?`<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fee2e2;cursor:pointer" onclick="window.open('${e.imageUrl}','_blank')"><div style="font-size:35px">📄</div><div style="font-size:10px;color:#dc2626">PDF</div></div>`
+            :`<img src="${e.imageUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="openImage('${e.imageUrl}')">`}
+        </div>
+        <div style="padding:7px 9px">
+          <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.desc}</div>
+          <div style="font-size:10px;color:var(--n4)">${gn(e.supId)} · ${e.date}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--r)">${fmt(e.total)} ﷼</div>
+          <a href="${e.imageUrl}" target="_blank" style="display:block;text-align:center;margin-top:5px;font-size:11px;color:var(--brown);border:1px solid var(--n3);border-radius:5px;padding:3px 0;text-decoration:none">عرض / تحميل</a>
+        </div>
+      </div>`).join('')}
+    </div>`}`;
 }
 
 // SERVICE WORKER
