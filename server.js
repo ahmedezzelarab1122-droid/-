@@ -47,6 +47,8 @@ async function loadDB() {
       projects: cfg.projects || [],
       managerPassword: cfg.managerPassword || 'admin123',
       nextId: cfg.nextId || 1,
+      laborRates: cfg.laborRates || { company: 100, external: 150 },
+      companyWorkers: cfg.companyWorkers || [],
       entries: entries.map(e => { const { _id, ...rest } = e; return rest; })
     };
   } catch (e) {
@@ -60,7 +62,14 @@ async function saveConfig(data) {
   try {
     await db.collection('config').updateOne(
       { _id: 'main' },
-      { $set: { supervisors: data.supervisors, projects: data.projects, managerPassword: data.managerPassword, nextId: data.nextId } },
+      { $set: { 
+        supervisors: data.supervisors, 
+        projects: data.projects, 
+        managerPassword: data.managerPassword, 
+        nextId: data.nextId,
+        laborRates: data.laborRates || { company: 100, external: 150 },
+        companyWorkers: data.companyWorkers || []
+      }},
       { upsert: true }
     );
   } catch (e) { console.error('saveConfig error:', e.message); }
