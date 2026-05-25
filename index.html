@@ -201,6 +201,21 @@ textarea{resize:none;min-height:65px}
       <div class="ok"><svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم استخراج البيانات — راجع وأكد</div>
       <img id="sprev2" class="iprev">
       <div class="card" style="margin-bottom:9px"><div id="rfields"></div></div>
+      <div class="card" style="margin-bottom:9px;padding:11px 13px">
+        <div class="ctitle" style="margin-bottom:8px">نوع الفاتورة</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button id="type-petty" onclick="setInvoiceType('petty')" style="padding:10px;border:2px solid var(--n3);border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;font-size:13px;transition:.15s">
+            <div style="font-size:20px;margin-bottom:4px">🧾</div>
+            <div style="font-weight:600;color:var(--n5)">نثرية</div>
+            <div style="font-size:10px;color:var(--n4)">بدون ضريبة</div>
+          </button>
+          <button id="type-tax" onclick="setInvoiceType('tax')" style="padding:10px;border:2px solid var(--n3);border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;font-size:13px;transition:.15s">
+            <div style="font-size:20px;margin-bottom:4px">📋</div>
+            <div style="font-weight:600;color:var(--n5)">ضريبية</div>
+            <div style="font-size:10px;color:var(--n4)">تحتوي على VAT</div>
+          </button>
+        </div>
+      </div>
       <div id="icard" style="display:none" class="card"><div class="ctitle">البنود</div><div id="ilist"></div></div>
       <div class="fg2">
         <div><label class="lbl">المشرف</label><select id="csup"></select></div>
@@ -705,6 +720,29 @@ async function runAI(){
   }
 }
 
+function setInvoiceType(type){
+  parsed.type = type;
+  // Update UI
+  document.getElementById('type-petty').style.border = type==='petty' ? '2px solid #166534' : '2px solid var(--n3)';
+  document.getElementById('type-petty').style.background = type==='petty' ? '#dcfce7' : '#fff';
+  document.getElementById('type-tax').style.border = type==='tax' ? '2px solid var(--b)' : '2px solid var(--n3)';
+  document.getElementById('type-tax').style.background = type==='tax' ? 'var(--bl)' : '#fff';
+  // Update type badge in rfields
+  const tb_el = document.getElementById('rfields');
+  if(tb_el) {
+    const rows = tb_el.querySelectorAll('.fr');
+    rows.forEach(r=>{
+      if(r.querySelector('span')?.textContent==='النوع'){
+        const badge = r.querySelector('.badge');
+        if(badge){
+          badge.className = 'badge b'+(type==='petty'?'pt':'tx');
+          badge.textContent = type==='petty'?'نثرية':'ضريبية';
+        }
+      }
+    });
+  }
+}
+
 function showResult(){
   document.getElementById('ss2').style.display='block';
   if(imgSrc){const p=document.getElementById('sprev2');p.src=imgSrc;p.style.display='block';}
@@ -723,6 +761,8 @@ function showResult(){
     document.getElementById('icard').style.display='block';
     document.getElementById('ilist').innerHTML=parsed.items.map(it=>`<div class="chip"><div style="font-size:12px;font-weight:600">${it.desc}</div><div style="font-size:11px;color:var(--n4);margin-top:2px">${it.qty} ${it.unit} × ${fmt(it.unitPrice)} ﷼ = <strong>${fmt(it.total)} ﷼</strong></div></div>`).join('');
   }
+  // Auto-select type button based on AI result
+  setTimeout(()=>setInvoiceType(parsed.type||'petty'),50);
   const ss=document.getElementById('ssup'),cs=document.getElementById('csup');
   if(ss&&cs&&!cs.disabled)cs.value=ss.value;
   const sp=document.getElementById('sproj'),cp=document.getElementById('cproj');
