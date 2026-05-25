@@ -991,12 +991,22 @@ function rLaborMgr(){
 }
 
 async function addWorker(){
-  const name = document.getElementById('nw-name').value.trim();
-  const jobTitle = document.getElementById('nw-job').value.trim();
-  if(!name) return;
-  await api('/api/workers','POST',{name,jobTitle});
-  DB = await api('/api/db');
-  rLaborMgr();
+  const nameEl = document.getElementById('nw-name');
+  const jobEl = document.getElementById('nw-job');
+  if(!nameEl || !jobEl) return;
+  const name = nameEl.value.trim();
+  const jobTitle = jobEl.value.trim();
+  if(!name){nameEl.style.borderColor='var(--r)';return;}
+  nameEl.style.borderColor='';
+  try{
+    const res = await api('/api/workers','POST',{name,jobTitle});
+    if(res.ok){
+      nameEl.value='';
+      jobEl.value='';
+      DB = await api('/api/db');
+      rLaborMgr();
+    }
+  }catch(e){console.error('addWorker error:',e);}
 }
 
 async function deleteWorker(id){
