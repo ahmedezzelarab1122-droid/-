@@ -63,7 +63,7 @@ textarea{resize:none;min-height:65px}
 .brow .btn{flex:1}
 /* BADGES */
 .badge{display:inline-block;padding:2px 8px;border-radius:14px;font-size:11px;font-weight:600}
-.bpt{background:#dcfce7;color:#166534}.btx{background:var(--bl);color:var(--b)}.bot{background:var(--n2);color:var(--n5)}.bcs{background:var(--al);color:var(--a)}.btr{background:#ede9fe;color:#7c3aed}.btransfer{background:#e0f2fe;color:#0369a1}
+.bpt{background:#dcfce7;color:#166534}.btx{background:var(--bl);color:var(--b)}.bot{background:var(--n2);color:var(--n5)}.bcs{background:var(--al);color:var(--a)}.btr{background:#ede9fe;color:#7c3aed}.btransfer{background:#e0f2fe;color:#0369a1}.blabor{background:#f0fdf4;color:#166534}
 /* MISC */
 .pbar{height:5px;background:var(--n2);border-radius:3px;overflow:hidden;margin-top:5px}
 .pf{height:100%;border-radius:3px}
@@ -338,8 +338,8 @@ function showApp(){
   document.getElementById('tbname').textContent=CU.name;
   document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':'مشرف';
   const items=ROLE==='manager'
-    ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور'],['transfer','التحويلات']]
-    :[['home','الرئيسية'],['hist','سجلاتي'],['bal','رصيدي']];
+    ?[['dash','لوحة التحكم'],['txns','المعاملات'],['reports','التقارير'],['setup','الإعداد'],['pws','كلمات المرور'],['transfer','التحويلات'],['labor-mgr','العمالة']]
+    :[['home','الرئيسية'],['labor','تسجيل عمالة'],['hist','سجلاتي'],['bal','رصيدي']];
   document.getElementById('tabs').innerHTML=items.map(([id,lbl],i)=>`<button class="tab${i===0?' on':''}" onclick="goTab('${id}',this)">${lbl}</button>`).join('');
   ROLE==='manager'?rDash():rHome();
 }
@@ -347,7 +347,7 @@ function showApp(){
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup};
   map[id]?.();
 }
 
@@ -943,6 +943,213 @@ async function doSTransfer(){
     document.getElementById('st-ok-msg').textContent=res.message;
     ok.style.display='flex';
     setTimeout(()=>{ok.style.display='none';rSTransfer();},2500);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
+}
+
+
+// ── LABOR MANAGER ──────────────────────
+function rLaborMgr(){
+  const rates = DB.laborRates || {company:100, external:150};
+  const workers = DB.companyWorkers || [];
+  const laborEntries = DB.entries.filter(e=>e.type==='labor').slice().reverse();
+  document.getElementById('mc').innerHTML=`
+    <div class="card">
+      <div class="ctitle">أسعار العمالة اليومية</div>
+      <div class="fg2">
+        <div><label class="lbl">أجر عامل الشركة (﷼/يوم)</label><input type="number" id="lr-company" value="${rates.company}" min="0"></div>
+        <div><label class="lbl">أجر العامل الخارجي (﷼/يوم)</label><input type="number" id="lr-external" value="${rates.external}" min="0"></div>
+      </div>
+      <button class="btn bp" onclick="saveLaborRates()">حفظ الأسعار</button>
+      <div id="lr-ok" class="ok" style="display:none;margin-top:8px"><svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم حفظ الأسعار</div>
+    </div>
+    <div class="card">
+      <div class="ctitle">عمال الشركة</div>
+      ${workers.map(w=>`<div class="srow"><div><div style="font-size:13px;font-weight:600">${w.name}</div><div style="font-size:11px;color:var(--n4)">${w.jobTitle||'عامل'}</div></div><button class="xb" onclick="deleteWorker(${w.id})">✕</button></div>`).join('')}
+      ${workers.length===0?'<div class="empty" style="padding:1rem">لا يوجد عمال مضافون بعد</div>':''} 
+      <div class="ar" style="margin-top:10px">
+        <input id="nw-name" placeholder="اسم العامل" style="flex:2">
+        <input id="nw-job" placeholder="الصفة (نجار، مليس...)" style="flex:2">
+        <button class="btn bp" onclick="addWorker()" style="width:auto;padding:7px 11px">+</button>
+      </div>
+    </div>
+    <div class="shdr">سجل العمالة</div>
+    ${laborEntries.length ? `<div class="card">${laborEntries.map(e=>`<div class="txr">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${e.desc}</div>
+        <div style="font-size:10px;color:var(--n4);margin-top:1px">${gn(e.supId)} · ${e.project} · ${e.date}</div>
+        ${e.laborDetails?.companyNames?`<div style="font-size:10px;color:var(--n4)">شركة: ${e.laborDetails.companyNames}</div>`:''}
+        ${e.laborDetails?.externalNames?`<div style="font-size:10px;color:var(--n4)">خارجي: ${e.laborDetails.externalNames}</div>`:''}
+      </div>
+      <div style="text-align:left;flex-shrink:0;margin-right:7px">
+        <span class="badge blabor">عمالة</span>
+        <div style="font-size:11px;color:var(--n5);margin-top:3px">${(e.laborDetails?.companyCount||0)} شركة + ${(e.laborDetails?.externalCount||0)} خارجي</div>
+        <div style="font-size:12px;color:var(--brown);font-weight:600">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
+      </div>
+    </div>`).join('')}</div>` : '<div class="empty">لا توجد سجلات عمالة بعد</div>'}`;
+}
+
+async function addWorker(){
+  const name = document.getElementById('nw-name').value.trim();
+  const jobTitle = document.getElementById('nw-job').value.trim();
+  if(!name) return;
+  await api('/api/workers','POST',{name,jobTitle});
+  DB = await api('/api/db');
+  rLaborMgr();
+}
+
+async function deleteWorker(id){
+  if(!confirm('حذف العامل؟')) return;
+  await api('/api/workers/'+id,'DELETE');
+  DB = await api('/api/db');
+  rLaborMgr();
+}
+
+async function saveLaborRates(){
+  const company = parseFloat(document.getElementById('lr-company').value)||100;
+  const external = parseFloat(document.getElementById('lr-external').value)||150;
+  await api('/api/labor-rates','POST',{company,external});
+  DB.laborRates = {company,external};
+  const ok = document.getElementById('lr-ok');
+  ok.style.display='flex';
+  setTimeout(()=>ok.style.display='none',2000);
+}
+
+// ── LABOR SUPERVISOR ───────────────────
+function rLaborSup(){
+  const rates = DB.laborRates || {company:100,external:150};
+  const workers = DB.companyWorkers || [];
+  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+  const myLabor = DB.entries.filter(e=>e.supId==CU.id&&e.type==='labor').slice(-5).reverse();
+  
+  document.getElementById('mc').innerHTML=`
+    <div class="card">
+      <div class="ctitle">تسجيل عمالة - ${today()}</div>
+      <div style="background:var(--gl);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--brown);display:flex;justify-content:space-between">
+        <span>عامل شركة: <strong>${fmt(rates.company)} ﷼</strong></span>
+        <span>عامل خارجي: <strong>${fmt(rates.external)} ﷼</strong></span>
+      </div>
+      <div class="fg">
+        <label class="lbl">المشروع</label>
+        <select id="lab-proj">${pOpts}</select>
+      </div>
+      
+      <div class="ctitle" style="margin-top:12px">عمال الشركة الحاضرون</div>
+      ${workers.length===0 
+        ? '<div style="font-size:12px;color:var(--n4);margin-bottom:10px">لم يُضف عمال من المدير بعد</div>'
+        : `<div style="margin-bottom:12px">${workers.map(w=>`
+          <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--n2);cursor:pointer">
+            <input type="checkbox" id="cw-${w.id}" value="${w.id}" data-name="${w.name}" onchange="calcLabor()" style="width:18px;height:18px;accent-color:var(--brown)">
+            <div><div style="font-size:13px;font-weight:500">${w.name}</div><div style="font-size:11px;color:var(--n4)">${w.jobTitle||'عامل'}</div></div>
+          </label>`).join('\'')}
+        </div>`
+      }
+      
+      <div class="ctitle" style="margin-top:4px">العمال الخارجيون</div>
+      <div id="ext-workers-list"></div>
+      <button onclick="addExtWorker()" style="border:1px dashed var(--n3);border-radius:7px;padding:7px 12px;background:none;font-size:12px;color:var(--n5);cursor:pointer;font-family:inherit;width:100%;margin-bottom:12px">+ إضافة عامل خارجي</button>
+      
+      <div id="lab-calc" style="background:var(--gl);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:none;border:1px solid var(--n3)">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--n5)">عمال الشركة</span><span id="lc-company" style="font-weight:600">0 ﷼</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--n5)">عمال خارجيون</span><span id="lc-external" style="font-weight:600">0 ﷼</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--n3);padding-top:6px"><span>إجمالي التكلفة</span><span id="lc-total" style="color:var(--brown)">0 ﷼</span></div>
+        <div style="font-size:11px;color:var(--n4);margin-top:4px">* للمعرفة فقط — لا تُخصم من رصيدك</div>
+      </div>
+      
+      <div class="err" id="lab-err"></div>
+      <div id="lab-ok" class="ok" style="display:none"><svg width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span id="lab-ok-msg"></span></div>
+      <button class="btn bp" onclick="submitLabor()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        تسجيل العمالة
+      </button>
+    </div>
+    ${myLabor.length ? `<div class="shdr">آخر سجلات العمالة</div><div class="card">${myLabor.map(e=>`<div class="txr">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${e.desc}</div>
+        <div style="font-size:10px;color:var(--n4)">${e.project} · ${e.date}</div>
+        ${e.laborDetails?.companyNames?`<div style="font-size:10px;color:var(--n4)">شركة: ${e.laborDetails.companyNames}</div>`:''}
+        ${e.laborDetails?.externalNames?`<div style="font-size:10px;color:var(--n4)">خارجي: ${e.laborDetails.externalNames}</div>`:''}
+      </div>
+      <div style="text-align:left;flex-shrink:0;margin-right:7px">
+        <span class="badge blabor">عمالة</span>
+        <div style="font-size:11px;color:var(--n5);margin-top:3px">${(e.laborDetails?.companyCount||0)}+${(e.laborDetails?.externalCount||0)} عامل</div>
+      </div>
+    </div>`).join('')}</div>` : ''}`;
+}
+
+let extWorkerCount = 0;
+function addExtWorker(){
+  extWorkerCount++;
+  const id = extWorkerCount;
+  const div = document.createElement('div');
+  div.id = 'ext-'+id;
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:7px;align-items:center';
+  div.innerHTML = `
+    <input type="text" placeholder="اسم العامل" id="ew-name-${id}" style="flex:2" oninput="calcLabor()">
+    <select id="ew-job-${id}" style="flex:2" onchange="calcLabor()">
+      <option>مليس</option><option>نجار</option><option>حداد</option>
+      <option>كهربائي</option><option>سباك</option><option>دهان</option>
+      <option>عامل عام</option><option>أخرى</option>
+    </select>
+    <button onclick="document.getElementById('ext-${id}').remove();calcLabor()" style="border:none;background:none;color:var(--r);cursor:pointer;font-size:18px;padding:0 4px">✕</button>`;
+  document.getElementById('ext-workers-list').appendChild(div);
+  calcLabor();
+}
+
+function calcLabor(){
+  const rates = DB.laborRates || {company:100,external:150};
+  const workers = DB.companyWorkers || [];
+  // Count checked company workers
+  const c = workers.filter(w => document.getElementById('cw-'+w.id)?.checked).length;
+  // Count external workers with names
+  const extList = document.querySelectorAll('[id^="ew-name-"]');
+  const e = Array.from(extList).filter(el=>el.value.trim()).length;
+  const ct = c * rates.company;
+  const et = e * rates.external;
+  const tot = ct + et;
+  const calc = document.getElementById('lab-calc');
+  if(tot > 0 || c > 0 || e > 0){
+    calc.style.display='block';
+    document.getElementById('lc-company').textContent = c + ' عامل × ' + fmt(rates.company) + ' = ' + fmt(ct) + ' ﷼';
+    document.getElementById('lc-external').textContent = e + ' عامل × ' + fmt(rates.external) + ' = ' + fmt(et) + ' ﷼';
+    document.getElementById('lc-total').textContent = fmt(tot) + ' ﷼';
+  } else {
+    calc.style.display='none';
+  }
+}
+
+async function submitLabor(){
+  const project = document.getElementById('lab-proj').value;
+  const err = document.getElementById('lab-err');
+  const ok = document.getElementById('lab-ok');
+  err.style.display='none'; ok.style.display='none';
+  
+  // Collect present company workers
+  const workers = DB.companyWorkers || [];
+  const presentWorkers = workers.filter(w => document.getElementById('cw-'+w.id)?.checked).map(w=>({id:w.id,name:w.name,jobTitle:w.jobTitle}));
+  
+  // Collect external workers
+  const extList = document.querySelectorAll('[id^="ew-name-"]');
+  const externalWorkersList = Array.from(extList).map(el=>{
+    const id = el.id.replace('ew-name-','');
+    const name = el.value.trim();
+    const jobTitle = document.getElementById('ew-job-'+id)?.value||'عامل';
+    return name ? {name,jobTitle} : null;
+  }).filter(Boolean);
+  
+  if(presentWorkers.length + externalWorkersList.length === 0){
+    err.style.display='block';err.textContent='اختر عمالاً للتسجيل';return;
+  }
+  
+  try{
+    const res = await api('/api/labor','POST',{supId:CU.id,project,presentWorkers,externalWorkersList});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    extWorkerCount = 0;
+    document.getElementById('lab-ok-msg').textContent=`تم تسجيل ${presentWorkers.length+externalWorkersList.length} عامل`;
+    ok.style.display='flex';
+    setTimeout(()=>{ok.style.display='none';rLaborSup();},2000);
   }catch(e){
     err.style.display='block';err.textContent='خطأ في الاتصال';
   }
