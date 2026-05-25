@@ -1481,9 +1481,10 @@ function rOwnerLabor(){
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
         const key=w.name+'__'+w.jobTitle;
-        if(!extWorkers[key])extWorkers[key]={name:w.name,jobTitle:w.jobTitle,days:0,total:0};
+        if(!extWorkers[key])extWorkers[key]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,projects:[]};
         extWorkers[key].days++;
         extWorkers[key].total+=externalRate;
+        if(e.project&&!extWorkers[key].projects.includes(e.project))extWorkers[key].projects.push(e.project);
       });
     }
   });
@@ -1513,18 +1514,19 @@ function rOwnerLabor(){
     ${extList.length===0
       ?'<div class="empty">لا يوجد عمال خارجيون مسجلون بعد</div>'
       :`<div class="card" style="padding:0">
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0;background:var(--brown);color:#fff;padding:9px 13px;border-radius:11px 11px 0 0;font-size:11px;font-weight:600">
-          <span>الاسم</span><span style="text-align:center">الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:left">الإجمالي</span>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:0;background:var(--brown);color:#fff;padding:9px 13px;border-radius:11px 11px 0 0;font-size:11px;font-weight:600">
+          <span>الاسم</span><span style="text-align:center">الصفة</span><span style="text-align:center">المشروع</span><span style="text-align:center">الأيام</span><span style="text-align:left">الإجمالي</span>
         </div>
-        ${extList.map((w,i)=>`<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:9px 13px;border-bottom:1px solid var(--n2);font-size:12px;background:${i%2===0?'#fff':'var(--n1)'}">
+        ${extList.map((w,i)=>`<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:9px 13px;border-bottom:1px solid var(--n2);font-size:11px;background:${i%2===0?'#fff':'var(--n1)'}">
           <span style="font-weight:600">${w.name}</span>
           <span style="text-align:center;color:var(--n5)">${w.jobTitle}</span>
+          <span style="text-align:center;color:var(--n4);font-size:10px">${[...new Set(w.projects)].join('،')}</span>
           <span style="text-align:center;font-weight:700;color:var(--b)">${w.days}</span>
           <span style="text-align:left;font-weight:700;color:var(--r)">${fmt(w.total)} ﷼</span>
         </div>`).join('')}
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:9px 13px;background:var(--gl);border-radius:0 0 11px 11px;font-size:12px;font-weight:700">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:9px 13px;background:var(--gl);border-radius:0 0 11px 11px;font-size:12px;font-weight:700">
           <span style="color:var(--brown)">الإجمالي</span>
-          <span></span>
+          <span></span><span></span>
           <span style="text-align:center;color:var(--b)">${totalExternal} يوم</span>
           <span style="text-align:left;color:var(--r)">${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</span>
         </div>
