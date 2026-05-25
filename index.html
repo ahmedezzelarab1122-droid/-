@@ -653,20 +653,52 @@ async function pickFile(inp){
   const file=inp.files[0];if(!file)return;
   
   if(file.type==='application/pdf'){
-    // Handle PDF - convert first page to image
-    const reader=new FileReader();
-    reader.onload=async e=>{
-      try{
-        imgB64=e.target.result.split(',')[1];
-        imgSrc=e.target.result;
-        // Show PDF icon preview
-        const p=document.getElementById('sprev');
-        p.src='data:image/svg+xml;base64,'+btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120" viewBox="0 0 200 120"><rect width="200" height="120" rx="8" fill="#fee2e2"/><text x="100" y="50" text-anchor="middle" font-size="30">📄</text><text x="100" y="80" text-anchor="middle" font-size="14" fill="#dc2626">PDF</text><text x="100" y="100" text-anchor="middle" font-size="11" fill="#666">${file.name}</text></svg>`);
-        p.style.display='block';
-        document.getElementById('sdrop').style.display='none';
-      }catch(e){console.error(e);}
-    };
-    reader.readAsDataURL(file);
+    // Convert PDF first page to image using PDF.js
+    document.getElementById('sdrop').style.display='none';
+    const p=document.getElementById('sprev');
+    p.src='data:image/svg+xml;base64,'+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80" viewBox="0 0 200 80"><rect width="200" height="80" rx="8" fill="#f1f5f9"/><text x="100" y="45" text-anchor="middle" font-size="13" fill="#64748b">جاري تحويل PDF...</text></svg>');
+    p.style.display='block';
+    
+    try {
+      // Load PDF.js from CDN
+      if(!window.pdfjsLib) {
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload=res; s.onerror=rej;
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({scale: 2.0});
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      
+      await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
+      
+      const src = canvas.toDataURL('image/jpeg', 0.92);
+      imgB64 = src.split(',')[1];
+      imgSrc = src;
+      p.src = src;
+      p.style.display='block';
+      console.log('PDF converted to image successfully');
+    } catch(err) {
+      console.error('PDF conversion failed:', err);
+      // Fallback: read as binary
+      const reader = new FileReader();
+      reader.onload = e => {
+        imgB64 = e.target.result.split(',')[1];
+        imgSrc = e.target.result;
+        p.src='data:image/svg+xml;base64,'+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80" viewBox="0 0 200 80"><rect width="200" height="80" rx="8" fill="#dcfce7"/><text x="100" y="45" text-anchor="middle" font-size="13" fill="#166534">PDF جاهز للتحليل</text></svg>');
+      };
+      reader.readAsDataURL(file);
+    }
   } else {
     const {b64,src}=await compressImg(file);
     imgB64=b64;imgSrc=src;
