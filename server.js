@@ -173,23 +173,37 @@ async function uploadToCloudinary(b64) {
   
   const timestamp = Math.floor(Date.now() / 1000);
   const folder = 'kayan_invoices';
-  const str = `folder=${folder}&timestamp=${timestamp}${CLOUDINARY_SECRET}`;
-  const signature = crypto.createHash('sha1').update(str).digest('hex');
   
-  const formData = [
-    `file=data:image/jpeg;base64,${b64}`,
-    `api_key=${CLOUDINARY_KEY}`,
-    `timestamp=${timestamp}`,
-    `folder=${folder}`,
-    `signature=${signature}`
-  ].join('&');
+  // Correct signature: sort params alphabetically, exclude file and api_key
+  const paramsToSign = `folder=${folder}&timestamp=${timestamp}`;
+  const signature = crypto.createHash('sha1').update(paramsToSign + CLOUDINARY_SECRET).digest('hex');
+  
+  // Use multipart form data approach via direct upload
+  const boundary = '----CloudinaryBoundary' + Date.now();
+  const fileData = Buffer.from(b64, 'base64');
+  
+  const parts = [
+    `--${boundary}\r\nContent-Disposition: form-data; name="api_key"\r\n\r\n${CLOUDINARY_KEY}`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="timestamp"\r\n\r\n${timestamp}`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="folder"\r\n\r\n${folder}`,
+    `--${boundary}\r\nContent-Disposition: form-data; name="signature"\r\n\r\n${signature}`,
+  ];
+  
+  const prefix = Buffer.from(parts.join('\r\n') + '\r\n');
+  const filePart = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="invoice.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`);
+  const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
+  
+  const body = Buffer.concat([prefix, filePart, fileData, suffix]);
   
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: 'api.cloudinary.com',
       path: `/v1_1/${CLOUDINARY_CLOUD}/image/upload`,
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(formData) }
+      headers: { 
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': body.length
+      }
     }, res => {
       let data = '';
       res.on('data', d => data += d);
@@ -197,12 +211,12 @@ async function uploadToCloudinary(b64) {
         try {
           const json = JSON.parse(data);
           if (json.secure_url) resolve(json.secure_url);
-          else reject(new Error(json.error?.message || 'Upload failed'));
+          else reject(new Error(json.error?.message || JSON.stringify(json)));
         } catch(e) { reject(e); }
       });
     });
     req.on('error', reject);
-    req.write(formData);
+    req.write(body);
     req.end();
   });
 }
