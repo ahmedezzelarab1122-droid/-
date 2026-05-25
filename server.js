@@ -211,7 +211,7 @@ async function uploadToCloudinary(b64) {
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', c => { body += c; if (body.length > 20 * 1024 * 1024) req.destroy(); });
+    req.on('data', c => { body += c; if (body.length > 50 * 1024 * 1024) req.destroy(); });
     req.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve({}); } });
     req.on('error', reject);
   });
@@ -340,8 +340,10 @@ const server = http.createServer(async (req, res) => {
     const entry = { ...body, id: data.nextId++ };
     // Upload image if provided
     if (body.b64Image) {
+      console.log('Uploading image to Cloudinary, size:', body.b64Image.length);
       try {
         entry.imageUrl = await uploadToCloudinary(body.b64Image);
+        console.log('Image uploaded:', entry.imageUrl);
       } catch(e) { console.error('Image upload failed:', e.message); }
       delete entry.b64Image;
     }
