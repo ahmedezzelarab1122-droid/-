@@ -26,7 +26,9 @@ async function connectMongo() {
         supervisors: [{ id: 1, name: 'المشرف', budget: 10000, password: '1234' }],
         projects: ['المشروع الأول'],
         managerPassword: 'admin123',
-        nextId: 1
+        nextId: 1,
+        laborRates: { company: 100, external: 150 },
+        companyWorkers: []
       });
       console.log('✅ Default data created');
     }
@@ -246,7 +248,7 @@ const server = http.createServer(async (req, res) => {
   // Get DB
   if (pathname === '/api/db' && req.method === 'GET') {
     const data = await loadDB();
-    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })) };
+    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [] };
     delete safe.managerPassword;
     return sendJSON(res, safe);
   }
@@ -352,6 +354,86 @@ const server = http.createServer(async (req, res) => {
       const result = await analyzeInvoice(b64 || null, text || '');
       return sendJSON(res, result);
     } catch (e) { return sendJSON(res, { error: e.message }, 500); }
+  }
+
+
+
+  // Get/Add/Delete company workers
+  if (pathname === '/api/workers' && req.method === 'POST') {
+    const { name, jobTitle } = await parseBody(req);
+    const data = await loadDB();
+    if (!data.companyWorkers) data.companyWorkers = [];
+    data.companyWorkers.push({ id: Date.now(), name, jobTitle: jobTitle || '' });
+    await saveConfig(data);
+    return sendJSON(res, { ok: true });
+  }
+  if (pathname.startsWith('/api/workers/') && req.method === 'DELETE') {
+    const id = parseInt(pathname.split('/').pop());
+    const data = await loadDB();
+    data.companyWorkers = (data.companyWorkers || []).filter(w => w.id !== id);
+    await saveConfig(data);
+    return sendJSON(res, { ok: true });
+  }
+
+  // Save labor rates
+  if (pathname === '/api/labor-rates' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const data = await loadDB();
+    data.laborRates = { company: parseFloat(body.company)||100, external: parseFloat(body.external)||150 };
+    await saveConfig(data);
+    return sendJSON(res, { ok: true });
+  }
+
+  // Add labor entry
+  if (pathname === '/api/labor' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const data = await loadDB();
+    const rates = data.laborRates || { company: 100, external: 150 };
+    const presentWorkers = body.presentWorkers || []; // [{id, name}]
+    const externalWorkersList = body.externalWorkersList || []; // [{name, jobTitle}]
+    const companyCount = presentWorkers.length;
+    const externalCount = externalWorkersList.length;
+    const companyTotal = companyCount * rates.company;
+    const externalTotal = externalCount * rates.external;
+    const total = companyTotal + externalTotal;
+    
+    if (companyCount + externalCount === 0) return sendJSON(res, { error: 'أدخل عمالاً للتسجيل' }, 400);
+    
+    const sup = data.supervisors.find(s => s.id == body.supId);
+    const today = new Date().toISOString().split('T')[0];
+    const companyNames = presentWorkers.map(w => w.name).join('، ');
+    const externalNames = externalWorkersList.map(w => `${w.name} (${w.jobTitle})`).join('، ');
+    const entry = {
+      id: data.nextId++,
+      supId: parseInt(body.supId),
+      supName: sup ? sup.name : '',
+      project: body.project || '',
+      type: 'labor',
+      desc: `عمالة ${today}`,
+      supplier: '',
+      invoiceNo: 'LAB-' + Date.now(),
+      date: today,
+      payMethod: 'cash',
+      subtotal: total,
+      taxRate: 0,
+      taxAmt: 0,
+      total: 0,
+      items: [
+        ...presentWorkers.map(w => ({ desc: w.name, qty: 1, unit: 'يوم', unitPrice: rates.company, total: rates.company, type: 'company' })),
+        ...externalWorkersList.map(w => ({ desc: `${w.name} - ${w.jobTitle}`, qty: 1, unit: 'يوم', unitPrice: rates.external, total: rates.external, type: 'external' }))
+      ],
+      laborDetails: { 
+        presentWorkers, externalWorkersList,
+        companyCount, externalCount,
+        companyRate: rates.company, externalRate: rates.external, 
+        laborTotal: total,
+        companyNames, externalNames
+      }
+    };
+    
+    await addEntry(entry);
+    await saveConfig(data);
+    return sendJSON(res, { ok: true, entry, total });
   }
 
   // Transfer between supervisors
