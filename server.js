@@ -353,13 +353,21 @@ const server = http.createServer(async (req, res) => {
       if (dup2) return sendJSON(res, { error: `⚠️ يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ` });
     }
     const entry = { ...body, id: data.nextId++ };
-    // Upload image if provided
+    // Handle file upload
     if (body.b64Image) {
-      console.log('Uploading image to Cloudinary, size:', body.b64Image.length);
-      try {
-        entry.imageUrl = await uploadToCloudinary(body.b64Image, body.isPdf||false);
-        console.log('Image uploaded:', entry.imageUrl);
-      } catch(e) { console.error('Image upload failed:', e.message); }
+      if (body.isPdf) {
+        // Store PDF as base64 data URL directly
+        entry.imageUrl = 'data:application/pdf;base64,' + body.b64Image;
+        entry.isPdf = true;
+        console.log('PDF stored as base64');
+      } else {
+        // Upload image to Cloudinary
+        console.log('Uploading image to Cloudinary, size:', body.b64Image.length);
+        try {
+          entry.imageUrl = await uploadToCloudinary(body.b64Image, false);
+          console.log('Image uploaded:', entry.imageUrl);
+        } catch(e) { console.error('Image upload failed:', e.message); }
+      }
       delete entry.b64Image;
     }
     await addEntry(entry);
