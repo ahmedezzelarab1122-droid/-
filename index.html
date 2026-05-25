@@ -176,10 +176,10 @@ textarea{resize:none;min-height:65px}
     <div id="ss1">
       <label class="drop" for="sfile" id="sdrop">
         <svg width="34" height="34" fill="none" stroke="var(--n4)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 7px;display:block"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        <p style="font-size:13px;color:var(--n5)">اضغط لرفع صورة الفاتورة</p>
-        <small style="font-size:11px;color:var(--n4)">من الكاميرا أو من الواتساب</small>
+        <p style="font-size:13px;color:var(--n5)">اضغط لرفع صورة أو PDF للفاتورة</p>
+        <small style="font-size:11px;color:var(--n4)">صورة أو PDF من الكاميرا أو الواتساب</small>
       </label>
-      <input type="file" id="sfile" accept="image/*" style="display:none" onchange="pickFile(this)">
+      <input type="file" id="sfile" accept="image/*,.pdf" style="display:none" onchange="pickFile(this)">
       <img id="sprev" class="iprev">
       <div class="fg"><label class="lbl">أو الصق نص الرسالة</label><textarea id="stxt" placeholder="مثال: أكل عمال 450 ريال&#10;فاتورة حديد 2300 ريال INV-005"></textarea></div>
       <div class="fg2">
@@ -651,10 +651,28 @@ function compressImg(file){
 
 async function pickFile(inp){
   const file=inp.files[0];if(!file)return;
-  const {b64,src}=await compressImg(file);
-  imgB64=b64;imgSrc=src;
-  const p=document.getElementById('sprev');p.src=src;p.style.display='block';
-  document.getElementById('sdrop').style.display='none';
+  
+  if(file.type==='application/pdf'){
+    // Handle PDF - convert first page to image
+    const reader=new FileReader();
+    reader.onload=async e=>{
+      try{
+        imgB64=e.target.result.split(',')[1];
+        imgSrc=e.target.result;
+        // Show PDF icon preview
+        const p=document.getElementById('sprev');
+        p.src='data:image/svg+xml;base64,'+btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120" viewBox="0 0 200 120"><rect width="200" height="120" rx="8" fill="#fee2e2"/><text x="100" y="50" text-anchor="middle" font-size="30">📄</text><text x="100" y="80" text-anchor="middle" font-size="14" fill="#dc2626">PDF</text><text x="100" y="100" text-anchor="middle" font-size="11" fill="#666">${file.name}</text></svg>`);
+        p.style.display='block';
+        document.getElementById('sdrop').style.display='none';
+      }catch(e){console.error(e);}
+    };
+    reader.readAsDataURL(file);
+  } else {
+    const {b64,src}=await compressImg(file);
+    imgB64=b64;imgSrc=src;
+    const p=document.getElementById('sprev');p.src=src;p.style.display='block';
+    document.getElementById('sdrop').style.display='none';
+  }
 }
 
 async function runAI(){
@@ -666,7 +684,8 @@ async function runAI(){
   const ldg=document.getElementById('sldg');ldg.style.display='block';
   document.getElementById('ltxt').textContent=imgB64?'جاري قراءة الصورة...':'جاري تحليل النص...';
   try{
-    const params={text:txt};if(imgB64)params.b64=imgB64;
+    const sfile=document.getElementById('sfile');const isPdf=sfile?.files[0]?.type==='application/pdf';
+    const params={text:txt,isPdf};if(imgB64)params.b64=imgB64;
     const result=await api('/api/analyze','POST',params);
     if(result.error)throw new Error(result.error);
     parsed=result;ldg.style.display='none';showResult();
