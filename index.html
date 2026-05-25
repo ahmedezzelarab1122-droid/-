@@ -657,48 +657,17 @@ async function pickFile(inp){
   const file=inp.files[0];if(!file)return;
   
   if(file.type==='application/pdf'){
-    // Convert PDF first page to image using PDF.js
-    imgB64=null; // Reset while converting
+    // Read PDF as base64 and send directly to AI
     document.getElementById('sdrop').style.display='none';
     const p=document.getElementById('sprev');
-    p.src='data:image/svg+xml;base64,'+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80" viewBox="0 0 200 80"><rect width="200" height="80" rx="8" fill="#f1f5f9"/><text x="100" y="45" text-anchor="middle" font-size="13" fill="#64748b">جاري تحويل PDF...</text></svg>');
-    p.style.display='block';
-    
-    try {
-      if(window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({scale: 2.0});
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      
-      await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
-      
-      const src = canvas.toDataURL('image/jpeg', 0.92);
-      imgB64 = src.split(',')[1];
-      imgSrc = src;
-      p.src = src;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      imgB64=e.target.result.split(',')[1];
+      imgSrc=e.target.result;
+      p.src='data:image/svg+xml;base64,'+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80" viewBox="0 0 200 80"><rect width="200" height="80" rx="8" fill="#dcfce7"/><text x="100" y="45" text-anchor="middle" font-size="13" fill="#166534">✓ PDF جاهز للتحليل</text></svg>');
       p.style.display='block';
-      console.log('PDF converted to image successfully');
-      // Show success indicator
-      document.getElementById('serr').style.display='none';
-      const pind = document.getElementById('sprev');
-      if(pind) pind.style.border='2px solid var(--gold)';
-    } catch(err) {
-      console.error('PDF conversion failed:', err);
-      // Fallback: read as binary
-      const reader = new FileReader();
-      reader.onload = e => {
-        imgB64 = e.target.result.split(',')[1];
-        imgSrc = e.target.result;
-        p.src='data:image/svg+xml;base64,'+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80" viewBox="0 0 200 80"><rect width="200" height="80" rx="8" fill="#dcfce7"/><text x="100" y="45" text-anchor="middle" font-size="13" fill="#166534">PDF جاهز للتحليل</text></svg>');
-      };
-      reader.readAsDataURL(file);
-    }
+    };
+    reader.readAsDataURL(file);
   } else {
     const {b64,src}=await compressImg(file);
     imgB64=b64;imgSrc=src;
@@ -724,7 +693,7 @@ async function runAI(){
   document.getElementById('ltxt').textContent=imgB64?'جاري قراءة الصورة...':'جاري تحليل النص...';
   try{
     const sfile=document.getElementById('sfile');const isPdf=sfile?.files[0]?.type==='application/pdf';
-    const params={text:txt,isPdf};if(imgB64)params.b64=imgB64;
+    const params={text:txt,isPdf:!!isPdf};if(imgB64)params.b64=imgB64;
     const result=await api('/api/analyze','POST',params);
     if(result.error)throw new Error(result.error);
     parsed=result;ldg.style.display='none';showResult();
