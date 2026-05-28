@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#b8860b">
 <link rel="manifest" href="/manifest.json">
 <title>مصروفات كيان</title>
@@ -1746,4 +1747,13 @@ function rOwnerLabor(){
     </div>
     ${buildLaborTable(laborEntries)}`;
 }
->
+
+// SERVICE WORKER
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+
+// START
+initTheme();
+start();
+</script>
+</body>
+</html>
