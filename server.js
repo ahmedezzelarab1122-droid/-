@@ -523,10 +523,13 @@ const server = http.createServer(async (req, res) => {
     
     if (companyCount + externalCount === 0) return sendJSON(res, { error: 'أدخل عمالاً للتسجيل' }, 400);
     
-    // Prevent duplicate worker on same day
-    const todayEntries = data.entries.filter(e => e.type === 'labor' && e.date === today);
+    // Prevent duplicate: same supervisor + same worker + same day + same project
+    const todayEntries = data.entries.filter(e => 
+      e.type === 'labor' && e.date === today && 
+      e.supId == parseInt(body.supId) && e.project === body.project
+    );
     
-    // Check company workers duplicates
+    // Check company workers duplicates (same sup + same project + same day)
     const alreadyCompany = [];
     todayEntries.forEach(e => {
       if(e.laborDetails?.presentWorkers) {
@@ -535,10 +538,10 @@ const server = http.createServer(async (req, res) => {
     });
     const dupCompany = presentWorkers.filter(w => alreadyCompany.includes(w.name));
     if(dupCompany.length > 0) {
-      return sendJSON(res, { error: `⚠️ هؤلاء العمال مسجلون اليوم مسبقاً: ${dupCompany.map(w=>w.name).join('، ')}` });
+      return sendJSON(res, { error: `⚠️ هؤلاء العمال مسجلون بالفعل اليوم في نفس المشروع: ${dupCompany.map(w=>w.name).join('، ')}` });
     }
     
-    // Check external workers duplicates
+    // Check external workers duplicates (same sup + same project + same day)
     const alreadyExternal = [];
     todayEntries.forEach(e => {
       if(e.laborDetails?.externalWorkersList) {
@@ -547,7 +550,7 @@ const server = http.createServer(async (req, res) => {
     });
     const dupExternal = externalWorkersList.filter(w => alreadyExternal.includes(w.name));
     if(dupExternal.length > 0) {
-      return sendJSON(res, { error: `⚠️ هؤلاء العمال الخارجيون مسجلون اليوم مسبقاً: ${dupExternal.map(w=>w.name).join('، ')}` });
+      return sendJSON(res, { error: `⚠️ هؤلاء العمال مسجلون بالفعل اليوم في نفس المشروع: ${dupExternal.map(w=>w.name).join('، ')}` });
     }
     
     const sup = data.supervisors.find(s => s.id == body.supId);
