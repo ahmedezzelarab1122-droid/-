@@ -639,12 +639,24 @@ const tl=t=>t==='petty'?'نثرية':t==='tax'?'ضريبية':'أخرى';
 const pl=p=>p==='cash'?'كاش':'تحويل';
 const tb=t=>`<span class="badge b${t==='petty'?'pt':t==='tax'?'tx':'ot'}">${tl(t)}</span>`;
 const pb=p=>`<span class="badge b${p==='cash'?'cs':'tr'}">${pl(p)}</span>`;
-const gs=id=>DB.entries.filter(e=>e.supId==id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0);
+// Total invoices (petty + tax only)
+const gs=id=>DB.entries.filter(e=>e.supId==id&&(e.type==='petty'||e.type==='tax')).reduce((a,e)=>a+(e.total||0),0);
+
+// Total added (initial budget + all budget_add entries)
 const getTotalAdded=id=>{
   const sup=DB.supervisors.find(s=>s.id==id);
-  return sup?sup.budget:0;
+  const added=DB.entries.filter(e=>e.supId==id&&e.type==='budget_add').reduce((a,e)=>a+(e.amount||e.total||0),0);
+  return (sup?sup.budget:0)+added;
 };
-const getBalance=id=>getTotalAdded(id)-gs(id);
+
+// Transfers out (this supervisor sent to others)
+const getTransfersOut=id=>DB.entries.filter(e=>e.supId==id&&e.type==='transfer'&&e.direction==='out').reduce((a,e)=>a+(e.total||0),0);
+
+// Transfers in (this supervisor received from others)
+const getTransfersIn=id=>DB.entries.filter(e=>e.supId==id&&e.type==='transfer'&&e.direction==='in').reduce((a,e)=>a+(e.total||0),0);
+
+// Correct balance
+const getBalance=id=>getTotalAdded(id)-gs(id)-getTransfersOut(id)+getTransfersIn(id);
 const gn=id=>DB.supervisors.find(s=>s.id==id)?.name||'—';
 const gc=i=>COLORS[i%COLORS.length];
 
@@ -1057,9 +1069,8 @@ async function savePW(){
 // ── SUPERVISOR PAGES ───────────────
 function rHome(){
   const entries=DB.entries.filter(e=>e.supId==CU.id).slice(-5).reverse();
-  const sp=DB.entries.filter(e=>e.supId==CU.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0);
-  const rem=CU.budget-sp;
-  const pct=Math.min(100,Math.round(sp/(CU.budget||1)*100));
+  const sp=gs(CU.id),rem=getBalance(CU.id),totalAdded=getTotalAdded(CU.id);
+  const pct=Math.min(100,Math.round(sp/(totalAdded||1)*100));
   const warn=pct>80?`<div class="warn">⚠️ تنبيه: رصيدك اقترب من النهاية! المتبقي ${fmt(rem)} ﷼ فقط</div>`:'';
   document.getElementById('mc').innerHTML=`
     ${warn}
@@ -1080,8 +1091,8 @@ function rHist(){
 }
 function rBal(){
   const entries=DB.entries.filter(e=>e.supId==CU.id);
-  const sp=entries.filter(e=>e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0),rem=CU.budget-sp;
-  const pct=Math.min(100,Math.round(sp/(CU.budget||1)*100));
+  const sp=gs(CU.id),rem=getBalance(CU.id),totalAdded=getTotalAdded(CU.id);
+  const pct=Math.min(100,Math.round(sp/(totalAdded||1)*100));
   const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
   const pt=entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
   const tx=entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
