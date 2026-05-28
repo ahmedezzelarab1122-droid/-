@@ -1662,7 +1662,7 @@ function buildLaborTable(laborEntries, fromDate, toDate){
         <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span>
       </div>
       ${extList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid #EDE3D8;background:${i%2===0?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'}">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid #EDE3D8;background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.75)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
@@ -1685,7 +1685,7 @@ function buildLaborTable(laborEntries, fromDate, toDate){
         <span>اسم العامل</span><span style="text-align:center">إجمالي الأيام</span>
       </div>
       ${compList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr;padding:10px 14px;border-bottom:1px solid #EDE3D8;background:${i%2===0?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'}">
+        <div style="display:grid;grid-template-columns:2fr 1fr;padding:10px 14px;border-bottom:1px solid #EDE3D8;background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.75)">${[...w.projects].join('،')}</div>
@@ -1790,7 +1790,7 @@ function rLaborMgr(){
         <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span><span style="text-align:center">المشاريع</span>
       </div>
       ${extList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:${i%2===0?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'}">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#2D1800">${w.name}</div>
             <div style="font-size:10px;color:#8A6040">${w.jobTitle}</div>
@@ -1816,7 +1816,7 @@ function rLaborMgr(){
         <span>الاسم</span><span style="text-align:center">إجمالي الأيام</span><span style="text-align:center">المشاريع</span>
       </div>
       ${compList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:${i%2===0?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'}">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#2D1800">${w.name}</div>
             <div style="font-size:10px;color:#9A7050;margin-top:2px">${w.dates.sort().join(' · ')}</div>
@@ -2368,7 +2368,7 @@ function buildLaborSection(fromDate, toDate){
         <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span>
       </div>
       ${extList.map((w,i)=>`
-        <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:${i%2===0?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'}">
+        <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:${'transparent'}">
           <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center">
             <div>
               <div style="font-size:13px;font-weight:700;color:#2D1800">${w.name}</div>
@@ -2393,7 +2393,7 @@ function buildLaborSection(fromDate, toDate){
         <span>الاسم</span><span style="text-align:center">إجمالي الأيام</span>
       </div>
       ${compList.map((w,i)=>`
-        <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:${i%2===0?'rgba(255,255,255,.08)':'rgba(255,255,255,.04)'}">
+        <div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:${'transparent'}">
           <div style="display:grid;grid-template-columns:2fr 1fr;align-items:center">
             <div>
               <div style="font-size:13px;font-weight:700;color:#2D1800">${w.name}</div>
