@@ -439,6 +439,81 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
   border-color:rgba(255,255,255,.12)!important;
 }
 
+
+/* ══ REMOVE ALL INNER BACKGROUNDS ══ */
+#mc *,
+#swrap * {
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+  color:#FFFFFF !important;
+}
+
+/* Keep outer card glass */
+#mc > div,
+#mc .card,
+#mc .stat,
+#mc .hero-card {
+  background:rgba(255,255,255,.10) !important;
+  border:1px solid rgba(255,255,255,.15) !important;
+  backdrop-filter:blur(14px) !important;
+  -webkit-backdrop-filter:blur(14px) !important;
+  border-radius:16px !important;
+}
+
+/* Stat top border */
+#mc .stat {
+  border-top:2px solid #00C8E8 !important;
+}
+
+/* Hero card keep its gradient */
+#mc .hero-card {
+  background:linear-gradient(145deg,rgba(0,50,80,.6),rgba(0,35,60,.7)) !important;
+  border-color:rgba(0,200,232,.25) !important;
+}
+
+/* Progress bar track */
+#mc [style*="height:5px"],
+#mc [style*="height:6px"] {
+  background:rgba(255,255,255,.12) !important;
+}
+
+/* Progress bar fill - keep color */
+#mc [style*="height:5px"] > div,
+#mc [style*="height:6px"] > div {
+  background:inherit !important;
+}
+
+/* Colored exceptions */
+#mc .bpt,.bpt {background:rgba(61,214,140,.15)!important;color:#3DD68C!important;border-color:rgba(61,214,140,.2)!important}
+#mc .btx,.btx {background:rgba(112,181,255,.15)!important;color:#70B5FF!important;border-color:rgba(112,181,255,.2)!important}
+#mc .blabor {background:rgba(61,214,140,.15)!important;color:#3DD68C!important}
+#mc .btransfer {background:rgba(112,181,255,.15)!important;color:#70B5FF!important}
+#mc .bpt *,.btx *,.blabor *,.btransfer * {color:inherit!important}
+
+/* Red colored text */
+[style*="color:#FF8080"],[style*="color:#D93025"],[style*="color:#C42B1C"],
+[style*="color:#FF7070"],[style*="color:var(--r)"] {color:#FF8080!important}
+
+/* Green colored text */
+[style*="color:#3DD68C"],[style*="color:#1A7A3C"],[style*="color:#1A6B38"],
+[style*="color:var(--gr)"] {color:#3DD68C!important}
+
+/* Blue colored text */
+[style*="color:#70B5FF"],[style*="color:#1A50A8"],
+[style*="color:var(--bl)"] {color:#70B5FF!important}
+
+/* Cyan colored text */
+[style*="color:#00C8E8"],[style*="color:var(--g1)"] {color:#00C8E8!important}
+
+/* Buttons keep their style */
+.btn.bp {background:linear-gradient(135deg,#40D8F8,#00C8E8)!important;color:#001820!important;border:none!important}
+.btn.bs {background:rgba(255,255,255,.12)!important;border:1px solid rgba(255,255,255,.2)!important;color:#FFFFFF!important}
+.btn.bx {background:linear-gradient(135deg,#1A9950,#2ABF65)!important;color:#fff!important}
+
+/* Pbar fill inherits color from style attr */
+.pf {background:inherit!important}
+
 </style>
 </head>
 <body>
