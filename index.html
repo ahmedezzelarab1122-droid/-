@@ -258,6 +258,100 @@ textarea{resize:none;min-height:72px}
 
 /* ── SCAN PANEL ── */
 #swrap > div{border-radius:28px 28px 0 0!important;background:var(--s1)!important}
+
+/* ── GLOBAL READABILITY FIXES ── */
+body, #mc, .card, .stat, .sc {color: var(--t1) !important}
+
+/* ── DROPDOWNS - ALWAYS LIGHT ── */
+select {
+  background-color: var(--s1) !important;
+  color: var(--t1) !important;
+  border-color: var(--line) !important;
+}
+select option {
+  background: #FFFFFF !important;
+  color: #1A0E00 !important;
+}
+
+/* ── CHECKBOXES - VISIBLE ── */
+input[type="checkbox"] {
+  width: 22px !important;
+  height: 22px !important;
+  accent-color: var(--p) !important;
+  border: 2px solid var(--line) !important;
+  border-radius: 6px !important;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── INLINE TEXT COLORS ── */
+[style*="color:#000"], [style*="color: #000"] {color: var(--t1) !important}
+[style*="color:black"], [style*="color: black"] {color: var(--t1) !important}
+
+/* ── TABLE HEADERS ── */
+div[style*="background:var(--primary)"],
+div[style*="background:var(--p)"] {
+  color: #FFF0C0 !important;
+}
+div[style*="background:var(--primary)"] span,
+div[style*="background:var(--p)"] span {
+  color: #FFF0C0 !important;
+}
+
+/* ── STAT CARDS ALWAYS WHITE ── */
+.stat {
+  background: #FFFFFF !important;
+  color: #1A0E00 !important;
+}
+.sl {color: #8A6840 !important}
+.sv {color: #1A0E00 !important}
+
+/* ── CARDS ALWAYS WHITE ── */
+.card {
+  background: #FFFFFF !important;
+  color: #1A0E00 !important;
+}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  background: rgba(255,252,248,.96) !important;
+}
+.bottom-nav-item > span:last-child {color: #8A6840 !important}
+.bottom-nav-item.active > span:last-child {color: #3D2000 !important}
+
+/* ── INPUT TEXT ── */
+input, textarea {
+  color: #1A0E00 !important;
+  background: #FDFAF5 !important;
+}
+input::placeholder, textarea::placeholder {color: #B89878 !important}
+
+/* ── LABELS ── */
+.lbl, label.lbl {color: #4A3020 !important}
+
+/* ── SHDR SECTION TITLES ── */
+.shdr {color: #8A6840 !important}
+
+/* ── CTITLE ── */
+.ctitle {color: #6B3A10 !important}
+.ctitle::before {background: var(--gold) !important}
+
+/* ── LIST ITEMS ── */
+.fr, .txr, .srow {color: #1A0E00 !important}
+.fr span, .txr div, .srow span {color: #1A0E00 !important}
+
+/* ── DARK MODE OVERRIDES ── */
+[data-theme=dark] .stat {background: #1C1000 !important; color: #FFF4E0 !important}
+[data-theme=dark] .card {background: #1C1000 !important; color: #FFF4E0 !important}
+[data-theme=dark] .sl {color: #9A7040 !important}
+[data-theme=dark] .sv {color: #FFF4E0 !important}
+[data-theme=dark] select {background: #1C1000 !important; color: #FFF4E0 !important}
+[data-theme=dark] select option {background: #1C1000 !important; color: #FFF4E0 !important}
+[data-theme=dark] input, [data-theme=dark] textarea {color: #FFF4E0 !important; background: #1C1000 !important}
+[data-theme=dark] .bottom-nav {background: rgba(28,16,0,.96) !important}
+[data-theme=dark] .bottom-nav-item > span:last-child {color: #9A7040 !important}
+[data-theme=dark] .bottom-nav-item.active > span:last-child {color: #E8B830 !important}
+
 </style>
 </head>
 <body>
