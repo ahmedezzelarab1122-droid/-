@@ -688,7 +688,9 @@ function showApp(){
   document.getElementById('lview').style.display='none';
   document.getElementById('aview').style.display='block';
   document.getElementById('tbname').textContent=CU.name;
+  const roleIcons={manager:'⚙️',owner:'👑',supervisor:'👷'};
   document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
+  document.getElementById('tbname').innerHTML=`${roleIcons[ROLE]||'👤'} ${CU?.name||''}`;
   const items=ROLE==='manager'
     ?[['dash','🏠 الرئيسية'],['txns','📄 المعاملات'],['reports','📊 التقارير'],['setup','⚙️ الإعداد'],['pws','🔑 كلمات المرور'],['transfer','💸 التحويلات'],['labor-mgr','👷 العمالة']]
     :ROLE==='owner'
@@ -743,7 +745,7 @@ function rDash(){
       <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534">${fmt(pt)} ﷼</div></div>
       <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b)">${fmt(tx)} ﷼</div></div>
     </div>
-    <div class="shdr">حالة المشرفين</div>
+    <div class="shdr">👥 حالة المشرفين</div>
     ${DB.supervisors.map((s,i)=>{
       const sp=gs(s.id),rem=getBalance(s.id),pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
       const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
@@ -769,7 +771,7 @@ function rDash(){
   <button onclick="exportSupPDF(${s.id})" style="margin-top:8px;width:100%;padding:9px;background:#FFF0EE;color:#D93025;border:1px solid #F5C0BC;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px">📄 تصدير تقرير PDF</button>
 </div>`;
     }).join('')}
-    <div class="shdr" style="margin-top:4px">آخر المعاملات</div>
+    <div class="shdr" style="margin-top:4px">📋 آخر المعاملات</div>
     <div class="card">${DB.entries.slice(-5).reverse().map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:var(--text3);margin-top:1px">${gn(e.supId)} · ${e.project}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:2px">${fmt(e.total)} ﷼</div></div></div>`).join('')||'<div class="empty">لا توجد معاملات بعد</div>'}</div>`;
 }
 
