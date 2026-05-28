@@ -481,6 +481,7 @@ function rReports(){
       return`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px"><span>${l}</span><span style="font-weight:600;color:${c}">${fmt(v)} ﷼ (${pc}%)</span></div><div class="pbar"><div class="pf" style="width:${pc}%;background:${c}"></div></div></div>`;
     }).join('')}</div>
     ${rLaborReport()}`;
+  renderCharts('mc', DB.entries, DB.supervisors);
 }
 
 // ── SETUP ──────────────────────────
@@ -794,7 +795,7 @@ async function saveEntry(){
     document.getElementById('sldg').style.display='none';
     document.getElementById('sdone').style.display='block';
     document.getElementById('dsum').innerHTML=`${parsed.desc} · ${project}<br><strong style="color:var(--gold)">${fmt(parsed.total)} ﷼</strong>`;
-    if(ROLE==='supervisor')rHome();else rDash();
+    if(ROLE==='supervisor'){rHome();setTimeout(()=>renderCharts('mc',DB.entries.filter(e=>e.supId==CU.id),null),200);}else rDash();
   }catch(e){
     document.getElementById('sldg').style.display='none';
     document.getElementById('ss2').style.display='block';
@@ -1422,45 +1423,7 @@ function rOwnerDash(){
       </div>`;
     }).join('')}`;
 
-  // Init charts after DOM update
-  setTimeout(()=>{
-    // Projects chart
-    const projCtx = document.getElementById('proj-chart');
-    if(projCtx && sortedProj.length){
-      new Chart(projCtx, {
-        type: 'bar',
-        data: {
-          labels: sortedProj.map(([p])=>p),
-          datasets: [{
-            label: 'الصرف ﷼',
-            data: sortedProj.map(([,d])=>d.total),
-            backgroundColor: ['#3d1f00','#c9a84c','#5b8c5a','#1d4ed8','#dc2626','#9333ea','#0891b2'].slice(0,sortedProj.length),
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true, indexAxis: 'y',
-          plugins: { legend: { display: false } },
-          scales: { x: { ticks: { callback: v => fmt(v)+' ﷼' } } }
-        }
-      });
-    }
-    // Type chart
-    const typeCtx = document.getElementById('type-chart');
-    if(typeCtx){
-      new Chart(typeCtx, {
-        type: 'doughnut',
-        data: {
-          labels: ['ضريبية','نثرية'],
-          datasets: [{ data: [tTax, tPetty], backgroundColor: ['#1d4ed8','#166534'], borderWidth: 0 }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { position: 'bottom', labels: { font: { family: 'Segoe UI' } } } }
-        }
-      });
-    }
-  }, 100);
+  renderCharts('mc', DB.entries, DB.supervisors);
 }
 
 function rOwnerSup(){
@@ -1621,6 +1584,98 @@ function rOwnerInv(){
         </div>
       </div>`).join('')}
     </div>`}`;
+}
+
+
+// ── CHARTS ─────────────────────────────
+function renderCharts(containerId, entries, supervisors){
+  const mc = document.getElementById(containerId||'mc');
+  if(!mc) return;
+  
+  // Calculate data
+  const validE = entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add');
+  const tTax = validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tPetty = validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  
+  const pm={};
+  validE.forEach(e=>{
+    if(!pm[e.project])pm[e.project]=0;
+    pm[e.project]+=(e.total||0);
+  });
+  const sortedProj=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  
+  // Create charts container
+  const chartsDiv = document.createElement('div');
+  chartsDiv.id='charts-section';
+  chartsDiv.innerHTML=`
+    <div class="shdr">الرسوم البيانية</div>
+    <div class="card" style="padding:13px">
+      <div class="ctitle">توزيع الصرف على المشاريع</div>
+      <canvas id="chart-proj-${containerId}" style="max-height:220px"></canvas>
+    </div>
+    <div class="card" style="padding:13px">
+      <div class="ctitle">نثرية مقابل ضريبية</div>
+      <canvas id="chart-type-${containerId}" style="max-height:200px"></canvas>
+    </div>
+    ${supervisors?`<div class="card" style="padding:13px">
+      <div class="ctitle">صرف كل مشرف</div>
+      <canvas id="chart-sup-${containerId}" style="max-height:220px"></canvas>
+    </div>`:''}
+  `;
+  mc.appendChild(chartsDiv);
+  
+  const COLORS=['#3d1f00','#c9a84c','#1d4ed8','#166534','#dc2626','#9333ea','#0891b2','#d97706'];
+  
+  // Projects bar chart
+  setTimeout(()=>{
+    const projCtx=document.getElementById('chart-proj-'+containerId);
+    if(projCtx&&sortedProj.length){
+      new Chart(projCtx,{
+        type:'bar',
+        data:{
+          labels:sortedProj.map(([p])=>p),
+          datasets:[{label:'الصرف ﷼',data:sortedProj.map(([,v])=>v),backgroundColor:COLORS.slice(0,sortedProj.length),borderRadius:6}]
+        },
+        options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>fmt(v)+'﷼'}}}}
+      });
+    }
+    
+    // Type doughnut
+    const typeCtx=document.getElementById('chart-type-'+containerId);
+    if(typeCtx&&(tTax+tPetty)>0){
+      new Chart(typeCtx,{
+        type:'doughnut',
+        data:{
+          labels:[`ضريبية: ${fmt(tTax)} ﷼`,`نثرية: ${fmt(tPetty)} ﷼`],
+          datasets:[{data:[tTax,tPetty],backgroundColor:['#1d4ed8','#166534'],borderWidth:0}]
+        },
+        options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{family:'Segoe UI',size:11}}}}}
+      });
+    }
+    
+    // Supervisors bar chart
+    if(supervisors){
+      const supCtx=document.getElementById('chart-sup-'+containerId);
+      if(supCtx){
+        const supData=supervisors.map(s=>({
+          name:s.name,
+          spent:entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0),
+          budget:s.budget
+        }));
+        new Chart(supCtx,{
+          type:'bar',
+          data:{
+            labels:supData.map(s=>s.name),
+            datasets:[
+              {label:'الصرف',data:supData.map(s=>s.spent),backgroundColor:'#dc2626',borderRadius:4},
+              {label:'المتبقي',data:supData.map(s=>Math.max(0,s.budget-s.spent)),backgroundColor:'#c9a84c',borderRadius:4}
+            ]
+          },
+          options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmt(v)}}}}
+        });
+      }
+    }
+  },150);
 }
 
 // SERVICE WORKER
