@@ -802,7 +802,25 @@ function rDash(){
       const sp=gs(s.id),rem=getBalance(s.id),pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
       const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
       const warn=pct>80?`<div style="background:#FFF0EE;color:#D93025;border-radius:8px;padding:8px 10px;margin-top:6px;font-size:12px;font-weight:600;border-right:3px solid #D93025">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
-      return`<div class="sc"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><div class="av" style="background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-weight:600;font-size:13px">${s.name}</div><div style="font-size:10px;color:var(--text3)">${DB.entries.filter(e=>e.supId==s.id).length} معاملة · ميزانية ${fmt(s.budget)}</div></div></div><div style="text-align:left"><div style="font-size:10px;color:var(--text3)">صرف: ${fmt(sp)}</div><div style="font-size:14px;font-weight:700;color:${rem<500?'var(--r)':'var(--gold)'}">${fmt(rem)} ﷼</div></div></div><div class="pbar"><div class="pf" style="width:${pct}%;background:${pc}"></div></div>${warn}</div>`;
+      return`<div style="background:#FFFFFF;border:1px solid #E8DDD0;border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(61,32,0,.08)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:${gc(i)}22;color:${gc(i)};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${s.name[0]}</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:#2D1800">${s.name}</div>
+        <div style="font-size:11px;color:#8A6040;margin-top:2px">${DB.entries.filter(e=>e.supId==s.id).length} معاملة · ميزانية ${fmt(s.budget)} ﷼</div>
+      </div>
+    </div>
+    <div style="text-align:left">
+      <div style="font-size:11px;color:#8A6040">صرف: ${fmt(sp)} ﷼</div>
+      <div style="font-size:16px;font-weight:800;color:${rem<0?'#D93025':rem<500?'#D97706':'#1A7A3C'}">${fmt(rem)} ﷼</div>
+    </div>
+  </div>
+  <div style="height:6px;background:#F0E8DC;border-radius:99px;overflow:hidden">
+    <div style="width:${pct}%;height:100%;border-radius:99px;background:${pc}"></div>
+  </div>
+  ${warn}
+</div>`;
     }).join('')}
     <div class="shdr" style="margin-top:4px">آخر المعاملات</div>
     <div class="card">${DB.entries.slice(-5).reverse().map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:var(--text3);margin-top:1px">${gn(e.supId)} · ${e.project}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:2px">${fmt(e.total)} ﷼</div></div></div>`).join('')||'<div class="empty">لا توجد معاملات بعد</div>'}</div>`;
