@@ -282,10 +282,7 @@ textarea{resize:none;min-height:70px}
       </div>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
-      <button class="btn bp" style="width:auto;padding:6px 11px;font-size:12px" onclick="openScan()">
-        <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        رفع فاتورة
-      </button>
+      
       <button id="ibtn" onclick="installApp()" style="display:none;border:1px solid rgba(201,168,76,0.5);border-radius:7px;padding:5px 9px;background:rgba(255,255,255,0.15);font-size:11px;color:#e8c87a;cursor:pointer;font-family:inherit">تثبيت</button>
       <button onclick="toggleTheme()" id="tbtn" style="border:1px solid rgba(201,168,76,0.4);border-radius:7px;padding:5px 8px;background:rgba(255,255,255,0.1);cursor:pointer;font-size:15px;line-height:1">🌙</button>
       <button onclick="doLogout()" style="border:1px solid rgba(201,168,76,0.4);border-radius:7px;padding:5px 9px;background:rgba(255,255,255,0.1);font-size:11px;color:#e8c87a;cursor:pointer;font-family:inherit">خروج</button>
@@ -499,7 +496,7 @@ function showApp(){
   const fabBtn = document.getElementById('fab-btn');
   const bottomNav = document.getElementById('bottom-nav');
   
-  fabBtn.style.display = 'flex';
+  if(ROLE !== 'owner') fabBtn.style.display = 'flex';
   bottomNav.style.display = 'flex';
   
   bottomNav.innerHTML = items.map(([id,lbl],i)=>{
@@ -1431,7 +1428,55 @@ function rLaborMgr(){
   const rates = DB.laborRates || {company:100, external:150};
   const workers = DB.companyWorkers || [];
   const laborEntries = DB.entries.filter(e=>e.type==='labor').slice().reverse();
+  
+  // Monthly grouping
+  const months = {};
+  laborEntries.forEach(e=>{
+    const m = e.date ? e.date.substring(0,7) : 'unknown';
+    if(!months[m]) months[m]={month:m, company:0, external:0, cost:0, days:new Set()};
+    months[m].company += (e.laborDetails?.companyCount||0);
+    months[m].external += (e.laborDetails?.externalCount||0);
+    months[m].cost += (e.laborDetails?.laborTotal||0);
+    if(e.date) months[m].days.add(e.date);
+  });
+  const monthList = Object.values(months).sort((a,b)=>b.month.localeCompare(a.month));
   document.getElementById('mc').innerHTML=`
+    ${monthList.length ? `
+    <div class="shdr">📅 ملخص شهري للعمالة</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;background:var(--primary);color:var(--gold-light);padding:10px 14px;font-size:11px;font-weight:700">
+        <span>الشهر</span>
+        <span style="text-align:center">شركة</span>
+        <span style="text-align:center">خارجي</span>
+        <span style="text-align:left">التكلفة</span>
+      </div>
+      ${monthList.map((m,i)=>`
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid var(--outline2);background:${i%2===0?'#fff':'var(--surface2)'}">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--text1)">${m.month}</div>
+            <div style="font-size:10px;color:var(--text3)">${m.days.size} يوم تسجيل</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:900;color:var(--primary)">${m.company}</div>
+            <div style="font-size:9px;color:var(--text3)">يوم عمل</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:900;color:var(--blue)">${m.external}</div>
+            <div style="font-size:9px;color:var(--text3)">يوم عمل</div>
+          </div>
+          <div style="text-align:left">
+            <div style="font-size:13px;font-weight:700;color:var(--red)">${fmt(m.cost)}</div>
+            <div style="font-size:9px;color:var(--text3)">﷼</div>
+          </div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:10px 14px;background:var(--gold-pale);font-weight:700">
+        <span style="color:var(--primary);font-size:12px">الإجمالي</span>
+        <span style="text-align:center;color:var(--primary)">${monthList.reduce((a,m)=>a+m.company,0)} يوم</span>
+        <span style="text-align:center;color:var(--blue)">${monthList.reduce((a,m)=>a+m.external,0)} يوم</span>
+        <span style="text-align:left;color:var(--red)">${fmt(monthList.reduce((a,m)=>a+m.cost,0))} ﷼</span>
+      </div>
+    </div>` : ''}
+
     <div class="card">
       <div class="ctitle">أسعار العمالة اليومية</div>
       <div class="fg2">
