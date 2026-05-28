@@ -1199,11 +1199,18 @@ async function runAI(){
 
 function setInvoiceType(type){
   parsed.type = type;
-  // Update UI
-  document.getElementById('type-petty').style.border = type==='petty' ? '2px solid #166534' : '2px solid var(--n3)';
-  document.getElementById('type-petty').style.background = type==='petty' ? '#dcfce7' : '#fff';
-  document.getElementById('type-tax').style.border = type==='tax' ? '2px solid var(--b)' : '2px solid var(--n3)';
-  document.getElementById('type-tax').style.background = type==='tax' ? 'var(--bl)' : '#fff';
+  const pettyBtn = document.getElementById('type-petty');
+  const taxBtn = document.getElementById('type-tax');
+  if(pettyBtn){
+    pettyBtn.style.border = type==='petty' ? '3px solid #1A7A3C' : '2px solid #E8DDD0';
+    pettyBtn.style.background = type==='petty' ? '#EDFAF3' : '#FFFFFF';
+    pettyBtn.style.boxShadow = type==='petty' ? '0 0 0 3px rgba(26,122,60,.15)' : 'none';
+  }
+  if(taxBtn){
+    taxBtn.style.border = type==='tax' ? '3px solid #1A50A8' : '2px solid #E8DDD0';
+    taxBtn.style.background = type==='tax' ? '#EEF3FF' : '#FFFFFF';
+    taxBtn.style.boxShadow = type==='tax' ? '0 0 0 3px rgba(26,80,168,.15)' : 'none';
+  }
   // Update type badge in rfields
   const tb_el = document.getElementById('rfields');
   if(tb_el) {
