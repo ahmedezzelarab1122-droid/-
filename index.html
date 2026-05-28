@@ -1428,6 +1428,9 @@ function rLaborMgr(){
   const rates = DB.laborRates || {company:100, external:150};
   const workers = DB.companyWorkers || [];
   const laborEntries = DB.entries.filter(e=>e.type==='labor').slice().reverse();
+  const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const totalComp=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
+  const totalExt=laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
   
   // Monthly grouping
   const months = {};
