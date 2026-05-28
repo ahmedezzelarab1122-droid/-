@@ -2189,8 +2189,9 @@ function exportPDF(){
   const rFrom = window._reportFrom||'';
   const rTo = window._reportTo||'';
   const validE = DB.entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add'&&(!rFrom||e.date>=rFrom)&&(!rTo||e.date<=rTo));
-  const laborFrom = window._laborFrom||'';
-  const laborTo = window._laborTo||'';
+  // Use same report date filter for labor
+  const laborFrom = rFrom;
+  const laborTo = rTo;
   const tSpent = validE.reduce((a,e)=>a+(e.total||0),0);
   const tTax = validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
   const tPetty = validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
@@ -2208,8 +2209,17 @@ function exportPDF(){
   const laborE=DB.entries.filter(e=>e.type==='labor'&&(!laborFrom||e.date>=laborFrom)&&(!laborTo||e.date<=laborTo));
   const extW={};compW={};
   laborE.forEach(e=>{
-    if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{const k=w.name+'||'+w.jobTitle;if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0};extW[k].days++;extW[k].total+=exRate;});
-    if(e.laborDetails?.presentWorkers)e.laborDetails.presentWorkers.forEach(w=>{if(!compW[w.name])compW[w.name]={name:w.name,days:0};compW[w.name].days++;});
+    if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{
+      const k=w.name+'||'+w.jobTitle;
+      if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[]};
+      extW[k].days++;extW[k].total+=exRate;
+      if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+    });
+    if(e.laborDetails?.presentWorkers)e.laborDetails.presentWorkers.forEach(w=>{
+      if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[]};
+      compW[w.name].days++;
+      if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+    });
   });
   const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
   const compList=Object.values(compW).sort((a,b)=>b.days-a.days);
@@ -2238,7 +2248,7 @@ function exportPDF(){
 <div class="header">
   <div>
     <h1>تقرير شركة كيان وبناء للمقاولات</h1>
-    <div class="date">تاريخ التقرير: ${now}</div>
+    <div class="date">تاريخ التقرير: ${now}${rFrom||rTo?' | الفترة: '+(rFrom||'البداية')+' → '+(rTo||'الآن'):''}</div>
   </div>
 </div>
 
@@ -2269,9 +2279,9 @@ function exportPDF(){
   <tr class="total-row"><td>الإجمالي</td><td>${fmt(tSpent)} ﷼</td><td>${fmt(tTax)} ﷼</td><td>${fmt(tPetty)} ﷼</td><td>${fmt(tVat)} ﷼</td></tr>
 </table>
 
-${extList.length?'<h2>👷 العمال الخارجيون</h2><table><tr><th>الاسم</th><th>الصفة</th><th>عدد الأيام</th><th>الإجمالي</th></tr>'+extList.map(w=>'<tr><td>'+w.name+'</td><td>'+w.jobTitle+'</td><td style="font-weight:700;color:#1A50A8">'+w.days+' يوم</td><td style="font-weight:700;color:#D93025">'+fmt(w.total)+' ﷼</td></tr>').join('')+'<tr class="total-row"><td>الإجمالي</td><td></td><td>'+extList.reduce((a,w)=>a+w.days,0)+' يوم</td><td>'+fmt(extList.reduce((a,w)=>a+w.total,0))+' ﷼</td></tr></table>':''}
+${extList.length?'<h2>👷 العمال الخارجيون</h2><table><tr><th>الاسم</th><th>الصفة</th><th>عدد الأيام</th><th>الإجمالي</th></tr>'+extList.map(w=>'<tr><td>'+w.name+'</td><td>'+w.jobTitle+'</td><td style="font-weight:700;color:#1A50A8">'+w.days+' يوم</td><td style="font-size:10px;color:#555">'+(w.dates||[]).sort().join(' · ')+'</td><td style="font-weight:700;color:#D93025">'+fmt(w.total)+' ﷼</td></tr>').join('')+'<tr class="total-row"><td>الإجمالي</td><td></td><td>'+extList.reduce((a,w)=>a+w.days,0)+' يوم</td><td>'+fmt(extList.reduce((a,w)=>a+w.total,0))+' ﷼</td></tr></table>':''}
 
-${compList.length?'<h2>🏢 عمال الشركة</h2><table><tr><th>الاسم</th><th>عدد أيام الحضور</th></tr>'+compList.map(w=>'<tr><td>'+w.name+'</td><td style="font-weight:700;color:#1A7A3C">'+w.days+' يوم</td></tr>').join('')+'</table>':''}
+${compList.length?'<h2>🏢 عمال الشركة</h2><table><tr><th>الاسم</th><th>عدد أيام الحضور</th></tr>'+compList.map(w=>'<tr><td>'+w.name+'</td><td style="font-weight:700;color:#1A7A3C">'+w.days+' يوم</td><td style="font-size:10px;color:#555">'+(w.dates||[]).sort().join(' · ')+'</td></tr>').join('')+'</table>':''}
 
 </body></html>`;
 
