@@ -47,7 +47,7 @@ async function loadDB() {
     const cfg = await db.collection('config').findOne({ _id: 'main' });
     const entries = await db.collection('entries').find({}).toArray();
     return {
-      supervisors: cfg.supervisors || [],
+      supervisors: (cfg.supervisors || []).map(s=>({...s, budget: s.budget||0})),
       projects: cfg.projects || [],
       managerPassword: cfg.managerPassword || 'admin123',
       nextId: cfg.nextId || 1,
