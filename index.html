@@ -1329,6 +1329,102 @@ function openImage(url){
   document.body.appendChild(overlay);
 }
 
+
+// ── SHARED LABOR TABLE ──────────────────
+function buildLaborTable(laborEntries){
+  const externalRate = (DB.laborRates||{}).external||150;
+  const companyRate = (DB.laborRates||{}).company||100;
+
+  const extW={};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList){
+      e.laborDetails.externalWorkersList.forEach(w=>{
+        const k=w.name+'__'+w.jobTitle;
+        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
+        extW[k].days++;
+        extW[k].total+=externalRate;
+        if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+        if(e.project)extW[k].projects.add(e.project);
+      });
+    }
+  });
+
+  const compW={};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!compW[w.name])compW[w.name]={name:w.name,days:0,total:0,dates:[],projects:new Set()};
+        compW[w.name].days++;
+        compW[w.name].total+=companyRate;
+        if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+        if(e.project)compW[w.name].projects.add(e.project);
+      });
+    }
+  });
+
+  const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList=Object.values(compW).sort((a,b)=>b.days-a.days);
+  const totalExt=extList.reduce((a,w)=>a+w.days,0);
+  const totalComp=compList.reduce((a,w)=>a+w.days,0);
+
+  return `
+    ${extList.length?`
+    <div class="shdr">👷 العمال الخارجيون — إجمالي الأيام</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:var(--primary);color:var(--gold-light);padding:10px 14px;font-size:11px;font-weight:700">
+        <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span>
+      </div>
+      ${extList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid var(--outline2);background:${i%2===0?'#fff':'var(--surface2)'}">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text1)">${w.name}</div>
+            <div style="font-size:10px;color:var(--text3)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">${w.dates.sort().join(' · ')}</div>
+          </div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:var(--blue)">${w.days}<div style="font-size:9px;font-weight:400;color:var(--text3)">يوم</div></div>
+          <div style="text-align:center;font-size:13px;font-weight:700;color:var(--red)">${fmt(w.total)}<div style="font-size:9px;font-weight:400;color:var(--text3)">﷼</div></div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:var(--gold-pale);font-weight:700">
+        <span style="color:var(--primary)">الإجمالي</span>
+        <span style="text-align:center;color:var(--blue);font-size:15px">${totalExt} يوم</span>
+        <span style="text-align:center;color:var(--red)">${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</span>
+      </div>
+    </div>` : ''}
+
+    ${compList.length?`
+    <div class="shdr" style="margin-top:8px">🏢 عمال الشركة — إجمالي الأيام</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:2fr 1fr;background:var(--primary);color:var(--gold-light);padding:10px 14px;font-size:11px;font-weight:700">
+        <span>اسم العامل</span><span style="text-align:center">إجمالي الأيام</span>
+      </div>
+      ${compList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr;padding:10px 14px;border-bottom:1px solid var(--outline2);background:${i%2===0?'#fff':'var(--surface2)'}">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text1)">${w.name}</div>
+            <div style="font-size:10px;color:var(--text3)">${[...w.projects].join('،')}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">${w.dates.sort().join(' · ')}</div>
+          </div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:var(--primary)">${w.days}<div style="font-size:9px;font-weight:400;color:var(--text3)">يوم</div></div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr;padding:10px 14px;background:var(--gold-pale);font-weight:700">
+        <span style="color:var(--primary)">الإجمالي</span>
+        <span style="text-align:center;color:var(--primary);font-size:15px">${totalComp} يوم</span>
+      </div>
+    </div>` : ''}
+
+    <div class="shdr" style="margin-top:8px">📅 السجل اليومي</div>
+    ${laborEntries.map(e=>`
+      <div class="card" style="padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <div style="font-weight:800;color:var(--primary)">${e.date}</div>
+          <div style="font-size:12px;color:var(--red);font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:5px">${gn(e.supId)} · ${e.project}</div>
+        ${e.laborDetails?.presentWorkers?.length?`<div style="background:var(--gold-pale);border-radius:7px;padding:6px 10px;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:var(--primary)">🏢 (${e.laborDetails.companyCount}): </span><span style="font-size:11px;color:var(--text2)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</span></div>`:''}
+        ${e.laborDetails?.externalWorkersList?.length?`<div style="background:var(--blue-bg);border-radius:7px;padding:6px 10px"><span style="font-size:11px;font-weight:700;color:var(--blue)">👷 (${e.laborDetails.externalCount}): </span><span style="font-size:11px;color:var(--text2)">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</span></div>`:''}
+      </div>`).join('')}`;
+}
+
 // ── LABOR MANAGER ──────────────────────
 function rLaborMgr(){
   const rates = DB.laborRates || {company:100, external:150};
@@ -1636,286 +1732,18 @@ function rOwnerProj(){
 }
 
 function rOwnerLabor(){
-  const laborEntries = DB.entries.filter(e=>e.type==='labor').slice().reverse();
-  const externalRate = (DB.laborRates||{}).external||150;
-  const companyRate = (DB.laborRates||{}).company||100;
-
-  // ── تجميع العمال الخارجيين ──
-  const extW={};
-  laborEntries.forEach(e=>{
-    if(e.laborDetails?.externalWorkersList){
-      e.laborDetails.externalWorkersList.forEach(w=>{
-        const k=w.name+'__'+w.jobTitle;
-        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
-        extW[k].days++;
-        extW[k].total+=externalRate;
-        if(e.date)extW[k].dates.push(e.date);
-        if(e.project)extW[k].projects.add(e.project);
-      });
-    }
-  });
-
-  // ── تجميع عمال الشركة ──
-  const compW={};
-  laborEntries.forEach(e=>{
-    if(e.laborDetails?.presentWorkers){
-      e.laborDetails.presentWorkers.forEach(w=>{
-        if(!compW[w.name])compW[w.name]={name:w.name,days:0,total:0,dates:[],projects:new Set()};
-        compW[w.name].days++;
-        compW[w.name].total+=companyRate;
-        if(e.date)compW[w.name].dates.push(e.date);
-        if(e.project)compW[w.name].projects.add(e.project);
-      });
-    }
-  });
-
-  const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
-  const compList=Object.values(compW).sort((a,b)=>b.days-a.days);
-  const totalExt=extList.reduce((a,w)=>a+w.days,0);
-  const totalComp=compList.reduce((a,w)=>a+w.days,0);
+  const laborEntries=DB.entries.filter(e=>e.type==='labor').slice().reverse();
   const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const totalComp=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
+  const totalExt=laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
 
   document.getElementById('mc').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div class="stat"><div class="sl">إجمالي أيام الشركة</div><div class="sv" style="color:var(--primary)">${totalComp} يوم</div></div>
-      <div class="stat"><div class="sl">إجمالي أيام الخارجيين</div><div class="sv" style="color:var(--blue)">${totalExt} يوم</div></div>
+      <div class="stat"><div class="sl">أيام الشركة</div><div class="sv" style="color:var(--primary)">${totalComp} يوم</div></div>
+      <div class="stat"><div class="sl">أيام الخارجيين</div><div class="sv" style="color:var(--blue)">${totalExt} يوم</div></div>
       <div class="stat"><div class="sl">إجمالي التكلفة</div><div class="sv" style="color:var(--red)">${fmt(totalCost)} ﷼</div></div>
       <div class="stat"><div class="sl">أيام تسجيل</div><div class="sv">${laborEntries.length}</div></div>
     </div>
-
-    <div class="shdr">👷 العمال الخارجيون — إجمالي الأيام</div>
-    ${extList.length===0
-      ?'<div class="empty">لا يوجد عمال خارجيون مسجلون</div>'
-      :`<div class="card" style="padding:0;overflow:hidden">
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;background:var(--primary);color:var(--gold-light);padding:10px 14px;font-size:11px;font-weight:700">
-          <span>الاسم / الصفة</span>
-          <span style="text-align:center">الأيام</span>
-          <span style="text-align:center">الإجمالي</span>
-          <span style="text-align:center">المشروع</span>
-        </div>
-        ${extList.map((w,i)=>`
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid var(--outline2);background:${i%2===0?'#fff':'var(--surface2)'}">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--text1)">${w.name}</div>
-              <div style="font-size:11px;color:var(--text3)">${w.jobTitle}</div>
-            </div>
-            <div style="text-align:center">
-              <div style="font-size:18px;font-weight:900;color:var(--blue)">${w.days}</div>
-              <div style="font-size:9px;color:var(--text3)">يوم</div>
-            </div>
-            <div style="text-align:center">
-              <div style="font-size:13px;font-weight:700;color:var(--red)">${fmt(w.total)}</div>
-              <div style="font-size:9px;color:var(--text3)">﷼</div>
-            </div>
-            <div style="text-align:center;font-size:10px;color:var(--text3)">${[...w.projects].join('،')}</div>
-          </div>
-          <div style="padding:4px 14px 8px;background:${i%2===0?'#fff':'var(--surface2)'}">
-            <div style="font-size:10px;color:var(--text3)">${w.dates.sort().join(' · ')}</div>
-          </div>`).join('')}
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;background:var(--gold-pale);font-weight:700">
-          <span style="color:var(--primary)">الإجمالي</span>
-          <span style="text-align:center;color:var(--blue);font-size:16px">${totalExt} يوم</span>
-          <span style="text-align:center;color:var(--red)">${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</span>
-          <span></span>
-        </div>
-      </div>`}
-
-    ${compList.length?`
-    <div class="shdr" style="margin-top:10px">🏢 عمال الشركة — إجمالي الأيام</div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:var(--primary);color:var(--gold-light);padding:10px 14px;font-size:11px;font-weight:700">
-        <span>اسم العامل</span>
-        <span style="text-align:center">إجمالي الأيام</span>
-        <span style="text-align:center">المشاريع</span>
-      </div>
-      ${compList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;border-bottom:1px solid var(--outline2);background:${i%2===0?'#fff':'var(--surface2)'}">
-          <div style="font-size:13px;font-weight:700;color:var(--text1)">${w.name}</div>
-          <div style="text-align:center">
-            <div style="font-size:20px;font-weight:900;color:var(--primary)">${w.days}</div>
-            <div style="font-size:9px;color:var(--text3)">يوم</div>
-          </div>
-          <div style="text-align:center;font-size:10px;color:var(--text3)">${[...w.projects].join('،')}</div>
-        </div>
-        <div style="padding:3px 14px 7px;background:${i%2===0?'#fff':'var(--surface2)'}">
-          <div style="font-size:10px;color:var(--text3)">${w.dates.sort().join(' · ')}</div>
-        </div>`).join('')}
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:var(--gold-pale);font-weight:700">
-        <span style="color:var(--primary)">الإجمالي</span>
-        <span style="text-align:center;color:var(--primary);font-size:16px">${totalComp} يوم</span>
-        <span></span>
-      </div>
-    </div>` : ''}
-
-    <div class="shdr" style="margin-top:10px">📅 السجل اليومي</div>
-    ${laborEntries.map(e=>`
-      <div class="card" style="padding:12px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <div style="font-weight:800;color:var(--primary);font-size:14px">${e.date}</div>
-          <div style="font-size:12px;color:var(--red);font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">${gn(e.supId)} · ${e.project}</div>
-        ${e.laborDetails?.presentWorkers?.length?`
-          <div style="background:var(--surface2);border-radius:8px;padding:7px 10px;margin-bottom:5px">
-            <span style="font-size:11px;font-weight:700;color:var(--primary)">🏢 شركة (${e.laborDetails.companyCount}): </span>
-            <span style="font-size:11px;color:var(--text2)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</span>
-          </div>`:''}
-        ${e.laborDetails?.externalWorkersList?.length?`
-          <div style="background:var(--blue-bg);border-radius:8px;padding:7px 10px">
-            <span style="font-size:11px;font-weight:700;color:var(--blue)">👷 خارجي (${e.laborDetails.externalCount}): </span>
-            <span style="font-size:11px;color:var(--text2)">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</span>
-          </div>`:''}
-      </div>`).join('')}`;
+    ${buildLaborTable(laborEntries)}`;
 }
-
-function rOwnerInv(){
-  const withImg=DB.entries.filter(e=>e.imageUrl).slice().reverse();
-  document.getElementById('mc').innerHTML=`
-    <div style="margin-bottom:10px;font-size:12px;color:var(--text3)">${withImg.length} فاتورة مع صورة</div>
-    ${withImg.length===0?'<div class="empty">لا توجد صور فواتير بعد</div>':`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${withImg.map(e=>`<div style="background:#fff;border:1px solid var(--outline2);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-        <div style="position:relative;padding-top:70%;overflow:hidden;background:var(--surface2)">
-          ${e.isPdf
-            ?`<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fee2e2;cursor:pointer" onclick="window.open('${e.imageUrl}','_blank')"><div style="font-size:35px">📄</div><div style="font-size:10px;color:#dc2626">PDF</div></div>`
-            :`<img src="${e.imageUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="openImage('${e.imageUrl}')">`}
-        </div>
-        <div style="padding:7px 9px">
-          <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.desc}</div>
-          <div style="font-size:10px;color:var(--text3)">${gn(e.supId)} · ${e.date}</div>
-          <div style="font-size:11px;font-weight:700;color:var(--r)">${fmt(e.total)} ﷼</div>
-          <a href="${e.imageUrl}" target="_blank" style="display:block;text-align:center;margin-top:5px;font-size:11px;color:var(--primary);border:1px solid var(--outline2);border-radius:5px;padding:3px 0;text-decoration:none">عرض / تحميل</a>
-        </div>
-      </div>`).join('')}
-    </div>`}`;
-}
-
-
-// ── CHARTS ─────────────────────────────
-function initCharts(prefix, entries, supervisors){
-  const COLORS=['#3d1f00','#c9a84c','#1d4ed8','#166534','#dc2626','#9333ea','#0891b2','#d97706'];
-  const validE=entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add');
-  const tTax=validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
-  const tPetty=validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
-  const pm={};
-  validE.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
-  const sortedProj=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,8);
-
-  setTimeout(()=>{
-    const projCtx=document.getElementById('ch-proj-'+prefix);
-    if(projCtx&&sortedProj.length){
-      new Chart(projCtx,{type:'bar',data:{labels:sortedProj.map(([p])=>p),datasets:[{label:'﷼',data:sortedProj.map(([,v])=>v),backgroundColor:COLORS.slice(0,sortedProj.length),borderRadius:5}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>fmt(v)}}}}});
-    }
-    const typeCtx=document.getElementById('ch-type-'+prefix);
-    if(typeCtx&&(tTax+tPetty)>0){
-      new Chart(typeCtx,{type:'doughnut',data:{labels:['ضريبية '+fmt(tTax)+' ﷼','نثرية '+fmt(tPetty)+' ﷼'],datasets:[{data:[tTax,tPetty],backgroundColor:['#1d4ed8','#166534'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}});
-    }
-    if(supervisors){
-      const supCtx=document.getElementById('ch-sup-'+prefix);
-      if(supCtx){
-        const sd=supervisors.map(s=>({name:s.name,spent:entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0),budget:s.budget}));
-        new Chart(supCtx,{type:'bar',data:{labels:sd.map(s=>s.name),datasets:[{label:'صرف',data:sd.map(s=>s.spent),backgroundColor:'#dc2626',borderRadius:4},{label:'متبقي',data:sd.map(s=>Math.max(0,s.budget-s.spent)),backgroundColor:'#c9a84c',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmt(v)}}}}});
-      }
-    }
-  },200);
-}
-
-function renderCharts(containerId, entries, supervisors){
-  const mc = document.getElementById(containerId||'mc');
-  if(!mc) return;
-  
-  // Calculate data
-  const validE = entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add');
-  const tTax = validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
-  const tPetty = validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
-  
-  const pm={};
-  validE.forEach(e=>{
-    if(!pm[e.project])pm[e.project]=0;
-    pm[e.project]+=(e.total||0);
-  });
-  const sortedProj=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  
-  // Create charts container
-  const chartsDiv = document.createElement('div');
-  chartsDiv.id='charts-section';
-  chartsDiv.innerHTML=`
-    <div class="shdr">الرسوم البيانية</div>
-    <div class="card" style="padding:13px">
-      <div class="ctitle">توزيع الصرف على المشاريع</div>
-      <canvas id="chart-proj-${containerId}" style="max-height:220px"></canvas>
-    </div>
-    <div class="card" style="padding:13px">
-      <div class="ctitle">نثرية مقابل ضريبية</div>
-      <canvas id="chart-type-${containerId}" style="max-height:200px"></canvas>
-    </div>
-    ${supervisors?`<div class="card" style="padding:13px">
-      <div class="ctitle">صرف كل مشرف</div>
-      <canvas id="chart-sup-${containerId}" style="max-height:220px"></canvas>
-    </div>`:''}
-  `;
-  mc.appendChild(chartsDiv);
-  
-  const COLORS=['#3d1f00','#c9a84c','#1d4ed8','#166534','#dc2626','#9333ea','#0891b2','#d97706'];
-  
-  // Projects bar chart
-  setTimeout(()=>{
-    const projCtx=document.getElementById('chart-proj-'+containerId);
-    if(projCtx&&sortedProj.length){
-      new Chart(projCtx,{
-        type:'bar',
-        data:{
-          labels:sortedProj.map(([p])=>p),
-          datasets:[{label:'الصرف ﷼',data:sortedProj.map(([,v])=>v),backgroundColor:COLORS.slice(0,sortedProj.length),borderRadius:6}]
-        },
-        options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>fmt(v)+'﷼'}}}}
-      });
-    }
-    
-    // Type doughnut
-    const typeCtx=document.getElementById('chart-type-'+containerId);
-    if(typeCtx&&(tTax+tPetty)>0){
-      new Chart(typeCtx,{
-        type:'doughnut',
-        data:{
-          labels:[`ضريبية: ${fmt(tTax)} ﷼`,`نثرية: ${fmt(tPetty)} ﷼`],
-          datasets:[{data:[tTax,tPetty],backgroundColor:['#1d4ed8','#166534'],borderWidth:0}]
-        },
-        options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{family:'Segoe UI',size:11}}}}}
-      });
-    }
-    
-    // Supervisors bar chart
-    if(supervisors){
-      const supCtx=document.getElementById('chart-sup-'+containerId);
-      if(supCtx){
-        const supData=supervisors.map(s=>({
-          name:s.name,
-          spent:entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0),
-          budget:s.budget
-        }));
-        new Chart(supCtx,{
-          type:'bar',
-          data:{
-            labels:supData.map(s=>s.name),
-            datasets:[
-              {label:'الصرف',data:supData.map(s=>s.spent),backgroundColor:'#dc2626',borderRadius:4},
-              {label:'المتبقي',data:supData.map(s=>Math.max(0,s.budget-s.spent)),backgroundColor:'#c9a84c',borderRadius:4}
-            ]
-          },
-          options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmt(v)}}}}
-        });
-      }
-    }
-  },150);
-}
-
-// SERVICE WORKER
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
-
-// START
-initTheme();
-start();
-</script>
-</body>
-</html>
+>
