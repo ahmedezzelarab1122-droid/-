@@ -524,8 +524,9 @@ const server = http.createServer(async (req, res) => {
     if (companyCount + externalCount === 0) return sendJSON(res, { error: 'أدخل عمالاً للتسجيل' }, 400);
 
     // منع تكرار العامل في نفس اليوم
+    const todayDate = new Date().toISOString().split('T')[0];
     try {
-      const todayAll = data.entries.filter(e => e.type === 'labor' && e.date === today);
+      const todayAll = data.entries.filter(e => e.type === 'labor' && e.date === todayDate);
       const allCompany = [];
       const allExternal = [];
       todayAll.forEach(e => {
@@ -545,7 +546,7 @@ const server = http.createServer(async (req, res) => {
 
     
     const sup = data.supervisors.find(s => s.id == body.supId);
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDate;
     const companyNames = presentWorkers.map(w => w.name).join('، ');
     const externalNames = externalWorkersList.map(w => `${w.name} (${w.jobTitle})`).join('، ');
     const entry = {
@@ -594,7 +595,7 @@ const server = http.createServer(async (req, res) => {
     const fromSpent = data.entries.filter(e => e.supId == fromId && e.type !== 'budget_add').reduce((a, e) => a + (e.total || 0), 0);
     const fromBalance = fromSup.budget - fromSpent;
     if (amt > fromBalance) return sendJSON(res, { error: `الرصيد غير كافٍ — المتبقي: ${fromBalance.toFixed(2)} ﷼` }, 400);
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDate;
     const entry = { id: data.nextId++, supId: parseInt(fromId), supName: fromSup.name, project: 'تحويل داخلي', type: 'transfer', desc: `تحويل إلى ${toSup.name}`, supplier: '', invoiceNo: 'TRF-' + Date.now(), date: today, payMethod: 'transfer', subtotal: amt, taxRate: 0, taxAmt: 0, total: amt, items: [], transferTo: toSup.name, transferNote: note || '' };
     toSup.budget += amt;
     await addEntry(entry);
