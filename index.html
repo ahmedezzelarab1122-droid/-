@@ -145,9 +145,11 @@ label.lbl{font-size:12px;font-weight:700;color:var(--text2);display:block;margin
 input,select,textarea{
   width:100%;padding:12px 14px;border:1.5px solid var(--outline);
   border-radius:var(--r8);font-size:14px;font-family:'Tajawal',sans-serif;
-  color:var(--text1);background:var(--surface2);outline:none;direction:rtl;
+  color:var(--text1);background:var(--surface);outline:none;direction:rtl;appearance:auto;-webkit-appearance:auto;
   transition:border-color .2s,box-shadow .2s;
 }
+select option{background:var(--surface);color:var(--text1);padding:8px}
+select{color:var(--text1)!important;background:var(--surface)!important}
 input:focus,select:focus,textarea:focus{
   border-color:var(--gold);background:var(--surface);
   box-shadow:0 0 0 3px rgba(212,168,67,.18);
