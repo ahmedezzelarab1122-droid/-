@@ -310,6 +310,105 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
   backdrop-filter:blur(30px)!important;
   border-top:1px solid rgba(232,184,48,.2)!important;
 }
+
+/* ══ FORCE GLASS ON ALL DYNAMIC ELEMENTS ══ */
+
+/* All inline-created cards and wrappers */
+#mc > div, #mc .card, #mc .stat, #mc .sc,
+#mc [style*="background:#"], #mc [style*="background: #"],
+#mc [style*="background:white"], #mc [style*="background:#fff"],
+#mc [style*="background:#FFF"], #mc [style*="background:#FFFFFF"],
+#mc [style*="background:var(--s0)"], #mc [style*="background:var(--surface)"] {
+  background:rgba(255,255,255,.10) !important;
+  border-color:rgba(255,255,255,.18) !important;
+  color:#FFFFFF !important;
+  backdrop-filter:blur(14px) !important;
+  -webkit-backdrop-filter:blur(14px) !important;
+}
+
+/* All text in mc */
+#mc * { color:#FFFFFF !important }
+
+/* Exceptions - colored badges keep their colors */
+#mc .bpt { color:var(--gr) !important }
+#mc .btx { color:var(--bl) !important }
+#mc .blabor { color:var(--gr) !important }
+#mc .btransfer { color:var(--bl) !important }
+#mc .bcs { color:var(--g1) !important }
+#mc .bot { color:rgba(255,255,255,.7) !important }
+
+/* Gold accent text */
+#mc [style*="color:#C8960C"],
+#mc [style*="color:var(--gold)"],
+#mc [style*="color:#E8B830"],
+#mc [style*="color:var(--g1)"] { color:var(--g1) !important }
+
+/* Red text stays red */
+#mc [style*="color:#D93025"],
+#mc [style*="color:var(--rd)"],
+#mc [style*="color:#C42B1C"],
+#mc [style*="color:var(--r)"] { color:#FF7070 !important }
+
+/* Green text stays green */
+#mc [style*="color:#1A7A3C"],
+#mc [style*="color:#1A6B38"],
+#mc [style*="color:var(--gr)"],
+#mc [style*="color:var(--g)"] { color:#3DD68C !important }
+
+/* Blue text stays blue */
+#mc [style*="color:#1A50A8"],
+#mc [style*="color:#1549A0"],
+#mc [style*="color:var(--bl)"],
+#mc [style*="color:var(--b)"] { color:#70B5FF !important }
+
+/* Alternating row backgrounds */
+#mc [style*="background:#FBF8F3"],
+#mc [style*="background:#FFFFFF"],
+#mc [style*="background:#fff"],
+#mc [style*="background:var(--surface2)"],
+#mc [style*="background:var(--s2)"] {
+  background:rgba(255,255,255,.06) !important;
+}
+
+/* Table headers stay dark */
+#mc [style*="background:#3D2000"],
+#mc [style*="background:#5C3A1E"],
+#mc [style*="background:var(--primary)"] {
+  background:rgba(0,0,0,.4) !important;
+  border-bottom:1px solid rgba(232,184,48,.2) !important;
+}
+#mc [style*="background:#3D2000"] *,
+#mc [style*="background:#5C3A1E"] * { color:var(--g2) !important }
+
+/* Summary/total rows */
+#mc [style*="background:#FFF8E0"],
+#mc [style*="background:#FFF0C0"],
+#mc [style*="background:var(--gold-pale)"] {
+  background:rgba(232,184,48,.12) !important;
+  border-top:1px solid rgba(232,184,48,.25) !important;
+}
+
+/* Inputs inside mc */
+#mc input, #mc select, #mc textarea {
+  background:rgba(255,255,255,.08) !important;
+  border-color:rgba(255,255,255,.18) !important;
+  color:#FFFFFF !important;
+}
+
+/* Hero card text */
+.hero-card * { color:#FFFFFF !important }
+.hero-card [style*="color:#FFE8A0"] { color:var(--g2) !important }
+
+/* Scan panel */
+#ss1 *, #ss2 * { color:#FFFFFF !important }
+#ss1 input, #ss2 input, #ss1 select, #ss2 select {
+  background:rgba(255,255,255,.08) !important;
+  color:#FFFFFF !important;
+}
+
+/* Progress bars */
+.pbar { background:rgba(255,255,255,.10) !important }
+
 </style>
 </head>
 <body>
