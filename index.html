@@ -1087,7 +1087,7 @@ function rHome(){
     <div class="card" style="text-align:center;padding:16px">
       <div style="font-size:12px;color:var(--text3);margin-bottom:4px">رصيدك المتبقي</div>
       <div style="font-size:32px;font-weight:800;color:${rem<500?'var(--r)':'var(--gold)'}">${fmt(rem)} ﷼</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px">من ${fmt(CU.budget)} ﷼</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">من ${fmt(totalAdded)} ﷼</div>
       <div class="pbar" style="margin-top:10px"><div class="pf" style="width:${pct}%;background:${pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)'}"></div></div>
     </div>
     <div class="shdr">آخر معاملاتي</div>
@@ -2118,8 +2118,8 @@ function rOwnerDash(){
     <div class="shdr">أداء المشرفين</div>
     ${DB.supervisors.map((s,i)=>{
       const spent=DB.entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0);
-      const rem=s.budget-spent;
-      const pct=Math.min(100,Math.round(spent/(s.budget||1)*100));
+      const rem=getBalance(s.id);
+      const pct=Math.min(100,Math.round(spent/(getTotalAdded(s.id)||1)*100));
       return`<div class="card" style="padding:11px 13px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
           <div style="font-weight:600;font-size:13px">${s.name}</div>
@@ -2150,7 +2150,7 @@ function rOwnerSup(){
         <div style="font-size:14px;font-weight:700;color:#3D2000;margin-bottom:10px">${s.name}</div>
         <div class="sg">
           <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:var(--r);font-size:16px">${fmt(spent)} ﷼</div></div>
-          <div class="stat"><div class="sl">المتبقي</div><div class="sv" style="color:#C8960C;font-size:16px">${fmt(s.budget-spent)} ﷼</div></div>
+          <div class="stat"><div class="sl">المتبقي</div><div class="sv" style="color:#C8960C;font-size:16px">${fmt(rem2)} ﷼</div></div>
           <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b);font-size:14px">${fmt(tax)} ﷼</div></div>
           <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534;font-size:14px">${fmt(petty)} ﷼</div></div>
         </div>
