@@ -1748,6 +1748,35 @@ function rOwnerLabor(){
     ${buildLaborTable(laborEntries)}`;
 }
 
+
+// ── CHARTS ─────────────────────────────
+function initCharts(prefix, entries, supervisors){
+  const COLORS=['#5C3A1E','#D4A843','#1A56A8','#1E7D4A','#D93025','#7C3AED','#0891B2','#D97706'];
+  const validE=entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add');
+  const tTax=validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tPetty=validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const pm={};
+  validE.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
+  const sortedProj=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  setTimeout(()=>{
+    const projCtx=document.getElementById('ch-proj-'+prefix);
+    if(projCtx&&sortedProj.length&&window.Chart){
+      new Chart(projCtx,{type:'bar',data:{labels:sortedProj.map(([p])=>p),datasets:[{label:'﷼',data:sortedProj.map(([,v])=>v),backgroundColor:COLORS.slice(0,sortedProj.length),borderRadius:6}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>fmt(v)}}}}});
+    }
+    const typeCtx=document.getElementById('ch-type-'+prefix);
+    if(typeCtx&&(tTax+tPetty)>0&&window.Chart){
+      new Chart(typeCtx,{type:'doughnut',data:{labels:['ضريبية '+fmt(tTax)+' ﷼','نثرية '+fmt(tPetty)+' ﷼'],datasets:[{data:[tTax,tPetty],backgroundColor:['#1A56A8','#1E7D4A'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}});
+    }
+    if(supervisors){
+      const supCtx=document.getElementById('ch-sup-'+prefix);
+      if(supCtx&&window.Chart){
+        const sd=supervisors.map(s=>({name:s.name,spent:entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0),budget:s.budget}));
+        new Chart(supCtx,{type:'bar',data:{labels:sd.map(s=>s.name),datasets:[{label:'صرف',data:sd.map(s=>s.spent),backgroundColor:'#D93025',borderRadius:4},{label:'متبقي',data:sd.map(s=>Math.max(0,s.budget-s.spent)),backgroundColor:'#D4A843',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmt(v)}}}}});
+      }
+    }
+  },200);
+}
+
 // SERVICE WORKER
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 
