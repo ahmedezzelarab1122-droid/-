@@ -897,9 +897,9 @@ function rReports(){
       <div class="ctitle">فلترة التقارير بالتاريخ</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label class="lbl" style="font-size:11px;color:#8A6040">من تاريخ</label>
-          <input type="date" id="rep-from" value="${rFrom}" onchange="window._reportFrom=this.value;rReports()" style="font-size:12px;padding:8px 10px;color:#2D1800;background:#FBF8F3"></div>
+          <input type="date" id="rep-from" onchange="window._reportFrom=this.value;rReports()" id="rep-from" style="font-size:12px;padding:8px 10px;color:#2D1800;background:#FBF8F3"></div>
         <div><label class="lbl" style="font-size:11px;color:#8A6040">إلى تاريخ</label>
-          <input type="date" id="rep-to" value="${rTo}" onchange="window._reportTo=this.value;rReports()" style="font-size:12px;padding:8px 10px;color:#2D1800;background:#FBF8F3"></div>
+          <input type="date" id="rep-to" onchange="window._reportTo=this.value;rReports()" id="rep-to" style="font-size:12px;padding:8px 10px;color:#2D1800;background:#FBF8F3"></div>
       </div>
       ${rFrom||rTo?`<div style="margin-top:8px;font-size:11px;color:#1A7A3C;font-weight:600">📅 يعرض من ${rFrom||'البداية'} إلى ${rTo||'الآن'}</div>`:''}
     </div>
@@ -926,6 +926,12 @@ function rReports(){
     ${buildLaborSection(rFrom, rTo)}
     `;
   initCharts('rep', rEntries, DB.supervisors);
+  setTimeout(()=>{
+    const f=document.getElementById('rep-from');
+    const t=document.getElementById('rep-to');
+    if(f)f.value=rFrom;
+    if(t)t.value=rTo;
+  },50);
 }
 
 // ── SETUP ──────────────────────────
@@ -1768,14 +1774,12 @@ function rLaborMgr(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
           <label class="lbl" style="font-size:11px;color:#8A6040">من تاريخ</label>
-          <input type="date" id="mgr-labor-from" value="${mgrFrom}"
-            onchange="window._mgrLaborFrom=this.value;rLaborMgr()"
+          <input type="date" id="mgr-labor-from" onchange="window._mgrLaborFrom=this.value;rLaborMgr()" id="mgr-from-input"
             style="font-size:12px;padding:8px 10px;color:#2D1800;background:#FBF8F3">
         </div>
         <div>
           <label class="lbl" style="font-size:11px;color:#8A6040">إلى تاريخ</label>
-          <input type="date" id="mgr-labor-to" value="${mgrTo}"
-            onchange="window._mgrLaborTo=this.value;rLaborMgr()"
+          <input type="date" id="mgr-labor-to" onchange="window._mgrLaborTo=this.value;rLaborMgr()" id="mgr-to-input"
             style="font-size:12px;padding:8px 10px;color:#2D1800;background:#FBF8F3">
         </div>
       </div>
