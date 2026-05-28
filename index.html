@@ -1726,8 +1726,8 @@ function rLaborMgr(){
     <div class="card" style="padding:12px 14px;margin-bottom:12px">
       <div class="ctitle">فلترة بالتاريخ</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><label class="lbl" style="font-size:11px">من تاريخ</label><input type="date" id="mgr-labor-from" value="${window._laborFrom||''}" onchange="window._laborFrom=document.getElementById('mgr-labor-from').value;window._laborTo=document.getElementById('mgr-labor-to').value;rLaborMgr()" style="font-size:12px;padding:8px 10px"></div>
-        <div><label class="lbl" style="font-size:11px">إلى تاريخ</label><input type="date" id="mgr-labor-to" value="${window._laborTo||''}" onchange="window._laborFrom=document.getElementById('mgr-labor-from').value;window._laborTo=document.getElementById('mgr-labor-to').value;rLaborMgr()" style="font-size:12px;padding:8px 10px"></div>
+        <div><label class="lbl" style="font-size:11px">من تاريخ</label><input type="date" id="mgr-labor-from" value="${window._laborFrom||''}" onchange="window._laborFrom=this.value;rLaborMgr()" style="font-size:12px;padding:8px 10px"></div>
+        <div><label class="lbl" style="font-size:11px">إلى تاريخ</label><input type="date" id="mgr-labor-to" value="${window._laborTo||''}" onchange="window._laborFrom=this.value;rLaborMgr()" style="font-size:12px;padding:8px 10px"></div>
       </div>
     </div>
     ${monthList.length ? `
@@ -2087,11 +2087,11 @@ function rOwnerLabor(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
           <label class="lbl" style="font-size:11px">من تاريخ</label>
-          <input type="date" id="labor-from" value="${window._laborFrom||''}" onchange="window._laborFrom=document.getElementById('labor-from').value;window._laborTo=document.getElementById('labor-to').value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
+          <input type="date" id="labor-from" value="${window._laborFrom||''}" onchange="window._laborFrom=this.value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
         </div>
         <div>
           <label class="lbl" style="font-size:11px">إلى تاريخ</label>
-          <input type="date" id="labor-to" value="${window._laborTo||''}" onchange="window._laborFrom=document.getElementById('labor-from').value;window._laborTo=document.getElementById('labor-to').value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
+          <input type="date" id="labor-to" value="${window._laborTo||''}" onchange="window._laborFrom=this.value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
         </div>
       </div>
     </div>
