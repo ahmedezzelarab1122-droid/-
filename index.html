@@ -698,6 +698,11 @@ async function restoreSession(){
 
 // LOGIN
 async function start(){
+  // Reset all budgets to 0 on first load
+  if(!localStorage.getItem('budgets_reset_v2')){
+    await api('reset-budgets','POST',{}).catch(()=>{});
+    localStorage.setItem('budgets_reset_v2','1');
+  }
   try{DB=await api('/api/db');}catch(e){}
   const ok=await restoreSession().catch(()=>false);
   if(ok&&CU&&ROLE){showApp();}
@@ -820,7 +825,7 @@ function rDash(){
       <div style="width:40px;height:40px;border-radius:12px;background:${gc(i)}22;color:${gc(i)};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${s.name[0]}</div>
       <div>
         <div style="font-weight:700;font-size:14px;color:#2D1800">${s.name}</div>
-        <div style="font-size:11px;color:#8A6040;margin-top:2px">${DB.entries.filter(e=>e.supId==s.id).length} معاملة · ميزانية ${fmt(s.budget)} ﷼</div>
+        <div style="font-size:11px;color:#8A6040;margin-top:2px">${DB.entries.filter(e=>e.supId==s.id).length} معاملة</div>
       </div>
     </div>
     <div style="text-align:left">
