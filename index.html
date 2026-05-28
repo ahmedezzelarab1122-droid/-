@@ -275,13 +275,12 @@ select option {
 
 /* ── CHECKBOXES - VISIBLE ── */
 input[type="checkbox"] {
-  width: 22px !important;
-  height: 22px !important;
+  width: 24px !important;
+  height: 24px !important;
   accent-color: var(--p) !important;
-  border: 2px solid var(--line) !important;
-  border-radius: 6px !important;
   cursor: pointer;
   flex-shrink: 0;
+  border-radius: 6px !important;
 }
 
 /* ── INLINE TEXT COLORS ── */
@@ -720,7 +719,7 @@ function rfT(){
       <div style="font-size:10px;color:var(--text3);margin-top:2px">${gn(e.supId)} · ${e.project}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div>
       <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:var(--text3)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
     </div>
-    ${e.items?.length?`<div style="border-top:1px solid var(--n2);margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:var(--text2)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
+    ${e.items?.length?`<div style="border-top:1px solid #F0E8DC;margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:var(--text2)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
     ${e.imageUrl ? `<div style="margin-top:7px"><a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--primary);text-decoration:none;border:1px solid var(--outline2);border-radius:5px;padding:3px 8px">
       <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
       عرض الفاتورة
@@ -751,6 +750,9 @@ function rReports(){
       return`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px"><span>${l}</span><span style="font-weight:600;color:${c}">${fmt(v)} ﷼ (${pc}%)</span></div><div class="pbar"><div class="pf" style="width:${pc}%;background:${c}"></div></div></div>`;
     }).join('')}</div>
     ${rLaborReport()}
+    <button onclick="exportPDF()" style="width:100%;padding:14px;background:linear-gradient(135deg,#D93025,#E84C40);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;box-shadow:0 4px 14px rgba(217,48,37,.3)">
+      <span style="font-size:20px">📄</span> تصدير تقرير PDF كامل
+    </button>
     <div class="shdr">الرسوم البيانية</div>
     <div class="card" style="padding:13px"><div class="ctitle">توزيع الصرف على المشاريع</div><canvas id="ch-proj-rep" style="max-height:220px"></canvas></div>
     <div class="card" style="padding:13px"><div class="ctitle">نثرية مقابل ضريبية</div><canvas id="ch-type-rep" style="max-height:200px"></canvas></div>
@@ -1630,7 +1632,7 @@ function rLaborMgr(){
       <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${gn(e.supId)} · ${e.project}</div>
       ${e.laborDetails?.presentWorkers?.length?`<div style="background:var(--gold-pale);border-radius:6px;padding:7px 10px;margin-bottom:5px"><div style="font-size:11px;font-weight:600;color:var(--primary);margin-bottom:3px">🏢 عمال الشركة (${e.laborDetails.companyCount})</div><div style="font-size:11px;color:var(--text2)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</div></div>`:''}
       ${e.laborDetails?.externalWorkersList?.length?`<div style="background:#f0f9ff;border-radius:6px;padding:7px 10px;margin-bottom:5px"><div style="font-size:11px;font-weight:600;color:var(--b);margin-bottom:3px">👷 عمال خارجيون (${e.laborDetails.externalCount})</div><div style="font-size:11px;color:var(--text2)">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</div></div>`:''}
-      <div style="display:flex;justify-content:space-between;font-size:11px;padding-top:5px;border-top:1px solid var(--n2)">
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding-top:5px;border-top:1px solid #F0E8DC">
         <span style="color:var(--text3)">${(e.laborDetails?.companyCount||0)} شركة + ${(e.laborDetails?.externalCount||0)} خارجي</span>
         <span style="font-weight:700;color:var(--r)">${fmt(e.laborDetails?.laborTotal||0)} ﷼</span>
       </div>
@@ -1841,6 +1843,9 @@ function rOwnerDash(){
     <div class="card" style="padding:13px"><div class="ctitle">صرف كل مشروع</div><canvas id="ch-proj-owner" style="max-height:220px"></canvas></div>
     <div class="card" style="padding:13px"><div class="ctitle">نثرية مقابل ضريبية</div><canvas id="ch-type-owner" style="max-height:200px"></canvas></div>
     <div class="card" style="padding:13px"><div class="ctitle">صرف المشرفين</div><canvas id="ch-sup-owner" style="max-height:220px"></canvas></div>
+    <button onclick="exportPDF()" style="width:100%;padding:14px;background:linear-gradient(135deg,#D93025,#E84C40);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;box-shadow:0 4px 14px rgba(217,48,37,.3)">
+      <span style="font-size:20px">📄</span> تصدير تقرير PDF كامل
+    </button>
     <div class="shdr">أداء المشرفين</div>
     ${DB.supervisors.map((s,i)=>{
       const spent=DB.entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0);
@@ -1921,6 +1926,101 @@ function rOwnerLabor(){
     ${buildLaborTable(laborEntries)}`;
 }
 
+
+
+// ── PDF EXPORT ─────────────────────────
+function exportPDF(){
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const validE = DB.entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add');
+  const tSpent = validE.reduce((a,e)=>a+(e.total||0),0);
+  const tTax = validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tPetty = validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tVat = validE.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const tBudget = DB.supervisors.reduce((a,s)=>a+s.budget,0);
+  const exRate = (DB.laborRates||{}).external||150;
+  const compRate = (DB.laborRates||{}).company||100;
+
+  // Projects
+  const pm={};
+  validE.forEach(e=>{if(!pm[e.project])pm[e.project]={total:0,tax:0,petty:0,vat:0};pm[e.project].total+=(e.total||0);if(e.type==='tax')pm[e.project].tax+=(e.total||0);if(e.type==='petty')pm[e.project].petty+=(e.total||0);pm[e.project].vat+=(e.taxAmt||0);});
+  const sortedProj=Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
+
+  // Labor
+  const laborE=DB.entries.filter(e=>e.type==='labor');
+  const extW={};compW={};
+  laborE.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{const k=w.name+'__'+w.jobTitle;if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0};extW[k].days++;extW[k].total+=exRate;});
+    if(e.laborDetails?.presentWorkers)e.laborDetails.presentWorkers.forEach(w=>{if(!compW[w.name])compW[w.name]={name:w.name,days:0};compW[w.name].days++;});
+  });
+  const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList=Object.values(compW).sort((a,b)=>b.days-a.days);
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>تقرير كيان وبناء</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#1A0E00;background:#fff;padding:20px;font-size:13px}
+  h1{font-size:22px;font-weight:900;color:#3D2000;margin-bottom:4px}
+  h2{font-size:15px;font-weight:800;color:#3D2000;margin:20px 0 10px;border-bottom:2px solid #C8960C;padding-bottom:5px}
+  .date{color:#8A6840;font-size:12px;margin-bottom:20px}
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .box{background:#FBF7F2;border:1px solid #E8DDD0;border-radius:10px;padding:12px;border-top:3px solid #C8960C}
+  .box-label{font-size:10px;color:#8A6840;margin-bottom:4px}
+  .box-value{font-size:18px;font-weight:800;color:#1A0E00}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px}
+  th{background:#3D2000;color:#FFF0C0;padding:8px 10px;text-align:right;font-weight:700}
+  td{padding:8px 10px;border-bottom:1px solid #F0E8DC;color:#1A0E00}
+  tr:nth-child(even) td{background:#FDFAF5}
+  .total-row td{background:#FFF0C0;font-weight:800;color:#3D2000}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #C8960C}
+  @media print{body{padding:10px}}
+</style></head><body>
+<div class="header">
+  <div>
+    <h1>تقرير شركة كيان وبناء للمقاولات</h1>
+    <div class="date">تاريخ التقرير: ${now}</div>
+  </div>
+</div>
+
+<div class="summary">
+  <div class="box"><div class="box-label">إجمالي الصرف</div><div class="box-value">${fmt(tSpent)} ﷼</div></div>
+  <div class="box"><div class="box-label">الميزانية الكلية</div><div class="box-value">${fmt(tBudget)} ﷼</div></div>
+  <div class="box"><div class="box-label">ضريبة VAT</div><div class="box-value">${fmt(tVat)} ﷼</div></div>
+  <div class="box"><div class="box-label">المتبقي</div><div class="box-value">${fmt(tBudget-tSpent)} ﷼</div></div>
+</div>
+
+<h2>📊 تقرير المشرفين</h2>
+<table>
+  <tr><th>المشرف</th><th>الميزانية</th><th>الصرف</th><th>نثرية</th><th>ضريبية</th><th>المتبقي</th></tr>
+  ${DB.supervisors.map(s=>{
+    const sE=validE.filter(e=>e.supId==s.id);
+    const sp=sE.reduce((a,e)=>a+(e.total||0),0);
+    const tx=sE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+    const pt=sE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+    return'<tr><td>'+s.name+'</td><td>'+fmt(s.budget)+' ﷼</td><td>'+fmt(sp)+' ﷼</td><td>'+fmt(pt)+' ﷼</td><td>'+fmt(tx)+' ﷼</td><td style="font-weight:700;color:'+(s.budget-sp<500?'#D93025':'#1A7A3C')+'">'+fmt(s.budget-sp)+' ﷼</td></tr>';
+  }).join('')}
+  <tr class="total-row"><td>الإجمالي</td><td>${fmt(tBudget)} ﷼</td><td>${fmt(tSpent)} ﷼</td><td>${fmt(tPetty)} ﷼</td><td>${fmt(tTax)} ﷼</td><td>${fmt(tBudget-tSpent)} ﷼</td></tr>
+</table>
+
+<h2>🏗️ تقرير المشاريع</h2>
+<table>
+  <tr><th>المشروع</th><th>إجمالي الصرف</th><th>ضريبية</th><th>نثرية</th><th>VAT</th></tr>
+  ${sortedProj.map(([p,d])=>'<tr><td>'+p+'</td><td>'+fmt(d.total)+' ﷼</td><td>'+fmt(d.tax)+' ﷼</td><td>'+fmt(d.petty)+' ﷼</td><td>'+fmt(d.vat)+' ﷼</td></tr>').join('')}
+  <tr class="total-row"><td>الإجمالي</td><td>${fmt(tSpent)} ﷼</td><td>${fmt(tTax)} ﷼</td><td>${fmt(tPetty)} ﷼</td><td>${fmt(tVat)} ﷼</td></tr>
+</table>
+
+${extList.length?'<h2>👷 العمال الخارجيون</h2><table><tr><th>الاسم</th><th>الصفة</th><th>عدد الأيام</th><th>الإجمالي</th></tr>'+extList.map(w=>'<tr><td>'+w.name+'</td><td>'+w.jobTitle+'</td><td style="font-weight:700;color:#1A50A8">'+w.days+' يوم</td><td style="font-weight:700;color:#D93025">'+fmt(w.total)+' ﷼</td></tr>').join('')+'<tr class="total-row"><td>الإجمالي</td><td></td><td>'+extList.reduce((a,w)=>a+w.days,0)+' يوم</td><td>'+fmt(extList.reduce((a,w)=>a+w.total,0))+' ﷼</td></tr></table>':''}
+
+${compList.length?'<h2>🏢 عمال الشركة</h2><table><tr><th>الاسم</th><th>عدد أيام الحضور</th></tr>'+compList.map(w=>'<tr><td>'+w.name+'</td><td style="font-weight:700;color:#1A7A3C">'+w.days+' يوم</td></tr>').join('')+'</table>':''}
+
+</body></html>`;
+
+  const win = window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),800);
+}
 
 // ── CHARTS ─────────────────────────────
 function initCharts(prefix, entries, supervisors){
