@@ -592,10 +592,13 @@ const server = http.createServer(async (req, res) => {
     if (fromId == toId) return sendJSON(res, { error: 'لا يمكن التحويل لنفس المشرف' }, 400);
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) return sendJSON(res, { error: 'المبلغ غير صحيح' }, 400);
-    const fromSpent = data.entries.filter(e => e.supId == fromId && e.type !== 'budget_add').reduce((a, e) => a + (e.total || 0), 0);
-    const fromBalance = fromSup.budget - fromSpent;
+    const fromAdded = (fromSup.budget||0) + data.entries.filter(e=>e.supId==fromId&&e.type==='budget_add').reduce((a,e)=>a+(e.amount||e.total||0),0);
+    const fromInvoices = data.entries.filter(e=>e.supId==fromId&&(e.type==='petty'||e.type==='tax')).reduce((a,e)=>a+(e.total||0),0);
+    const fromOut = data.entries.filter(e=>e.supId==fromId&&e.type==='transfer'&&e.direction==='out').reduce((a,e)=>a+(e.total||0),0);
+    const fromIn = data.entries.filter(e=>e.supId==fromId&&e.type==='transfer'&&e.direction==='in').reduce((a,e)=>a+(e.total||0),0);
+    const fromBalance = fromAdded - fromInvoices - fromOut + fromIn;
     if (amt > fromBalance) return sendJSON(res, { error: `الرصيد غير كافٍ — المتبقي: ${fromBalance.toFixed(2)} ﷼` }, 400);
-    const today = todayDate;
+    const today = new Date().toISOString().split('T')[0];
     const trf = 'TRF-' + Date.now();
     // OUT entry for sender
     const entryOut = { id: data.nextId++, supId: parseInt(fromId), supName: fromSup.name, project: 'تحويل داخلي', type: 'transfer', direction: 'out', desc: `تحويل إلى ${toSup.name}`, supplier: '', invoiceNo: trf, date: today, payMethod: 'transfer', subtotal: amt, taxRate: 0, taxAmt: 0, total: amt, items: [], transferTo: toSup.name, transferNote: note || '' };
