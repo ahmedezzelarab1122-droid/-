@@ -649,13 +649,13 @@ const getTotalAdded=id=>{
   return (sup?sup.budget:0)+added;
 };
 
-// Transfers out (this supervisor sent to others)
-const getTransfersOut=id=>DB.entries.filter(e=>e.supId==id&&e.type==='transfer'&&e.direction==='out').reduce((a,e)=>a+(e.total||0),0);
+// Transfers out (sent to others) - old entries without direction treated as out
+const getTransfersOut=id=>DB.entries.filter(e=>e.supId==id&&e.type==='transfer'&&(e.direction==='out'||(!e.direction&&e.transferTo))).reduce((a,e)=>a+(e.total||0),0);
 
-// Transfers in (this supervisor received from others)
+// Transfers in (received from others)
 const getTransfersIn=id=>DB.entries.filter(e=>e.supId==id&&e.type==='transfer'&&e.direction==='in').reduce((a,e)=>a+(e.total||0),0);
 
-// Correct balance
+// Correct balance = added - invoices - sent + received
 const getBalance=id=>getTotalAdded(id)-gs(id)-getTransfersOut(id)+getTransfersIn(id);
 const gn=id=>DB.supervisors.find(s=>s.id==id)?.name||'—';
 const gc=i=>COLORS[i%COLORS.length];
@@ -2441,6 +2441,110 @@ function buildLaborSection(fromDate, toDate){
         <span style="text-align:center;color:#3D2000">${totalComp} يوم</span>
       </div>
     </div>`:''} `;
+}
+
+
+// ── PDF PER SUPERVISOR ─────────────────
+function exportSupPDF(supId){
+  const sup = DB.supervisors.find(s=>s.id==supId);
+  if(!sup) return;
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const entries = DB.entries.filter(e=>e.supId==supId);
+  const invoices = entries.filter(e=>e.type==='petty'||e.type==='tax');
+  const totalAdded = getTotalAdded(supId);
+  const totalSpent = gs(supId);
+  const transfersOut = getTransfersOut(supId);
+  const transfersIn = getTransfersIn(supId);
+  const balance = getBalance(supId);
+  const vat = invoices.reduce((a,e)=>a+(e.taxAmt||0),0);
+
+  // Labor
+  const laborE = entries.filter(e=>e.type==='labor');
+  const extW={}, compW={};
+  const exRate=(DB.laborRates||{}).external||150;
+  const compRate=(DB.laborRates||{}).company||100;
+  laborE.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{
+      const k=w.name+'||'+w.jobTitle;
+      if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[]};
+      extW[k].days++;extW[k].total+=exRate;
+      if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+    });
+    if(e.laborDetails?.presentWorkers)e.laborDetails.presentWorkers.forEach(w=>{
+      if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[]};
+      compW[w.name].days++;
+      if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+    });
+  });
+  const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList=Object.values(compW).sort((a,b)=>b.days-a.days);
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>تقرير ${sup.name}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#1A0E00;background:#fff;padding:20px;font-size:13px}
+  h1{font-size:20px;font-weight:900;color:#3D2000}
+  h2{font-size:14px;font-weight:800;color:#3D2000;margin:16px 0 8px;border-bottom:2px solid #C8960C;padding-bottom:4px}
+  .sub{color:#8A6040;font-size:12px;margin:4px 0 16px}
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .box{background:#FBF7F2;border:1px solid #E8DDD0;border-radius:8px;padding:10px;border-top:3px solid #C8960C}
+  .box-label{font-size:10px;color:#8A6040;margin-bottom:3px}
+  .box-value{font-size:16px;font-weight:800;color:#1A0E00}
+  table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px}
+  th{background:#3D2000;color:#FFF0C0;padding:7px 10px;text-align:right;font-weight:700}
+  td{padding:7px 10px;border-bottom:1px solid #F0E8DC;color:#1A0E00}
+  tr:nth-child(even) td{background:#FDFAF5}
+  .total-row td{background:#FFF0C0;font-weight:800;color:#3D2000}
+  .red{color:#D93025;font-weight:700}
+  .green{color:#1A7A3C;font-weight:700}
+  .blue{color:#1A50A8;font-weight:700}
+  @media print{body{padding:10px}}
+</style></head><body>
+<h1>تقرير المشرف: ${sup.name}</h1>
+<div class="sub">تاريخ التقرير: ${now}</div>
+
+<div class="summary">
+  <div class="box"><div class="box-label">إجمالي المُضاف</div><div class="box-value green">${fmt(totalAdded)} ﷼</div></div>
+  <div class="box"><div class="box-label">إجمالي الصرف</div><div class="box-value red">${fmt(totalSpent)} ﷼</div></div>
+  <div class="box"><div class="box-label">الرصيد المتبقي</div><div class="box-value" style="color:${balance<0?'#D93025':'#1A7A3C'}">${fmt(balance)} ﷼</div></div>
+  <div class="box"><div class="box-label">ضريبية</div><div class="box-value blue">${fmt(invoices.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0))} ﷼</div></div>
+  <div class="box"><div class="box-label">نثرية</div><div class="box-value">${fmt(invoices.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0))} ﷼</div></div>
+  <div class="box"><div class="box-label">ضريبة VAT</div><div class="box-value red">${fmt(vat)} ﷼</div></div>
+</div>
+
+${transfersOut>0||transfersIn>0?`
+<h2>💸 التحويلات</h2>
+<table><tr><th>النوع</th><th>الوصف</th><th>المبلغ</th><th>التاريخ</th></tr>
+${entries.filter(e=>e.type==='transfer').map(e=>`<tr><td>${e.direction==='in'?'✅ وارد':'⬆️ صادر'}</td><td>${e.desc}</td><td class="${e.direction==='in'?'green':'red'}">${fmt(e.total)} ﷼</td><td>${e.date}</td></tr>`).join('')}
+</table>`:''}
+
+<h2>📄 الفواتير التفصيلية</h2>
+${invoices.length?`<table>
+<tr><th>التاريخ</th><th>الوصف</th><th>المورد</th><th>النوع</th><th>المبلغ</th><th>VAT</th><th>الإجمالي</th></tr>
+${invoices.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr><td>${e.date}</td><td>${e.desc}</td><td>${e.supplier||'-'}</td><td>${e.type==='tax'?'ضريبية':'نثرية'}</td><td>${fmt(e.subtotal||0)} ﷼</td><td>${fmt(e.taxAmt||0)} ﷼</td><td class="red">${fmt(e.total)} ﷼</td></tr>`).join('')}
+<tr class="total-row"><td colspan="4">الإجمالي</td><td>${fmt(invoices.reduce((a,e)=>a+(e.subtotal||0),0))} ﷼</td><td>${fmt(vat)} ﷼</td><td>${fmt(totalSpent)} ﷼</td></tr>
+</table>`:'<p style="color:#8A6040">لا توجد فواتير</p>'}
+
+${extList.length?`
+<h2>👷 العمال الخارجيون</h2>
+<table><tr><th>الاسم</th><th>الصفة</th><th>الأيام</th><th>التواريخ</th><th>الإجمالي</th></tr>
+${extList.map(w=>`<tr><td>${w.name}</td><td>${w.jobTitle}</td><td class="blue">${w.days} يوم</td><td style="font-size:11px">${w.dates.sort().join(' · ')}</td><td class="red">${fmt(w.total)} ﷼</td></tr>`).join('')}
+</table>`:''}
+
+${compList.length?`
+<h2>🏢 عمال الشركة</h2>
+<table><tr><th>الاسم</th><th>الأيام</th><th>التواريخ</th></tr>
+${compList.map(w=>`<tr><td>${w.name}</td><td class="green">${w.days} يوم</td><td style="font-size:11px">${w.dates.sort().join(' · ')}</td></tr>`).join('')}
+</table>`:''}
+
+</body></html>`;
+
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),800);
 }
 
 // SERVICE WORKER
