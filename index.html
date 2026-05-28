@@ -796,7 +796,7 @@ function rDash(){
     ${DB.supervisors.map((s,i)=>{
       const sp=gs(s.id),rem=s.budget-sp,pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
       const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
-      const warn=pct>80?`<div class="warn" style="font-size:12px;padding:7px 10px;margin-top:6px">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
+      const warn=pct>80?`<div style="background:#FFF0EE;color:#D93025;border-radius:8px;padding:8px 10px;margin-top:6px;font-size:12px;font-weight:600;border-right:3px solid #D93025">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
       return`<div class="sc"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><div class="av" style="background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-weight:600;font-size:13px">${s.name}</div><div style="font-size:10px;color:var(--text3)">${DB.entries.filter(e=>e.supId==s.id).length} معاملة · ميزانية ${fmt(s.budget)}</div></div></div><div style="text-align:left"><div style="font-size:10px;color:var(--text3)">صرف: ${fmt(sp)}</div><div style="font-size:14px;font-weight:700;color:${rem<500?'var(--r)':'var(--gold)'}">${fmt(rem)} ﷼</div></div></div><div class="pbar"><div class="pf" style="width:${pct}%;background:${pc}"></div></div>${warn}</div>`;
     }).join('')}
     <div class="shdr" style="margin-top:4px">آخر المعاملات</div>
@@ -861,15 +861,28 @@ async function delE(id){if(!confirm('حذف؟'))return;await api('/api/entries/'
 
 // ── REPORTS ────────────────────────
 function rReports(){
-  const taxT=DB.entries.reduce((a,e)=>a+(e.taxAmt||0),0);
-  const ptT=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
-  const txT=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const rFrom = window._reportFrom||'';
+  const rTo = window._reportTo||'';
+  const rEntries = rFrom||rTo ? DB.entries.filter(e=>(!rFrom||e.date>=rFrom)&&(!rTo||e.date<=rTo)) : DB.entries;
+  const taxT=rEntries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const ptT=rEntries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const txT=rEntries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
   const tot=ptT+txT||1;
   const pm={};DB.entries.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
   document.getElementById('mc').innerHTML=`
-    <div class="card"><div class="ctitle">تقرير المشرفين</div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#FFFFFF">
+      <div class="ctitle">فلترة التقارير بالتاريخ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="lbl" style="font-size:11px;color:#8A6040">من تاريخ</label>
+          <input type="date" id="rep-from" value="${rFrom}" onchange="window._reportFrom=this.value;rReports()" style="font-size:12px;padding:8px 10px;color:#2D1800;background:#FBF8F3"></div>
+        <div><label class="lbl" style="font-size:11px;color:#8A6040">إلى تاريخ</label>
+          <input type="date" id="rep-to" value="${rTo}" onchange="window._reportTo=this.value;rReports()" style="font-size:12px;padding:8px 10px;color:#2D1800;background:#FBF8F3"></div>
+      </div>
+      ${rFrom||rTo?`<div style="margin-top:8px;font-size:11px;color:#1A7A3C;font-weight:600">📅 يعرض من ${rFrom||'البداية'} إلى ${rTo||'الآن'}</div>`:''}
+    </div>
+    <div class="card" style="background:#FFFFFF"><div class="ctitle">تقرير المشرفين</div>
     ${DB.supervisors.map((s,i)=>{
-      const sp=gs(s.id),p=DB.entries.filter(e=>e.supId==s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),t=DB.entries.filter(e=>e.supId==s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),tx=DB.entries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
+      const sp=gs(s.id),p=DB.entries.filter(e=>e.supId==s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),t=rEntries.filter(e=>e.supId==s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),tx=rEntries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
       return`<div class="txr"><div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${gc(i)};display:inline-block"></span>${s.name}</div><div style="font-size:10px;color:var(--text3);margin-top:1px">نثرية:${fmt(p)} · ضريبية:${fmt(t)} · ضريبة:${fmt(tx)}</div></div><div style="text-align:left"><div style="font-size:13px;font-weight:700;color:var(--r)">${fmt(sp)} ﷼</div><div style="font-size:10px;color:#C8960C">متبقي:${fmt(s.budget-sp)}</div></div></div>`;
     }).join('')}</div>
     <div class="card"><div class="ctitle">تقرير المشاريع</div>${DB.projects.map(p=>`<div class="txr"><span style="font-size:13px">${p}</span><span style="font-weight:700;color:var(--r)">${fmt(pm[p]||0)} ﷼</span></div>`).join('')}</div>
