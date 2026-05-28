@@ -8,6 +8,7 @@
 <link rel="manifest" href="/manifest.json">
 <title>مصروفات كيان</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 if(window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
@@ -1420,6 +1421,46 @@ function rOwnerDash(){
         <div class="pbar"><div class="pf" style="width:${pct}%;background:${pct>85?'var(--r)':pct>65?'var(--a)':'var(--gold)'}"></div></div>
       </div>`;
     }).join('')}`;
+
+  // Init charts after DOM update
+  setTimeout(()=>{
+    // Projects chart
+    const projCtx = document.getElementById('proj-chart');
+    if(projCtx && sortedProj.length){
+      new Chart(projCtx, {
+        type: 'bar',
+        data: {
+          labels: sortedProj.map(([p])=>p),
+          datasets: [{
+            label: 'الصرف ﷼',
+            data: sortedProj.map(([,d])=>d.total),
+            backgroundColor: ['#3d1f00','#c9a84c','#5b8c5a','#1d4ed8','#dc2626','#9333ea','#0891b2'].slice(0,sortedProj.length),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true, indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { callback: v => fmt(v)+' ﷼' } } }
+        }
+      });
+    }
+    // Type chart
+    const typeCtx = document.getElementById('type-chart');
+    if(typeCtx){
+      new Chart(typeCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['ضريبية','نثرية'],
+          datasets: [{ data: [tTax, tPetty], backgroundColor: ['#1d4ed8','#166534'], borderWidth: 0 }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom', labels: { font: { family: 'Segoe UI' } } } }
+        }
+      });
+    }
+  }, 100);
 }
 
 function rOwnerSup(){
