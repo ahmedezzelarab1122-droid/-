@@ -523,21 +523,24 @@ const server = http.createServer(async (req, res) => {
     
     if (companyCount + externalCount === 0) return sendJSON(res, { error: 'أدخل عمالاً للتسجيل' }, 400);
 
-    // منع تكرار العامل في نفس اليوم من أي مشرف
-    const todayAll = data.entries.filter(e => e.type === 'labor' && e.date === today);
-    
-    const allCompany = [];
-    const allExternal = [];
-    todayAll.forEach(e => {
-      if(e.laborDetails?.presentWorkers) e.laborDetails.presentWorkers.forEach(w => allCompany.push(w.name));
-      if(e.laborDetails?.externalWorkersList) e.laborDetails.externalWorkersList.forEach(w => allExternal.push(w.name));
-    });
-    
-    const dupC = presentWorkers.filter(w => allCompany.includes(w.name));
-    if(dupC.length > 0) return sendJSON(res, { error: `⚠️ هؤلاء العمال مسجلون اليوم مسبقاً: ${dupC.map(w=>w.name).join('، ')}` });
-    
-    const dupE = externalWorkersList.filter(w => allExternal.includes(w.name));
-    if(dupE.length > 0) return sendJSON(res, { error: `⚠️ هؤلاء العمال مسجلون اليوم مسبقاً: ${dupE.map(w=>w.name).join('، ')}` });
+    // منع تكرار العامل في نفس اليوم
+    try {
+      const todayAll = data.entries.filter(e => e.type === 'labor' && e.date === today);
+      const allCompany = [];
+      const allExternal = [];
+      todayAll.forEach(e => {
+        if(e.laborDetails && e.laborDetails.presentWorkers) e.laborDetails.presentWorkers.forEach(w => allCompany.push(w.name));
+        if(e.laborDetails && e.laborDetails.externalWorkersList) e.laborDetails.externalWorkersList.forEach(w => allExternal.push(w.name));
+      });
+      if(presentWorkers && presentWorkers.length > 0) {
+        const dupC = presentWorkers.filter(w => allCompany.includes(w.name));
+        if(dupC.length > 0) return sendJSON(res, { error: '⚠️ هؤلاء العمال مسجلون اليوم: ' + dupC.map(w=>w.name).join('، ') });
+      }
+      if(externalWorkersList && externalWorkersList.length > 0) {
+        const dupE = externalWorkersList.filter(w => allExternal.includes(w.name));
+        if(dupE.length > 0) return sendJSON(res, { error: '⚠️ هؤلاء العمال مسجلون اليوم: ' + dupE.map(w=>w.name).join('، ') });
+      }
+    } catch(dupErr) { console.error('Dup check error:', dupErr.message); }
     
 
     
