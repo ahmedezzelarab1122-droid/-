@@ -868,7 +868,7 @@ function rReports(){
   const ptT=rEntries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
   const txT=rEntries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
   const tot=ptT+txT||1;
-  const pm={};DB.entries.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
+  const pm={};rEntries.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
   document.getElementById('mc').innerHTML=`
     <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#FFFFFF">
       <div class="ctitle">فلترة التقارير بالتاريخ</div>
@@ -882,7 +882,7 @@ function rReports(){
     </div>
     <div class="card" style="background:#FFFFFF"><div class="ctitle">تقرير المشرفين</div>
     ${DB.supervisors.map((s,i)=>{
-      const sp=gs(s.id),p=DB.entries.filter(e=>e.supId==s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),t=rEntries.filter(e=>e.supId==s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),tx=rEntries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
+      const sp=gs(s.id),p=rEntries.filter(e=>e.supId==s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),t=rEntries.filter(e=>e.supId==s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),tx=rEntries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
       return`<div class="txr"><div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${gc(i)};display:inline-block"></span>${s.name}</div><div style="font-size:10px;color:var(--text3);margin-top:1px">نثرية:${fmt(p)} · ضريبية:${fmt(t)} · ضريبة:${fmt(tx)}</div></div><div style="text-align:left"><div style="font-size:13px;font-weight:700;color:var(--r)">${fmt(sp)} ﷼</div><div style="font-size:10px;color:#C8960C">متبقي:${fmt(s.budget-sp)}</div></div></div>`;
     }).join('')}</div>
     <div class="card"><div class="ctitle">تقرير المشاريع</div>${DB.projects.map(p=>`<div class="txr"><span style="font-size:13px">${p}</span><span style="font-weight:700;color:var(--r)">${fmt(pm[p]||0)} ﷼</span></div>`).join('')}</div>
@@ -901,7 +901,7 @@ function rReports(){
     <div class="card" style="padding:13px"><div class="ctitle">نثرية مقابل ضريبية</div><canvas id="ch-type-rep" style="max-height:200px"></canvas></div>
     <div class="card" style="padding:13px"><div class="ctitle">صرف المشرفين</div><canvas id="ch-sup-rep" style="max-height:220px"></canvas></div>
     `;
-  initCharts('rep', DB.entries, DB.supervisors);
+  initCharts('rep', rEntries, DB.supervisors);
 }
 
 // ── SETUP ──────────────────────────
