@@ -311,213 +311,147 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
   border-top:1px solid rgba(0,200,232,.2)!important;
 }
 
-/* ══ FORCE GLASS EVERYWHERE ══ */
 
-/* Base: everything in mc is glass */
-#mc,#mc * {
-  --local-bg: rgba(255,255,255,.10);
+/* ═══════════════════════════════════════
+   GLASS DESIGN - CLEAN OVERRIDE
+═══════════════════════════════════════ */
+
+/* Step 1: Remove ALL backgrounds and borders from everything */
+#mc *, #swrap *, .bottom-nav-item {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
-/* All block containers get glass */
-#mc div[style],
-#mc > div,
-#mc .card,
-#mc .stat,
-#mc .sc,
-#mc .chip,
-#mc .txr,
-#mc .srow {
-  background:rgba(255,255,255,.08) !important;
-  border:1px solid rgba(255,255,255,.12) !important;
-  backdrop-filter:blur(12px) !important;
-  -webkit-backdrop-filter:blur(12px) !important;
-  color:#FFFFFF !important;
+/* Step 2: Give glass to direct children of mc only */
+#mc > div {
+  background: rgba(255,255,255,.10) !important;
+  border: 1px solid rgba(255,255,255,.15) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-radius: 18px !important;
+  margin-bottom: 10px !important;
 }
 
-/* Stat cards get cyan top border */
+/* Step 3: Stats grid items */
 #mc .stat {
-  border-top:2px solid #00C8E8 !important;
+  background: rgba(255,255,255,.10) !important;
+  border: 1px solid rgba(255,255,255,.15) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-top: 2px solid #00C8E8 !important;
+  border-radius: 14px !important;
 }
 
-/* Nested divs inside cards - slightly more transparent */
-#mc .card > div,
-#mc .card div[style*="background"] {
-  background:rgba(255,255,255,.06) !important;
-  border-color:rgba(255,255,255,.10) !important;
+/* Step 4: ALL text white */
+#mc *, #swrap * {
+  color: #FFFFFF !important;
 }
 
-/* ALL text white */
-#mc,#mc *:not(canvas) {
-  color:#FFFFFF !important;
+/* Step 5: Semantic colors for numbers only */
+#mc [style*="color:#FF8080"],
+#mc [style*="color:#D93025"],
+#mc [style*="color:#C42B1C"],
+#mc [style*="color:var(--r)"],
+#mc [style*="color:var(--rd)"] { color: #FF8080 !important }
+
+#mc [style*="color:#3DD68C"],
+#mc [style*="color:#1A7A3C"],
+#mc [style*="color:#1A6B38"],
+#mc [style*="color:var(--gr)"],
+#mc [style*="color:var(--green)"] { color: #3DD68C !important }
+
+#mc [style*="color:#70B5FF"],
+#mc [style*="color:#1A50A8"],
+#mc [style*="color:var(--bl)"],
+#mc [style*="color:var(--b)"] { color: #70B5FF !important }
+
+#mc [style*="color:#00C8E8"],
+#mc [style*="color:var(--g1)"],
+#mc [style*="color:#C8960C"],
+#mc [style*="color:#E8B830"] { color: #00C8E8 !important }
+
+#mc [style*="color:#FFB347"],
+#mc [style*="color:#D97706"] { color: #FFB347 !important }
+
+/* Step 6: Badges */
+.bpt { background: rgba(61,214,140,.18) !important; color: #3DD68C !important; border-radius: 99px !important }
+.btx { background: rgba(112,181,255,.18) !important; color: #70B5FF !important; border-radius: 99px !important }
+.blabor { background: rgba(61,214,140,.18) !important; color: #3DD68C !important; border-radius: 99px !important }
+.btransfer { background: rgba(112,181,255,.18) !important; color: #70B5FF !important; border-radius: 99px !important }
+.bot { background: rgba(255,255,255,.12) !important; color: rgba(255,255,255,.7) !important; border-radius: 99px !important }
+.bcs { background: rgba(0,200,232,.18) !important; color: #00C8E8 !important; border-radius: 99px !important }
+.bpt *,.btx *,.blabor *,.btransfer *,.bot *,.bcs * { color: inherit !important }
+
+/* Step 7: Buttons */
+.btn.bp { background: linear-gradient(135deg,#40D8F8,#00C8E8) !important; color: #001820 !important; border: none !important; border-radius: 12px !important }
+.btn.bp * { color: #001820 !important }
+.btn.bs { background: rgba(255,255,255,.12) !important; border: 1px solid rgba(255,255,255,.2) !important; color: #FFFFFF !important }
+.btn.bx { background: linear-gradient(135deg,#1A9950,#2ABF65) !important; color: #fff !important; border: none !important }
+.btn.bd { background: rgba(255,100,100,.15) !important; color: #FF8080 !important; border: 1px solid rgba(255,100,100,.25) !important }
+
+/* Step 8: Progress bars */
+.pbar { background: rgba(255,255,255,.12) !important; border-radius: 99px !important }
+.pf { background: inherit !important }
+
+/* Step 9: Inputs */
+input:not([type=checkbox]), select, textarea {
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: #FFFFFF !important;
+  border-radius: 11px !important;
+}
+input:focus, select:focus, textarea:focus {
+  background: rgba(255,255,255,.13) !important;
+  border-color: #00C8E8 !important;
+  box-shadow: 0 0 0 3px rgba(0,200,232,.15) !important;
+}
+input::placeholder, textarea::placeholder { color: rgba(255,255,255,.35) !important }
+select option { background: #001820 !important; color: #FFFFFF !important }
+
+/* Step 10: Hero card */
+.hero-card {
+  background: linear-gradient(145deg,rgba(0,50,80,.65),rgba(0,35,60,.75)) !important;
+  border: 1px solid rgba(0,200,232,.25) !important;
+  backdrop-filter: blur(20px) !important;
+  border-radius: 22px !important;
 }
 
-/* Colored exceptions - must come AFTER the white rule */
-#mc .bpt { background:rgba(61,214,140,.15)!important; color:#3DD68C!important }
-#mc .btx { background:rgba(112,181,255,.15)!important; color:#70B5FF!important }
-#mc .blabor { background:rgba(61,214,140,.15)!important; color:#3DD68C!important }
-#mc .btransfer { background:rgba(112,181,255,.15)!important; color:#70B5FF!important }
-#mc .bot { background:rgba(255,255,255,.10)!important; color:rgba(255,255,255,.7)!important }
-#mc .bcs { background:rgba(0,200,232,.15)!important; color:#00C8E8!important }
+/* Step 11: Bottom nav */
+.bottom-nav { background: rgba(0,15,30,.6) !important; border-top: 1px solid rgba(255,255,255,.10) !important }
+.bottom-nav-item > span:last-child { color: rgba(255,255,255,.45) !important }
+.bottom-nav-item.active > span:last-child { color: #00C8E8 !important }
+.bottom-nav-item.active .bnav-icon { background: rgba(0,200,232,.15) !important; border: 1px solid rgba(0,200,232,.25) !important }
 
-/* Red */
-#mc [style*="color:#D93025"],#mc [style*="color:#C42B1C"],
-#mc [style*="color:#FF7070"],#mc [style*="color:var(--rd"],
-#mc [style*="color:var(--r)"],#mc [style*="color:var(--red"] {
-  color:#FF8080 !important
-}
-/* Green */
-#mc [style*="color:#1A7A3C"],#mc [style*="color:#1A6B38"],
-#mc [style*="color:#3DD68C"],#mc [style*="color:var(--gr"],
-#mc [style*="color:var(--green"] {
-  color:#3DD68C !important
-}
-/* Blue */
-#mc [style*="color:#1A50A8"],#mc [style*="color:#70B5FF"],
-#mc [style*="color:var(--bl"],#mc [style*="color:var(--blue"] {
-  color:#70B5FF !important
-}
-/* Cyan */
-#mc [style*="color:#00C8E8"],#mc [style*="color:var(--g1"] {
-  color:#00C8E8 !important
-}
+/* Step 12: Topbar */
+.topbar { background: rgba(0,15,30,.65) !important; border-bottom: 1px solid rgba(0,200,232,.2) !important }
 
-/* Table headers */
+/* Step 13: Table headers dark glass */
 #mc [style*="background:#3D"],
-#mc [style*="background:#5C3A"] {
-  background:rgba(0,0,0,.45) !important;
-  border-bottom:1px solid rgba(0,200,232,.2) !important;
+#mc [style*="background:#5C3"] {
+  background: rgba(0,0,0,.4) !important;
+  border-bottom: 1px solid rgba(0,200,232,.2) !important;
 }
 
-/* Total rows */
-#mc [style*="background:#FFF8"],
-#mc [style*="background:#FFF0"],
-#mc [style*="background:var(--gold"] {
-  background:rgba(0,200,232,.10) !important;
+/* Step 14: Checkboxes */
+input[type=checkbox] { background: transparent !important; accent-color: #00C8E8 !important }
+
+/* Step 15: Scan panel */
+#swrap > div {
+  background: rgba(0,15,30,.85) !important;
+  border-top: 1px solid rgba(0,200,232,.2) !important;
 }
 
-/* Alternating rows */
-#mc [style*="background:#FBF"],
-#mc [style*="background:#FAF"],
-#mc [style*="background:#FDF"] {
-  background:rgba(255,255,255,.05) !important;
+/* Step 16: Drop zone */
+.drop {
+  background: rgba(0,200,232,.06) !important;
+  border: 2px dashed rgba(0,200,232,.35) !important;
 }
 
-/* Inputs */
-#mc input:not([type=checkbox]),
-#mc select,
-#mc textarea {
-  background:rgba(255,255,255,.08)!important;
-  border:1px solid rgba(255,255,255,.18)!important;
-  color:#FFFFFF!important;
-}
-
-/* Buttons in mc keep their styles */
-#mc .btn { color:inherit!important }
-#mc .bp { color:#001218!important }
-#mc button[style*="background:rgba(255,100,100,.12)"] {
-  background:rgba(255,112,112,.15)!important;
-  border:1px solid rgba(255,112,112,.25)!important;
-  color:#FF8080!important;
-}
-
-/* Progress bars */
-.pbar { background:rgba(255,255,255,.10)!important }
-
-/* Hero card */
-.hero-card,.hero-card * { color:#FFFFFF!important }
-
-/* Scan panel */
-#swrap * { color:#FFFFFF!important }
-#swrap input,#swrap select,#swrap textarea {
-  background:rgba(255,255,255,.08)!important;
-  border-color:rgba(255,255,255,.18)!important;
-  color:#FFFFFF!important;
-}
-#swrap .card,#swrap [style*="background:#"],
-#swrap [style*="background:var(--s"] {
-  background:rgba(255,255,255,.08)!important;
-  border-color:rgba(255,255,255,.12)!important;
-}
-
-
-/* ══ REMOVE ALL INNER BACKGROUNDS ══ */
-#mc *,
-#swrap * {
-  background:transparent !important;
-  border-color:transparent !important;
-  box-shadow:none !important;
-  color:#FFFFFF !important;
-}
-
-/* Keep outer card glass */
-#mc > div,
-#mc .card,
-#mc .stat,
-#mc .hero-card {
-  background:rgba(255,255,255,.10) !important;
-  border:1px solid rgba(255,255,255,.15) !important;
-  backdrop-filter:blur(14px) !important;
-  -webkit-backdrop-filter:blur(14px) !important;
-  border-radius:16px !important;
-}
-
-/* Stat top border */
-#mc .stat {
-  border-top:2px solid #00C8E8 !important;
-}
-
-/* Hero card keep its gradient */
-#mc .hero-card {
-  background:linear-gradient(145deg,rgba(0,50,80,.6),rgba(0,35,60,.7)) !important;
-  border-color:rgba(0,200,232,.25) !important;
-}
-
-/* Progress bar track */
-#mc [style*="height:5px"],
-#mc [style*="height:6px"] {
-  background:rgba(255,255,255,.12) !important;
-}
-
-/* Progress bar fill - keep color */
-#mc [style*="height:5px"] > div,
-#mc [style*="height:6px"] > div {
-  background:inherit !important;
-}
-
-/* Colored exceptions */
-#mc .bpt,.bpt {background:rgba(61,214,140,.15)!important;color:#3DD68C!important;border-color:rgba(61,214,140,.2)!important}
-#mc .btx,.btx {background:rgba(112,181,255,.15)!important;color:#70B5FF!important;border-color:rgba(112,181,255,.2)!important}
-#mc .blabor {background:rgba(61,214,140,.15)!important;color:#3DD68C!important}
-#mc .btransfer {background:rgba(112,181,255,.15)!important;color:#70B5FF!important}
-#mc .bpt *,.btx *,.blabor *,.btransfer * {color:inherit!important}
-
-/* Red colored text */
-[style*="color:#FF8080"],[style*="color:#D93025"],[style*="color:#C42B1C"],
-[style*="color:#FF7070"],[style*="color:var(--r)"] {color:#FF8080!important}
-
-/* Green colored text */
-[style*="color:#3DD68C"],[style*="color:#1A7A3C"],[style*="color:#1A6B38"],
-[style*="color:var(--gr)"] {color:#3DD68C!important}
-
-/* Blue colored text */
-[style*="color:#70B5FF"],[style*="color:#1A50A8"],
-[style*="color:var(--bl)"] {color:#70B5FF!important}
-
-/* Cyan colored text */
-[style*="color:#00C8E8"],[style*="color:var(--g1)"] {color:#00C8E8!important}
-
-/* Buttons keep their style */
-.btn.bp {background:linear-gradient(135deg,#40D8F8,#00C8E8)!important;color:#001820!important;border:none!important}
-.btn.bs {background:rgba(255,255,255,.12)!important;border:1px solid rgba(255,255,255,.2)!important;color:#FFFFFF!important}
-.btn.bx {background:linear-gradient(135deg,#1A9950,#2ABF65)!important;color:#fff!important}
-
-/* Pbar fill inherits color from style attr */
-.pf {background:inherit!important}
-
-
-/* Remove all inner borders */
-#mc div > div { border-color:rgba(255,255,255,.08) !important }
-#mc [style*="border-bottom"] { border-bottom-color:rgba(255,255,255,.08) !important }
+/* Step 17: Ok/err messages */
+.ok { background: rgba(61,214,140,.15) !important; border: 1px solid rgba(61,214,140,.2) !important; color: #3DD68C !important }
+.err { background: rgba(255,100,100,.15) !important; border: 1px solid rgba(255,100,100,.2) !important; color: #FF8080 !important }
+.ok *, .err * { color: inherit !important }
 
 </style>
 </head>
