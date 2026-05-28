@@ -2078,7 +2078,9 @@ function rOwnerLabor(){
   const allLabor=DB.entries.filter(e=>e.type==='labor').slice().reverse();
   const fromDate=window._laborFrom||'';
   const toDate=window._laborTo||'';
+  console.log('Labor filter:', fromDate, '->', toDate, 'total entries:', allLabor.length);
   const laborEntries=fromDate||toDate ? allLabor.filter(e=>(!fromDate||e.date>=fromDate)&&(!toDate||e.date<=toDate)) : allLabor;
+  console.log('After filter:', laborEntries.length, 'entries');
   const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
   const totalComp=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
   const totalExt=laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
