@@ -1008,8 +1008,8 @@ function rSetup(){
     </div>`;
 }
 async function addSup(){
-  const n=document.getElementById('nn').value.trim(),b=parseFloat(document.getElementById('nb').value)||0,p=document.getElementById('np').value||'1234',v=document.getElementById('nv').value.trim();
-  if(!n||!b)return;
+  const n=document.getElementById('nn').value.trim(),b=0,p=document.getElementById('np').value||'1234',v=document.getElementById('nv').value.trim();
+  if(!n)return;
   await api('/api/supervisors','POST',{name:n,budget:b,password:p,visa:v});
   DB=await api('/api/db');rSetup();
 }
