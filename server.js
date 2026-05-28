@@ -281,8 +281,13 @@ function generateExcel(dbData) {
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Worksheet ss:Name="المصروفات">
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel">
+  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+    <PageSetup>
+      <Layout x:Orientation="Landscape"/>
+    </PageSetup>
+  </WorksheetOptions>
+  <Worksheet ss:Name="المصروفات" ss:RightToLeft="1">
     <Table>
       <Row>
         <Cell><Data ss:Type="String">الرقم</Data></Cell>
