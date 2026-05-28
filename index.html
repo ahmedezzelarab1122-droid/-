@@ -427,6 +427,60 @@ label.lbl { color: #5A3820 !important }
 [data-theme=dark] select option { background: #1C1200 !important; color: #FFF4DC !important }
 [data-theme=dark] .bottom-nav { background: rgba(28,18,0,.95) !important }
 
+
+/* ══ ABSOLUTE COLOR OVERRIDES ══ */
+
+/* NO GOLD TEXT - change to dark brown */
+[style*="color:var(--gold)"], [style*="color: var(--gold)"],
+[style*="color:var(--gold2)"], [style*="color:var(--gold3)"],
+[style*="color:#C8960C"], [style*="color:#E8B830"],
+[style*="color:#FFF0C0"], [style*="color:#FFDB6D"] {
+  color: #2D1800 !important;
+}
+
+/* All text in main content area */
+#mc { color: #2D1800 !important }
+#mc p, #mc span, #mc div, #mc label { color: inherit }
+
+/* Topbar text stays gold/light - that's fine */
+.topbar * { color: inherit }
+
+/* Specific dark overrides for cards */
+.card { color: #2D1800 !important }
+.card span, .card div, .card p, .card label { color: inherit }
+
+/* Override any inline gold colors on text */
+.shdr { color: #8A6040 !important }
+.ctitle { color: #6B3A10 !important }
+
+/* Section title line color */
+.ctitle::before { background: #C8960C !important }
+
+/* Fix tab active text */
+.bottom-nav-item.active > span:last-child { color: #3D2000 !important }
+
+/* PBAR colors */
+.pf { background: #C8960C }
+
+/* Fix hero card text to be readable */  
+.hero-card { color: #FFFFFF !important }
+.hero-card * { color: #FFFFFF !important }
+.hero-card [style*="color:#FFE8A0"] { color: #FFE8A0 !important }
+
+/* TBOX text */
+.tbox { color: #FFF0C0 !important }
+.tbox * { color: #FFF0C0 !important }
+
+/* Badges keep their colors */
+.badge { color: inherit !important }
+.bpt { color: #1A7A3C !important }
+.btx { color: #1A50A8 !important }
+.blabor { color: #1A7A3C !important }
+
+/* TABLE headers stay light */
+[style*="background:#3D2000"] *, [style*="background:var(--p)"] * { color: #FFF0C0 !important }
+[style*="background:var(--primary)"] * { color: #FFF0C0 !important }
+
 </style>
 </head>
 <body>
@@ -1628,8 +1682,8 @@ function rLaborMgr(){
   const rates = DB.laborRates || {company:100, external:150};
   const workers = DB.companyWorkers || [];
   const allLaborMgr=DB.entries.filter(e=>e.type==='labor').slice().reverse();
-  const mgrFrom=document.getElementById('mgr-labor-from')?.value||'';
-  const mgrTo=document.getElementById('mgr-labor-to')?.value||'';
+  const mgrFrom=window._laborFrom||'';
+  const mgrTo=window._laborTo||'';
   const laborEntries=mgrFrom||mgrTo ? allLaborMgr.filter(e=>(!mgrFrom||e.date>=mgrFrom)&&(!mgrTo||e.date<=mgrTo)) : allLaborMgr;
   const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
   const totalComp=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
@@ -1650,8 +1704,8 @@ function rLaborMgr(){
     <div class="card" style="padding:12px 14px;margin-bottom:12px">
       <div class="ctitle">فلترة بالتاريخ</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><label class="lbl" style="font-size:11px">من تاريخ</label><input type="date" id="mgr-labor-from" onchange="rLaborMgr()" style="font-size:12px;padding:8px 10px"></div>
-        <div><label class="lbl" style="font-size:11px">إلى تاريخ</label><input type="date" id="mgr-labor-to" onchange="rLaborMgr()" style="font-size:12px;padding:8px 10px"></div>
+        <div><label class="lbl" style="font-size:11px">من تاريخ</label><input type="date" id="mgr-labor-from" value="${window._laborFrom||''}" onchange="window._laborFrom=document.getElementById('mgr-labor-from').value;window._laborTo=document.getElementById('mgr-labor-to').value;rLaborMgr()" style="font-size:12px;padding:8px 10px"></div>
+        <div><label class="lbl" style="font-size:11px">إلى تاريخ</label><input type="date" id="mgr-labor-to" value="${window._laborTo||''}" onchange="window._laborFrom=document.getElementById('mgr-labor-from').value;window._laborTo=document.getElementById('mgr-labor-to').value;rLaborMgr()" style="font-size:12px;padding:8px 10px"></div>
       </div>
     </div>
     ${monthList.length ? `
@@ -1998,8 +2052,8 @@ function rOwnerProj(){
 
 function rOwnerLabor(){
   const allLabor=DB.entries.filter(e=>e.type==='labor').slice().reverse();
-  const fromDate=document.getElementById('labor-from')?.value||'';
-  const toDate=document.getElementById('labor-to')?.value||'';
+  const fromDate=window._laborFrom||'';
+  const toDate=window._laborTo||'';
   const laborEntries=fromDate||toDate ? allLabor.filter(e=>(!fromDate||e.date>=fromDate)&&(!toDate||e.date<=toDate)) : allLabor;
   const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
   const totalComp=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
@@ -2011,11 +2065,11 @@ function rOwnerLabor(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
           <label class="lbl" style="font-size:11px">من تاريخ</label>
-          <input type="date" id="labor-from" onchange="rOwnerLabor()" style="font-size:12px;padding:8px 10px">
+          <input type="date" id="labor-from" value="${window._laborFrom||''}" onchange="window._laborFrom=document.getElementById('labor-from').value;window._laborTo=document.getElementById('labor-to').value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
         </div>
         <div>
           <label class="lbl" style="font-size:11px">إلى تاريخ</label>
-          <input type="date" id="labor-to" onchange="rOwnerLabor()" style="font-size:12px;padding:8px 10px">
+          <input type="date" id="labor-to" value="${window._laborTo||''}" onchange="window._laborFrom=document.getElementById('labor-from').value;window._laborTo=document.getElementById('labor-to').value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
         </div>
       </div>
     </div>
