@@ -882,7 +882,7 @@ function rReports(){
     </div>
     <div class="card" style="background:#FFFFFF"><div class="ctitle">تقرير المشرفين</div>
     ${DB.supervisors.map((s,i)=>{
-      const sp=gs(s.id),p=rEntries.filter(e=>e.supId==s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),t=rEntries.filter(e=>e.supId==s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),tx=rEntries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
+      const sp=rEntries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0),p=rEntries.filter(e=>e.supId==s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),t=rEntries.filter(e=>e.supId==s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),tx=rEntries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
       return`<div class="txr"><div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${gc(i)};display:inline-block"></span>${s.name}</div><div style="font-size:10px;color:var(--text3);margin-top:1px">نثرية:${fmt(p)} · ضريبية:${fmt(t)} · ضريبة:${fmt(tx)}</div></div><div style="text-align:left"><div style="font-size:13px;font-weight:700;color:var(--r)">${fmt(sp)} ﷼</div><div style="font-size:10px;color:#C8960C">متبقي:${fmt(s.budget-sp)}</div></div></div>`;
     }).join('')}</div>
     <div class="card"><div class="ctitle">تقرير المشاريع</div>${DB.projects.map(p=>`<div class="txr"><span style="font-size:13px">${p}</span><span style="font-weight:700;color:var(--r)">${fmt(pm[p]||0)} ﷼</span></div>`).join('')}</div>
@@ -2100,7 +2100,11 @@ function rOwnerLabor(){
 // ── PDF EXPORT ─────────────────────────
 function exportPDF(){
   const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
-  const validE = DB.entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add');
+  const rFrom = window._reportFrom||'';
+  const rTo = window._reportTo||'';
+  const validE = DB.entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add'&&(!rFrom||e.date>=rFrom)&&(!rTo||e.date<=rTo));
+  const laborFrom = window._laborFrom||'';
+  const laborTo = window._laborTo||'';
   const tSpent = validE.reduce((a,e)=>a+(e.total||0),0);
   const tTax = validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
   const tPetty = validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
@@ -2115,7 +2119,7 @@ function exportPDF(){
   const sortedProj=Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
 
   // Labor
-  const laborE=DB.entries.filter(e=>e.type==='labor');
+  const laborE=DB.entries.filter(e=>e.type==='labor'&&(!laborFrom||e.date>=laborFrom)&&(!laborTo||e.date<=laborTo));
   const extW={};compW={};
   laborE.forEach(e=>{
     if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{const k=w.name+'__'+w.jobTitle;if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0};extW[k].days++;extW[k].total+=exRate;});
