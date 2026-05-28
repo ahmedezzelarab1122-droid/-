@@ -47,7 +47,7 @@ async function loadDB() {
     const cfg = await db.collection('config').findOne({ _id: 'main' });
     const entries = await db.collection('entries').find({}).toArray();
     return {
-      supervisors: (cfg.supervisors || []).map(s=>({...s, budget: s.budget||0})),
+      supervisors: cfg.supervisors || [],
       projects: cfg.projects || [],
       managerPassword: cfg.managerPassword || 'admin123',
       nextId: cfg.nextId || 1,
@@ -410,7 +410,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/supervisors' && req.method === 'POST') {
     const body = await parseBody(req);
     const data = await loadDB();
-    data.supervisors.push({ id: Date.now(), name: body.name, budget: body.budget, password: body.password || '1234', visa: body.visa || '' });
+    data.supervisors.push({ id: Date.now(), name: body.name, budget: 0, password: body.password || '1234', visa: body.visa || '' });
     await saveConfig(data);
     return sendJSON(res, { ok: true });
   }
