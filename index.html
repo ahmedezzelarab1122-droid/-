@@ -311,128 +311,133 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
   border-top:1px solid rgba(0,200,232,.2)!important;
 }
 
-/* ══ FORCE GLASS ON ALL DYNAMIC ELEMENTS ══ */
+/* ══ FORCE GLASS EVERYWHERE ══ */
 
-/* Every single element inside mc gets glass treatment */
-#mc *:not(canvas):not(input):not(select):not(textarea):not(button):not(img):not(svg):not(path):not(span):not(a):not(label) {
+/* Base: everything in mc is glass */
+#mc,#mc * {
+  --local-bg: rgba(255,255,255,.10);
+}
+
+/* All block containers get glass */
+#mc div[style],
+#mc > div,
+#mc .card,
+#mc .stat,
+#mc .sc,
+#mc .chip,
+#mc .txr,
+#mc .srow {
+  background:rgba(255,255,255,.08) !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+  backdrop-filter:blur(12px) !important;
+  -webkit-backdrop-filter:blur(12px) !important;
   color:#FFFFFF !important;
 }
 
-/* Containers */
-#mc > div:not(.badge):not(.bpt):not(.btx):not(.blabor):not(.btransfer),
-#mc .card, #mc .stat, #mc .sc, #mc .chip, #mc .txr,
-#mc [style*="background:#F"],
-#mc [style*="background:#f"],
-#mc [style*="background:white"],
-#mc [style*="background: white"],
-#mc [style*="background:#1"],
-#mc [style*="background:#2"],
-#mc [style*="background:#3"],
-#mc [style*="background:#4"],
-#mc [style*="background:#5"],
-#mc [style*="background:#E"],
-#mc [style*="background:#e"],
-#mc [style*="background:var(--s"],
-#mc [style*="background:var(--surface"],
-#mc [style*="background:rgba(255"] {
-  background:rgba(255,255,255,.10) !important;
-  border-color:rgba(255,255,255,.15) !important;
-  backdrop-filter:blur(14px) !important;
-  -webkit-backdrop-filter:blur(14px) !important;
+/* Stat cards get cyan top border */
+#mc .stat {
+  border-top:2px solid #00C8E8 !important;
+}
+
+/* Nested divs inside cards - slightly more transparent */
+#mc .card > div,
+#mc .card div[style*="background"] {
+  background:rgba(255,255,255,.06) !important;
+  border-color:rgba(255,255,255,.10) !important;
+}
+
+/* ALL text white */
+#mc,#mc *:not(canvas) {
   color:#FFFFFF !important;
 }
 
-/* All text white */
-#mc,#mc p,#mc div,#mc span,#mc label,#mc h1,#mc h2,#mc h3 {
-  color:#FFFFFF !important;
-}
+/* Colored exceptions - must come AFTER the white rule */
+#mc .bpt { background:rgba(61,214,140,.15)!important; color:#3DD68C!important }
+#mc .btx { background:rgba(112,181,255,.15)!important; color:#70B5FF!important }
+#mc .blabor { background:rgba(61,214,140,.15)!important; color:#3DD68C!important }
+#mc .btransfer { background:rgba(112,181,255,.15)!important; color:#70B5FF!important }
+#mc .bot { background:rgba(255,255,255,.10)!important; color:rgba(255,255,255,.7)!important }
+#mc .bcs { background:rgba(0,200,232,.15)!important; color:#00C8E8!important }
 
-/* Colored text exceptions */
-#mc .bpt,#mc .bpt *{color:#3DD68C !important;background:rgba(61,214,140,.15)!important}
-#mc .btx,#mc .btx *{color:#70B5FF !important;background:rgba(112,181,255,.15)!important}
-#mc .blabor,#mc .blabor *{color:#3DD68C !important;background:rgba(61,214,140,.15)!important}
-#mc .btransfer,#mc .btransfer *{color:#70B5FF !important;background:rgba(112,181,255,.15)!important}
-#mc .bot,#mc .bot *{color:rgba(255,255,255,.7)!important;background:rgba(255,255,255,.1)!important}
-#mc .bcs,#mc .bcs *{color:#00C8E8!important;background:rgba(0,200,232,.15)!important}
-#mc .btr,#mc .btr *{color:#C4B5FD!important;background:rgba(196,181,253,.15)!important}
-
-/* Red numbers */
+/* Red */
 #mc [style*="color:#D93025"],#mc [style*="color:#C42B1C"],
 #mc [style*="color:#FF7070"],#mc [style*="color:var(--rd"],
-#mc [style*="color:var(--r)"] {color:#FF7070 !important}
-
-/* Green numbers */
+#mc [style*="color:var(--r)"],#mc [style*="color:var(--red"] {
+  color:#FF8080 !important
+}
+/* Green */
 #mc [style*="color:#1A7A3C"],#mc [style*="color:#1A6B38"],
 #mc [style*="color:#3DD68C"],#mc [style*="color:var(--gr"],
-#mc [style*="color:var(--g)"] {color:#3DD68C !important}
-
-/* Blue numbers */
-#mc [style*="color:#1A50A8"],#mc [style*="color:#1549A0"],
-#mc [style*="color:#70B5FF"],#mc [style*="color:var(--bl"],
-#mc [style*="color:var(--b)"] {color:#70B5FF !important}
-
-/* Cyan accent */
-#mc [style*="color:#00C8E8"],#mc [style*="color:var(--g1"],
-#mc [style*="color:#C8960C"],#mc [style*="color:#E8B830"] {color:#00C8E8 !important}
-
-/* Table headers - dark glass */
-#mc [style*="background:#3D2000"],
-#mc [style*="background:#5C3A1E"],
-#mc [style*="background:#3D2"],
-#mc [style*="background:var(--primary)"],
-#mc [style*="background:var(--p)"] {
-  background:rgba(0,0,0,.4) !important;
-  border-bottom:1px solid rgba(0,200,232,.2) !important;
-  backdrop-filter:blur(10px) !important;
+#mc [style*="color:var(--green"] {
+  color:#3DD68C !important
 }
-#mc [style*="background:#3D2000"] *,
-#mc [style*="background:#5C3A1E"] *,
-#mc [style*="background:#3D2"] * {color:#00C8E8 !important}
+/* Blue */
+#mc [style*="color:#1A50A8"],#mc [style*="color:#70B5FF"],
+#mc [style*="color:var(--bl"],#mc [style*="color:var(--blue"] {
+  color:#70B5FF !important
+}
+/* Cyan */
+#mc [style*="color:#00C8E8"],#mc [style*="color:var(--g1"] {
+  color:#00C8E8 !important
+}
 
-/* Total/summary rows - cyan glass */
-#mc [style*="background:#FFF8E0"],
-#mc [style*="background:#FFF0C0"],
-#mc [style*="background:var(--gold-pale)"],
-#mc [style*="background:var(--gold5)"],
-#mc [style*="background:#FFFBE"] {
-  background:rgba(0,200,232,.12) !important;
-  border-top:1px solid rgba(0,200,232,.25) !important;
+/* Table headers */
+#mc [style*="background:#3D"],
+#mc [style*="background:#5C3A"] {
+  background:rgba(0,0,0,.45) !important;
+  border-bottom:1px solid rgba(0,200,232,.2) !important;
+}
+
+/* Total rows */
+#mc [style*="background:#FFF8"],
+#mc [style*="background:#FFF0"],
+#mc [style*="background:var(--gold"] {
+  background:rgba(0,200,232,.10) !important;
 }
 
 /* Alternating rows */
-#mc [style*="background:#FBF8F3"],
 #mc [style*="background:#FBF"],
+#mc [style*="background:#FAF"],
 #mc [style*="background:#FDF"] {
-  background:rgba(255,255,255,.06) !important;
+  background:rgba(255,255,255,.05) !important;
 }
 
 /* Inputs */
 #mc input:not([type=checkbox]),
 #mc select,
 #mc textarea {
-  background:rgba(255,255,255,.08) !important;
-  border-color:rgba(255,255,255,.18) !important;
-  color:#FFFFFF !important;
+  background:rgba(255,255,255,.08)!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  color:#FFFFFF!important;
 }
 
-/* Buttons inside mc */
-#mc button:not(.xb) {
-  color:inherit !important;
+/* Buttons in mc keep their styles */
+#mc .btn { color:inherit!important }
+#mc .bp { color:#001218!important }
+#mc button[style*="background:#FFF0EE"] {
+  background:rgba(255,112,112,.15)!important;
+  border:1px solid rgba(255,112,112,.25)!important;
+  color:#FF8080!important;
 }
+
+/* Progress bars */
+.pbar { background:rgba(255,255,255,.10)!important }
+
+/* Hero card */
+.hero-card,.hero-card * { color:#FFFFFF!important }
 
 /* Scan panel */
-#ss1 input,#ss2 input,#ss1 select,#ss2 select,#ss1 textarea,#ss2 textarea {
+#swrap * { color:#FFFFFF!important }
+#swrap input,#swrap select,#swrap textarea {
   background:rgba(255,255,255,.08)!important;
   border-color:rgba(255,255,255,.18)!important;
   color:#FFFFFF!important;
 }
-#ss1 label,#ss2 label,#ss1 div,#ss2 div {color:#FFFFFF!important}
-
-/* Progress bars */
-.pbar{background:rgba(255,255,255,.10)!important}
-
-/* Hero card always white text */
-.hero-card,.hero-card *{color:#FFFFFF!important}
+#swrap .card,#swrap [style*="background:#"],
+#swrap [style*="background:var(--s"] {
+  background:rgba(255,255,255,.08)!important;
+  border-color:rgba(255,255,255,.12)!important;
+}
 
 </style>
 </head>
