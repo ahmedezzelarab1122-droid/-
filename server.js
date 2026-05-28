@@ -523,35 +523,7 @@ const server = http.createServer(async (req, res) => {
     
     if (companyCount + externalCount === 0) return sendJSON(res, { error: 'أدخل عمالاً للتسجيل' }, 400);
     
-    // Prevent duplicate: same supervisor + same worker + same day + same project
-    const todayEntries = data.entries.filter(e => 
-      e.type === 'labor' && e.date === today && 
-      e.supId == parseInt(body.supId) && e.project === body.project
-    );
-    
-    // Check company workers duplicates (same sup + same project + same day)
-    const alreadyCompany = [];
-    todayEntries.forEach(e => {
-      if(e.laborDetails?.presentWorkers) {
-        e.laborDetails.presentWorkers.forEach(w => alreadyCompany.push(w.name));
-      }
-    });
-    const dupCompany = presentWorkers.filter(w => alreadyCompany.includes(w.name));
-    if(dupCompany.length > 0) {
-      return sendJSON(res, { error: `⚠️ هؤلاء العمال مسجلون بالفعل اليوم في نفس المشروع: ${dupCompany.map(w=>w.name).join('، ')}` });
-    }
-    
-    // Check external workers duplicates (same sup + same project + same day)
-    const alreadyExternal = [];
-    todayEntries.forEach(e => {
-      if(e.laborDetails?.externalWorkersList) {
-        e.laborDetails.externalWorkersList.forEach(w => alreadyExternal.push(w.name));
-      }
-    });
-    const dupExternal = externalWorkersList.filter(w => alreadyExternal.includes(w.name));
-    if(dupExternal.length > 0) {
-      return sendJSON(res, { error: `⚠️ هؤلاء العمال مسجلون بالفعل اليوم في نفس المشروع: ${dupExternal.map(w=>w.name).join('، ')}` });
-    }
+
     
     const sup = data.supervisors.find(s => s.id == body.supId);
     const today = new Date().toISOString().split('T')[0];
