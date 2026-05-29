@@ -108,7 +108,7 @@ body{
 
 /* ══ FAB ══ */
 .fab{
-  position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:300;
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:300;
   width:52px;height:52px;border-radius:16px;
   background:linear-gradient(145deg,var(--g2),var(--g1));
   color:#001820;border:none;cursor:pointer;
@@ -120,7 +120,7 @@ body{
 .fab:active{transform:translateX(-50%) scale(.87)}
 
 /* ══ MAIN ══ */
-#mc{padding:12px 14px;max-width:640px;margin:0 auto;padding-bottom:112px}
+#mc{padding:12px 14px;max-width:640px;margin:0 auto;padding-bottom:30px}
 
 /* ══ HERO ══ */
 .hero-card{
@@ -532,6 +532,9 @@ select {
   </div>
 </div>
 
+<!-- DRAWER OVERLAY -->
+<div class="bottom-nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+
 <!-- APP -->
 <div id="aview" style="display:none">
   <div class="topbar">
@@ -548,6 +551,7 @@ select {
       
       <button id="ibtn" onclick="installApp()" style="display:none;border:1px solid rgba(201,168,76,0.5);border-radius:7px;padding:5px 9px;background:rgba(255,255,255,0.15);font-size:11px;color:#e8c87a;cursor:pointer;font-family:inherit">تثبيت</button>
       <button onclick="toggleTheme()" id="tbtn" style="border:1px solid rgba(201,168,76,0.4);border-radius:7px;padding:5px 8px;background:rgba(255,255,255,0.1);cursor:pointer;font-size:15px;line-height:1">🌙</button>
+      <button class="menu-btn" onclick="openNav()">☰</button>
       <button onclick="doLogout()" style="border:1px solid rgba(201,168,76,0.4);border-radius:7px;padding:5px 9px;background:rgba(255,255,255,0.1);font-size:11px;color:#e8c87a;cursor:pointer;font-family:inherit">خروج</button>
     </div>
   </div>
@@ -802,7 +806,16 @@ function showApp(){
   else rHome();
 }
 
+function openNav(){
+  document.getElementById('bottom-nav').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+}
+function closeNav(){
+  document.getElementById('bottom-nav').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+}
 function goBNav(id,btn){
+  closeNav();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor};
