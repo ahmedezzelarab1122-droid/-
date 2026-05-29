@@ -98,7 +98,7 @@ body{
 }
 .bnav-icon span{font-size:21px;line-height:1;transition:transform .2s}
 .bottom-nav-item.active .bnav-icon{
-  background:rgba(0,200,232,.12);
+  background:var(--ga);
   border:1px solid rgba(0,200,232,.35);
   transform:scale(1.07);
 }
@@ -141,16 +141,18 @@ body{
 /* ══ CARDS — زجاج مصنفر ══ */
 .card{
   background:transparent;
-  border:1.5px solid rgba(255,255,255,.2);
-  border-top:1.5px solid rgba(255,255,255,.3);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:none;
   border-radius:18px;padding:15px;margin-bottom:10px;
+  box-shadow:var(--sh);
+  animation:rise .28s ease;
   color:#FFFFFF;
 }
 .ctitle{
   font-size:11px;font-weight:700;color:rgba(255,255,255,.75);
   margin-bottom:12px;letter-spacing:.5px;text-transform:uppercase;
   display:flex;align-items:center;gap:7px;
-  padding-bottom:10px;border-bottom:none;
+  padding-bottom:10px;
 }
 .ctitle::before{
   content:'';width:3px;height:12px;
@@ -162,7 +164,7 @@ body{
 .sg{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px}
 .stat{
   background:transparent;
-  border:1.5px solid rgba(255,255,255,.2);
+  border:none;
   border-top:2px solid #00C8E8;
   border-radius:14px;padding:13px 12px;
   color:#FFFFFF;position:relative;
@@ -178,7 +180,7 @@ body{
 label.lbl{font-size:12px;font-weight:700;color:rgba(255,255,255,.75);display:block;margin-bottom:5px}
 input,select,textarea{
   width:100%;padding:12px 14px;
-  border:1px solid rgba(255,255,255,.18);border-radius:11px;
+  border-radius:11px;
   font-size:14px;font-family:'Tajawal',sans-serif;
   color:#FFFFFF!important;
   background:rgba(255,255,255,.08)!important;
@@ -221,22 +223,22 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
 .brow .btn{flex:1}
 
 /* ══ MISC ══ */
-.txr{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 0;border-bottom:none}
+.txr{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 0}
 .txr:last-child{border-bottom:none}
 .av{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0}
-.sc{background:transparent;backdrop-filter:blur(12px);border:1px solid var(--w20);border-radius:14px;padding:12px 14px;margin-bottom:9px;box-shadow:var(--sh)}
+.sc{background:transparent;border:none;border-radius:14px;padding:12px 14px;margin-bottom:9px}
 .shdr{
   font-size:11px;font-weight:700;color:rgba(255,255,255,.5);
   margin-bottom:9px;margin-top:4px;letter-spacing:.6px;text-transform:uppercase;
   display:flex;align-items:center;gap:6px;
 }
 .shdr::before{content:'';width:18px;height:1.5px;background:linear-gradient(90deg,var(--g1),transparent);border-radius:1px}
-.srow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:none}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:11px 0}
 .srow:last-child{border-bottom:none}
 .xb{border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:17px;padding:5px;border-radius:8px;transition:.15s}
 .xb:hover{color:var(--rd);background:rgba(255,100,100,.12)}
 .ftabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.ftab{padding:7px 14px;border-radius:99px;border:1px solid var(--w20);background:transparent;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;color:rgba(255,255,255,.75);backdrop-filter:blur(10px)}
+.ftab{padding:7px 14px;border-radius:99px;border:none;background:transparent;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;color:rgba(255,255,255,.75);backdrop-filter:blur(10px)}
 .ftab.on{background:linear-gradient(135deg,var(--g2),var(--g1));color:#001218;border-color:transparent;font-weight:700}
 .badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
 .bpt{background:rgba(61,214,140,.12);color:var(--gr)}
@@ -250,8 +252,8 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
 .ar input{flex:1;min-width:80px}
 .ar .btn{width:auto;padding:10px 14px}
 .empty{text-align:center;padding:3rem 1rem;color:rgba(255,255,255,.5);font-size:14px}
-.sep{height:1px;background:transparent;margin:10px 0}
-.chip{background:transparent;backdrop-filter:blur(10px);border-radius:10px;padding:9px 12px;margin-bottom:7px;border:1px solid var(--w20)}
+.sep{height:0;margin:8px 0}
+.chip{background:transparent;border:none;border-radius:10px;padding:9px 12px;margin-bottom:7px}
 .ok{background:rgba(61,214,140,.12);border-radius:11px;padding:12px 14px;font-size:13px;color:var(--gr);display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:600;border:1px solid rgba(61,214,140,.25)}
 .err{background:rgba(255,100,100,.12);border-radius:11px;padding:12px 14px;font-size:13px;color:var(--rd);margin-bottom:10px;display:none;font-weight:600;border:1px solid rgba(255,112,112,.25)}
 .spin{width:30px;height:30px;border:3px solid rgba(255,255,255,.15);border-top-color:var(--g1);border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 13px}
@@ -262,7 +264,7 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
 .warn{background:rgba(255,100,100,.12);color:var(--rd);border-radius:12px;padding:11px 14px;font-size:12px;font-weight:700;margin-bottom:12px;border-right:3px solid var(--rd)}
 .pbar{height:5px;background:transparent;border-radius:99px;overflow:hidden}
 .pf{height:100%;border-radius:99px;transition:width .5s ease}
-.fr{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:none;font-size:13px;color:#FFFFFF}
+.fr{display:flex;justify-content:space-between;align-items:center;padding:11px 0;font-size:13px;color:#FFFFFF}
 .fr:last-child{border-bottom:none}
 .tbox{background:linear-gradient(135deg,rgba(0,60,90,.75),rgba(0,40,65,.85));backdrop-filter:blur(16px);border:1px solid rgba(0,200,232,.25);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:11px;box-shadow:var(--sh2)}
 
@@ -289,12 +291,12 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
 }
 .rg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px}
 .rb{
-  padding:14px 8px;border:1px solid rgba(255,255,255,.12);border-radius:14px;
+  padding:14px 8px;border-radius:14px;
   cursor:pointer;text-align:center;background:transparent;
   font-family:'Tajawal',sans-serif;transition:.18s;backdrop-filter:blur(10px);
 }
 .rb:hover,.rb.sel{
-  border-color:var(--g1);background:rgba(0,200,232,.12);
+  border-color:var(--g1);background:var(--ga);
   transform:translateY(-2px);box-shadow:var(--shg);
 }
 .rb svg{display:block;margin:0 auto 6px}
@@ -305,7 +307,7 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
   border-radius:22px 22px 0 0!important;
   background:rgba(0,20,35,.85)!important;
   backdrop-filter:blur(30px)!important;
-  border-top:1px solid rgba(0,200,232,.2)!important;
+  
 }
 
 /* ══ FORCE GLASS EVERYWHERE ══ */
@@ -777,7 +779,7 @@ function rDash(){
       const sp=gs(s.id),rem=getBalance(s.id),pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
       const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
       const warn=pct>80?`<div style="background:rgba(255,100,100,.15);color:#FF8080;border-radius:8px;padding:8px 10px;margin-top:6px;font-size:12px;font-weight:600;border-right:3px solid #FF8080">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
-      return`<div style="background:transparent;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:14px;margin-bottom:10px;backdrop-filter:blur(14px)">
+      return`<div style="background:transparent;border-radius:16px;padding:14px;margin-bottom:10px;backdrop-filter:blur(14px)">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:40px;height:40px;border-radius:12px;background:transparent;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${s.name[0]}</div>
@@ -848,8 +850,8 @@ function rfT(){
       <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${gn(e.supId)} · ${e.project}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div>
       <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:rgba(255,255,255,.75)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
     </div>
-    ${e.items?.length?`<div style="border-top:1px solid #F0E8DC;margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:rgba(255,255,255,.85)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
-    ${e.imageUrl ? `<div style="margin-top:7px"><a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.9);text-decoration:none;border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:3px 8px">
+    ${e.items?.length?`<div style="margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:rgba(255,255,255,.85)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
+    ${e.imageUrl ? `<div style="margin-top:7px"><a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.9);text-decoration:none;border-radius:5px;padding:3px 8px">
       <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
       عرض الفاتورة
     </a></div>` : ''}
@@ -918,7 +920,7 @@ function rSetup(){
   document.getElementById('mc').innerHTML=`
     <div class="card"><div class="ctitle">المشرفون</div>
       ${DB.supervisors.map((s,i)=>`<div class="srow"><div style="display:flex;align-items:center;gap:7px"><div class="av" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-size:12px;font-weight:600">${s.name}</div><div style="font-size:10px;color:rgba(255,255,255,.75)">ميزانية:${fmt(s.budget)} · متبقي:${fmt(s.budget-gs(s.id))}${s.visa?' · فيزا:****'+s.visa.slice(-4):''}</div></div></div><div style="display:flex;gap:5px;align-items:center"><button onclick="_budgetSupId=${s.id};document.getElementById('ab-name').textContent='${s.name}';document.getElementById('ab-amount').value='';document.getElementById('ab-err').style.display='none';document.getElementById('add-budget-form').style.display='block'" style="border:1px solid var(--g);border-radius:6px;padding:4px 10px;background:rgba(0,200,232,.10);color:rgba(255,255,255,.9);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">+ رصيد</button><button class="xb" onclick="delSup(${s.id})">✕</button></div></div>`).join('')}
-      <div id="add-budget-form" style="display:none;background:rgba(0,200,232,.10);border-radius:8px;padding:12px;margin-top:8px;border:1px solid rgba(255,255,255,.12)">
+      <div id="add-budget-form" style="display:none;background:rgba(0,200,232,.10);border-radius:8px;padding:12px;margin-top:8px">
         <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:8px">إضافة رصيد لـ <span id="ab-name" style="color:#C8960C"></span></div>
         <div style="display:flex;gap:7px;align-items:center">
           <input type="number" id="ab-amount" placeholder="المبلغ المضاف ﷼" style="flex:1">
@@ -1020,7 +1022,7 @@ function rPws(){
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><label style="font-size:13px;font-weight:500">المدير</label><input type="password" id="pm" placeholder="كلمة مرور جديدة" style="max-width:160px"></div>
     </div>
     <div class="card"><div class="ctitle">كلمات مرور المشرفين</div>
-      ${DB.supervisors.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:none"><label style="font-size:13px;font-weight:500">${s.name}</label><input type="password" id="ps${s.id}" placeholder="كلمة مرور جديدة" style="max-width:160px"></div>`).join('')}
+      ${DB.supervisors.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><label style="font-size:13px;font-weight:500">${s.name}</label><input type="password" id="ps${s.id}" placeholder="كلمة مرور جديدة" style="max-width:160px"></div>`).join('')}
     </div>
     <button class="btn bp" onclick="savePW()">حفظ كلمات المرور</button>
     <div class="ok" id="pwok" style="display:none;margin-top:8px"><svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم الحفظ</div>`;
@@ -1520,7 +1522,7 @@ function rLaborReport(){
       
       <div class="ctitle" style="margin-bottom:8px">تفاصيل يومية</div>
       ${sortedDates.map(d=>`
-        <div style="border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <div style="border-radius:8px;padding:10px 12px;margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.9)">${d.date}</div>
             <div style="font-size:12px;color:rgba(255,255,255,.75)">${fmt(d.cost)} ﷼</div>
@@ -1555,7 +1557,7 @@ function rImages(){
       ?'<div class="empty">لا توجد صور فواتير بعد — الصور تُحفظ تلقائياً عند رفع الفاتورة</div>'
       :`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${entries.map(e=>`
-          <div style="background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+          <div style="background:transparent;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
             <div style="position:relative;padding-top:70%;overflow:hidden;background:transparent">
               ${e.isPdf
                 ? `<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:transparent;cursor:pointer" onclick="window.open('${e.imageUrl}','_blank')">
@@ -1569,7 +1571,7 @@ function rImages(){
               <div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.desc}</div>
               <div style="font-size:10px;color:rgba(255,255,255,.75);margin-bottom:6px">${gn(e.supId)} · ${e.date}</div>
               <div style="display:flex;gap:5px">
-                <a href="${e.imageUrl}" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:rgba(255,255,255,.9);text-decoration:none;border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:4px 0;background:rgba(0,200,232,.10)">
+                <a href="${e.imageUrl}" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:rgba(255,255,255,.9);text-decoration:none;border-radius:5px;padding:4px 0;background:rgba(0,200,232,.10)">
                   <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   عرض
                 </a>
@@ -1659,7 +1661,7 @@ function buildLaborTable(laborEntries, fromDate, toDate){
         <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span>
       </div>
       ${extList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;border-bottom:none;background:${'transparent'}">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.75)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
@@ -1682,7 +1684,7 @@ function buildLaborTable(laborEntries, fromDate, toDate){
         <span>اسم العامل</span><span style="text-align:center">إجمالي الأيام</span>
       </div>
       ${compList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr;padding:10px 14px;border-bottom:none;background:${'transparent'}">
+        <div style="display:grid;grid-template-columns:2fr 1fr;padding:10px 14px;background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.75)">${[...w.projects].join('،')}</div>
@@ -1787,7 +1789,7 @@ function rLaborMgr(){
         <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span><span style="text-align:center">المشاريع</span>
       </div>
       ${extList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;border-bottom:none;background:${'transparent'}">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.55)">${w.jobTitle}</div>
@@ -1813,7 +1815,7 @@ function rLaborMgr(){
         <span>الاسم</span><span style="text-align:center">إجمالي الأيام</span><span style="text-align:center">المشاريع</span>
       </div>
       ${compList.map((w,i)=>`
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;border-bottom:none;background:${'transparent'}">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">${w.dates.sort().join(' · ')}</div>
@@ -1924,7 +1926,7 @@ function rLaborSup(){
       ${workers.length===0 
         ? '<div style="font-size:12px;color:rgba(255,255,255,.75);margin-bottom:10px">لم يُضف عمال من المدير بعد</div>'
         : `<div style="margin-bottom:12px">${workers.map(w=>`
-          <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:none;cursor:pointer">
+          <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">
             <input type="checkbox" id="cw-${w.id}" value="${w.id}" data-name="${w.name}" onchange="calcLabor()" style="width:18px;height:18px;accent-color:rgba(255,255,255,.9)">
             <div><div style="font-size:13px;font-weight:500">${w.name}</div><div style="font-size:11px;color:rgba(255,255,255,.75)">${w.jobTitle||'عامل'}</div></div>
           </label>`).join('\'')}
@@ -1938,10 +1940,10 @@ function rLaborSup(){
         <span>+ إضافة عامل خارجي</span>
       </button>
       
-      <div id="lab-calc" style="background:rgba(0,200,232,.10);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:none;border:1px solid rgba(255,255,255,.12)">
+      <div id="lab-calc" style="background:rgba(0,200,232,.10);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:none">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:rgba(255,255,255,.85)">عمال الشركة</span><span id="lc-company" style="font-weight:600">0 ﷼</span></div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:rgba(255,255,255,.85)">عمال خارجيون</span><span id="lc-external" style="font-weight:600">0 ﷼</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--n3);padding-top:6px"><span>إجمالي التكلفة</span><span id="lc-total" style="color:rgba(255,255,255,.9)">0 ﷼</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding-top:6px"><span>إجمالي التكلفة</span><span id="lc-total" style="color:rgba(255,255,255,.9)">0 ﷼</span></div>
         <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:4px">* للمعرفة فقط — لا تُخصم من رصيدك</div>
       </div>
       
@@ -2225,12 +2227,12 @@ function exportPDF(){
   h2{font-size:15px;font-weight:800;color:rgba(255,255,255,.9);margin:20px 0 10px;border-bottom:2px solid #C8960C;padding-bottom:5px}
   .date{color:rgba(255,255,255,.55);font-size:12px;margin-bottom:20px}
   .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
-  .box{background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px;border-top:3px solid #C8960C}
+  .box{background:transparent;border-radius:10px;padding:12px;border-top:3px solid #C8960C}
   .box-label{font-size:10px;color:rgba(255,255,255,.55);margin-bottom:4px}
   .box-value{font-size:18px;font-weight:800;color:#FFFFFF}
   table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px}
   th{background:transparent;color:#FFF0C0;padding:8px 10px;text-align:right;font-weight:700}
-  td{padding:8px 10px;border-bottom:none;color:#FFFFFF}
+  td{padding:8px 10px;color:#FFFFFF}
   tr:nth-child(even) td{background:transparent}
   .total-row td{background:rgba(0,200,232,.10);font-weight:800;color:rgba(255,255,255,.9)}
   .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #C8960C}
@@ -2365,7 +2367,7 @@ function buildLaborSection(fromDate, toDate){
         <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span>
       </div>
       ${extList.map((w,i)=>`
-        <div style="padding:10px 14px;border-bottom:none;background:${'transparent'}">
+        <div style="padding:10px 14px;background:${'transparent'}">
           <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center">
             <div>
               <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
@@ -2390,7 +2392,7 @@ function buildLaborSection(fromDate, toDate){
         <span>الاسم</span><span style="text-align:center">إجمالي الأيام</span>
       </div>
       ${compList.map((w,i)=>`
-        <div style="padding:10px 14px;border-bottom:none;background:${'transparent'}">
+        <div style="padding:10px 14px;background:${'transparent'}">
           <div style="display:grid;grid-template-columns:2fr 1fr;align-items:center">
             <div>
               <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
@@ -2453,12 +2455,12 @@ function exportSupPDF(supId){
   h2{font-size:14px;font-weight:800;color:rgba(255,255,255,.9);margin:16px 0 8px;border-bottom:2px solid #C8960C;padding-bottom:4px}
   .sub{color:rgba(255,255,255,.55);font-size:12px;margin:4px 0 16px}
   .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
-  .box{background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:10px;border-top:3px solid #C8960C}
+  .box{background:transparent;border-radius:8px;padding:10px;border-top:3px solid #C8960C}
   .box-label{font-size:10px;color:rgba(255,255,255,.55);margin-bottom:3px}
   .box-value{font-size:16px;font-weight:800;color:#FFFFFF}
   table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px}
   th{background:transparent;color:#FFF0C0;padding:7px 10px;text-align:right;font-weight:700}
-  td{padding:7px 10px;border-bottom:none;color:#FFFFFF}
+  td{padding:7px 10px;color:#FFFFFF}
   tr:nth-child(even) td{background:transparent}
   .total-row td{background:rgba(0,200,232,.10);font-weight:800;color:rgba(255,255,255,.9)}
   .red{color:#D93025;font-weight:700}
