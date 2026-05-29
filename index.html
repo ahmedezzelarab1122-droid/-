@@ -2280,10 +2280,10 @@ function exportPDF(){
   body{font-family:'Tajawal',sans-serif;direction:rtl;color:#FFFFFF;background:transparent;padding:20px;font-size:13px}
   h1{font-size:22px;font-weight:900;color:rgba(255,255,255,.9);margin-bottom:4px}
   h2{font-size:15px;font-weight:800;color:rgba(255,255,255,.9);margin:20px 0 10px;border-bottom:2px solid #C8960C;padding-bottom:5px}
-  .date{color:rgba(255,255,255,.55);font-size:12px;margin-bottom:20px}
+  .date{color:#1A1A1A;font-size:12px;margin-bottom:20px}
   .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
   .box{background:transparent;border-radius:10px;padding:12px;border-top:3px solid #C8960C}
-  .box-label{font-size:10px;color:rgba(255,255,255,.55);margin-bottom:4px}
+  .box-label{font-size:10px;color:#1A1A1A;margin-bottom:4px}
   .box-value{font-size:18px;font-weight:800;color:#FFFFFF}
   table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px}
   th{background:transparent;color:#FFF0C0;padding:8px 10px;text-align:right;font-weight:700}
@@ -2508,10 +2508,10 @@ function exportSupPDF(supId){
   body{font-family:'Tajawal',sans-serif;direction:rtl;color:#FFFFFF;background:transparent;padding:20px;font-size:13px}
   h1{font-size:20px;font-weight:900;color:rgba(255,255,255,.9)}
   h2{font-size:14px;font-weight:800;color:rgba(255,255,255,.9);margin:16px 0 8px;border-bottom:2px solid #C8960C;padding-bottom:4px}
-  .sub{color:rgba(255,255,255,.55);font-size:12px;margin:4px 0 16px}
+  .sub{color:#1A1A1A;font-size:12px;margin:4px 0 16px}
   .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
   .box{background:transparent;border-radius:8px;padding:10px;border-top:3px solid #C8960C}
-  .box-label{font-size:10px;color:rgba(255,255,255,.55);margin-bottom:3px}
+  .box-label{font-size:10px;color:#1A1A1A;margin-bottom:3px}
   .box-value{font-size:16px;font-weight:800;color:#FFFFFF}
   table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px}
   th{background:transparent;color:#FFF0C0;padding:7px 10px;text-align:right;font-weight:700}
@@ -2546,7 +2546,7 @@ ${invoices.length?`<table>
 <tr><th>التاريخ</th><th>الوصف</th><th>المورد</th><th>النوع</th><th>المبلغ</th><th>VAT</th><th>الإجمالي</th></tr>
 ${invoices.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr><td>${e.date}</td><td>${e.desc}</td><td>${e.supplier||'-'}</td><td>${e.type==='tax'?'ضريبية':'نثرية'}</td><td>${fmt(e.subtotal||0)} ﷼</td><td>${fmt(e.taxAmt||0)} ﷼</td><td class="red">${fmt(e.total)} ﷼</td></tr>`).join('')}
 <tr class="total-row"><td colspan="4">الإجمالي</td><td>${fmt(invoices.reduce((a,e)=>a+(e.subtotal||0),0))} ﷼</td><td>${fmt(vat)} ﷼</td><td>${fmt(totalSpent)} ﷼</td></tr>
-</table>`:'<p style="color:rgba(255,255,255,.55)">لا توجد فواتير</p>'}
+</table>`:'<p style="color:#1A1A1A">لا توجد فواتير</p>'}
 
 ${extList.length?`
 <h2>👷 العمال الخارجيون</h2>
