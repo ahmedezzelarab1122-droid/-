@@ -440,66 +440,33 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
 }
 
 
-/* ══ MINIMAL ROW SEPARATORS ══ */
-.txr { border-bottom: 1px solid rgba(255,255,255,.10) !important; }
-.txr:last-child { border-bottom: none !important; }
-.srow { border-bottom: 1px solid rgba(255,255,255,.10) !important; }
-.srow:last-child { border-bottom: none !important; }
-.fr { border-bottom: 1px solid rgba(255,255,255,.08) !important; }
-.fr:last-child { border-bottom: none !important; }
-
-/* Remove ALL inner backgrounds */
-#mc div > div { background: transparent !important; }
-#mc .card > div { background: transparent !important; }
-
-/* Keep only outer card glass */
-#mc > div, #mc .card, #mc .stat, #mc .hero-card, #mc .sc, #mc .chip {
+/* ══ GLASS OVERRIDE - REMOVE INNER BG ══ */
+#mc div, #mc p, #mc span:not(.badge) {
+  background: transparent !important;
+}
+#mc > div {
   background: rgba(255,255,255,.09) !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(255,255,255,.13) !important;
 }
-
-/* Stat top border */
-#mc .stat { border-top: 2px solid #00C8E8 !important; }
-
-/* ftabs */
-.ftab { border: 1px solid rgba(255,255,255,.2) !important; }
-.ftab.on { background: linear-gradient(135deg,#40D8F8,#00C8E8) !important; color: #001820 !important; border-color: transparent !important; }
-
-/* All text white */
-#mc *, #swrap * { color: #FFFFFF !important; background: transparent !important; }
-
-/* Semantic colors */
-#mc [style*="color:#FF8080"],[style*="color:#D93025"],[style*="color:#C42B1C"] { color:#FF8080 !important }
-#mc [style*="color:#3DD68C"],[style*="color:#1A7A3C"],[style*="color:#1A6B38"] { color:#3DD68C !important }
-#mc [style*="color:#70B5FF"],[style*="color:#1A50A8"] { color:#70B5FF !important }
-#mc [style*="color:#00C8E8"],[style*="color:#C8960C"],[style*="color:#E8B830"] { color:#00C8E8 !important }
-#mc [style*="color:#FFB347"],[style*="color:#D97706"] { color:#FFB347 !important }
-
-/* Badges keep colors */
-.bpt { background: rgba(61,214,140,.18) !important; color: #3DD68C !important; }
+#mc .card {
+  background: rgba(255,255,255,.09) !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
+  backdrop-filter: blur(16px) !important;
+}
+#mc .stat {
+  background: rgba(255,255,255,.09) !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
+  border-top: 2.5px solid #00C8E8 !important;
+}
+#mc .pbar { background: rgba(255,255,255,.12) !important; }
+.bpt, .blabor { background: rgba(61,214,140,.18) !important; color: #3DD68C !important; }
 .btx { background: rgba(112,181,255,.18) !important; color: #70B5FF !important; }
-.blabor { background: rgba(61,214,140,.18) !important; color: #3DD68C !important; }
-.btransfer { background: rgba(112,181,255,.18) !important; color: #70B5FF !important; }
 .bot { background: rgba(255,255,255,.12) !important; color: rgba(255,255,255,.7) !important; }
 .bcs { background: rgba(0,200,232,.18) !important; color: #00C8E8 !important; }
-.bpt *,.btx *,.blabor *,.btransfer *,.bot *,.bcs * { color: inherit !important; background: transparent !important; }
-
-/* Buttons */
-.btn.bp { background: linear-gradient(135deg,#40D8F8,#00C8E8) !important; color: #001820 !important; }
-.btn.bp * { color: #001820 !important; }
-.btn.bs { background: rgba(255,255,255,.12) !important; border: 1px solid rgba(255,255,255,.2) !important; }
-.btn.bx { background: linear-gradient(135deg,#1A9950,#2ABF65) !important; color: #fff !important; }
-
-/* Inputs */
-input:not([type=checkbox]), select, textarea {
-  background: rgba(255,255,255,.08) !important;
-  border: 1px solid rgba(255,255,255,.18) !important;
-  color: #FFFFFF !important;
-}
-select option { background: #001820 !important; color: #FFFFFF !important; }
-.pbar { background: rgba(255,255,255,.12) !important; }
+.btransfer { background: rgba(112,181,255,.18) !important; color: #70B5FF !important; }
+.bpt *, .btx *, .blabor *, .btransfer *, .bot *, .bcs * { background: transparent !important; }
 
 </style>
 </head>
@@ -719,6 +686,7 @@ async function restoreSession(){
 
 // LOGIN
 async function start(){
+
   // Reset all budgets to 0 on first load
   if(!localStorage.getItem('budgets_reset_v2')){
     await api('reset-budgets','POST',{}).catch(()=>{});
@@ -841,7 +809,7 @@ function rDash(){
     ${DB.supervisors.map((s,i)=>{
       const sp=gs(s.id),rem=getBalance(s.id),pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
       const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
-      const warn=pct>80?`<div style="background:rgba(255,100,100,.15);color:#FF8080;border-radius:8px;padding:8px 10px;margin-top:6px;font-size:12px;font-weight:600;border-right:3px solid #FF8080">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
+      const warn=pct>80?`<div style="color:#FF8080;padding:8px 0;margin-top:6px;font-size:12px;font-weight:600;border-right:3px solid #FF8080;padding-right:8px">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
       return`<div style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:14px;margin-bottom:10px;backdrop-filter:blur(14px)">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:10px">
