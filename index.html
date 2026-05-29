@@ -2860,7 +2860,7 @@ function rLaborSup(){
           <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);cursor:pointer">
             <input type="checkbox" id="cw-${w.id}" value="${w.id}" data-name="${w.name}" onchange="calcLabor()" style="width:18px;height:18px;accent-color:rgba(255,255,255,.9)">
             <div><div style="font-size:13px;font-weight:500">${w.name}</div><div style="font-size:11px;color:rgba(255,255,255,.75)">${w.jobTitle||'عامل'}</div></div>
-          </label>`).join('\'')}
+          </label>`).join(' · ')}
         </div>`
       }
       
@@ -3131,7 +3131,7 @@ function exportPDF(){
 
   // Labor
   const laborE=DB.entries.filter(e=>e.type==='labor'&&(!laborFrom||e.date>=laborFrom)&&(!laborTo||e.date<=laborTo));
-  const extW={};compW={};
+  const extW={};const compW={};
   laborE.forEach(e=>{
     if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{
       const k=w.name+'||'+w.jobTitle;
