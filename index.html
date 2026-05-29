@@ -2277,21 +2277,23 @@ function exportPDF(){
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#FFFFFF;background:transparent;padding:20px;font-size:13px}
-  h1{font-size:22px;font-weight:900;color:rgba(255,255,255,.9);margin-bottom:4px}
-  h2{font-size:15px;font-weight:800;color:rgba(255,255,255,.9);margin:20px 0 10px;border-bottom:2px solid #C8960C;padding-bottom:5px}
-  .date{color:#1A1A1A;font-size:12px;margin-bottom:20px}
-  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
-  .box{background:transparent;border-radius:10px;padding:12px;border-top:3px solid #C8960C}
-  .box-label{font-size:10px;color:#1A1A1A;margin-bottom:4px}
-  .box-value{font-size:18px;font-weight:800;color:#FFFFFF}
-  table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px}
-  th{background:transparent;color:#FFF0C0;padding:8px 10px;text-align:right;font-weight:700}
-  td{padding:8px 10px;color:#FFFFFF}
-  tr:nth-child(even) td{background:transparent}
-  .total-row td{background:rgba(0,200,232,.10);font-weight:800;color:rgba(255,255,255,.9)}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #C8960C}
-  @media print{body{padding:10px}}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;background:#fff;padding:20px;font-size:13px}
+  h1{font-size:22px;font-weight:900;color:#000;margin-bottom:4px}
+  h2{font-size:14px;font-weight:800;color:#000;margin:18px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}
+  p,div,span{color:#000}
+  .date,.sub{color:#000;font-size:12px;margin-bottom:16px}
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+  .box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px}
+  .box-label{font-size:10px;color:#000;margin-bottom:3px;font-weight:600}
+  .box-value{font-size:17px;font-weight:800;color:#000}
+  table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px}
+  th{background:#000;color:#fff;padding:8px 10px;text-align:right;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  td{padding:7px 10px;border:1px solid #000;color:#000}
+  tr:nth-child(even) td{background:#f0f0f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .total-row td{background:#ddd;font-weight:800;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .header{margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #000}
+  .red,.green,.blue{color:#000;font-weight:700}
+  @media print{body{padding:8px}}
 </style></head><body>
 <div class="header">
   <div>
@@ -2505,23 +2507,22 @@ function exportSupPDF(supId){
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#FFFFFF;background:transparent;padding:20px;font-size:13px}
-  h1{font-size:20px;font-weight:900;color:rgba(255,255,255,.9)}
-  h2{font-size:14px;font-weight:800;color:rgba(255,255,255,.9);margin:16px 0 8px;border-bottom:2px solid #C8960C;padding-bottom:4px}
-  .sub{color:#1A1A1A;font-size:12px;margin:4px 0 16px}
-  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
-  .box{background:transparent;border-radius:8px;padding:10px;border-top:3px solid #C8960C}
-  .box-label{font-size:10px;color:#1A1A1A;margin-bottom:3px}
-  .box-value{font-size:16px;font-weight:800;color:#FFFFFF}
-  table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px}
-  th{background:transparent;color:#FFF0C0;padding:7px 10px;text-align:right;font-weight:700}
-  td{padding:7px 10px;color:#FFFFFF}
-  tr:nth-child(even) td{background:transparent}
-  .total-row td{background:rgba(0,200,232,.10);font-weight:800;color:rgba(255,255,255,.9)}
-  .red{color:#D93025;font-weight:700}
-  .green{color:#1A7A3C;font-weight:700}
-  .blue{color:#1A50A8;font-weight:700}
-  @media print{body{padding:10px}}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;background:#fff;padding:20px;font-size:13px}
+  h1{font-size:20px;font-weight:900;color:#000}
+  h2{font-size:14px;font-weight:800;color:#000;margin:14px 0 7px;border-bottom:2px solid #000;padding-bottom:4px}
+  p,div,span{color:#000}
+  .sub{color:#000;font-size:12px;margin:3px 0 14px}
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:9px}
+  .box-label{font-size:10px;color:#000;margin-bottom:3px;font-weight:600}
+  .box-value{font-size:15px;font-weight:800;color:#000}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px}
+  th{background:#000;color:#fff;padding:7px 10px;text-align:right;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  td{padding:6px 10px;border:1px solid #000;color:#000}
+  tr:nth-child(even) td{background:#f0f0f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .total-row td{background:#ddd;font-weight:800;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .red,.green,.blue{color:#000;font-weight:700}
+  @media print{body{padding:8px}}
 </style></head><body>
 <h1>تقرير المشرف: ${sup.name}</h1>
 <div class="sub">تاريخ التقرير: ${now}</div>
