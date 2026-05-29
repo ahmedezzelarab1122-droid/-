@@ -318,32 +318,14 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
 }
 
 /* All block containers get glass */
-#mc div[style],
-#mc > div,
-#mc .card,
-#mc .stat,
-#mc .sc,
-#mc .chip,
-#mc .txr,
-#mc .srow {
-  background:transparent !important;
-  border:1px solid rgba(255,255,255,.12) !important;
-  backdrop-filter:blur(12px) !important;
-  -webkit-backdrop-filter:blur(12px) !important;
-  color:#FFFFFF !important;
-}
+
 
 /* Stat cards get cyan top border */
 #mc .stat {
   border-top:2px solid #00C8E8 !important;
 }
 
-/* Nested divs inside cards - slightly more transparent */
-#mc .card > div,
-#mc .card div[style*="background"] {
-  background:transparent !important;
-  border-color:rgba(255,255,255,.10) !important;
-}
+
 
 /* ALL text white */
 #mc,#mc *:not(canvas) {
@@ -432,11 +414,7 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
   border-color:rgba(255,255,255,.18)!important;
   color:#FFFFFF!important;
 }
-#swrap .card,#swrap [style*="background:#"],
-#swrap [style*="background:var(--s"] {
-  background:rgba(255,255,255,.08)!important;
-  border-color:rgba(255,255,255,.12)!important;
-}
+
 
 </style>
 </head>
