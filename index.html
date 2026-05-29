@@ -420,6 +420,79 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
 }
 
 
+
+/* ══ UNIVERSAL GLASS FOR ALL ELEMENTS ══ */
+
+/* All buttons inside mc and swrap */
+#mc button, #swrap button, .lc button {
+  border: 1.5px solid rgba(255,255,255,.2) !important;
+  border-top: 1.5px solid rgba(255,255,255,.3) !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.1) !important;
+  transition: transform .15s, box-shadow .15s !important;
+}
+#mc button:active, #swrap button:active { transform: scale(.96) !important; }
+
+/* Supervisor/inline cards - glass border */
+#mc > [style*="backdrop-filter"],
+#mc > [style*="border-radius:16px"],
+#mc > [style*="border-radius:18px"],
+#mc > [style*="border-radius:22px"] {
+  border: 1.5px solid rgba(255,255,255,.15) !important;
+  border-top: 1.5px solid rgba(255,255,255,.25) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+/* Table header rows */
+#mc [style*="background:rgba(0,0,0,.4"],
+#mc [style*="background:rgba(0,0,0,.5"] {
+  border: 1px solid rgba(255,255,255,.1) !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+/* Warning/alert boxes */
+#mc [style*="background:rgba(255,100,100"],
+#mc [style*="background:rgba(255,112,112"] {
+  border: 1px solid rgba(255,100,100,.35) !important;
+  border-right: 3px solid #FF8080 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05) !important;
+}
+
+/* Info/cyan boxes */
+#mc [style*="background:rgba(0,200,232"] {
+  border: 1px solid rgba(0,200,232,.3) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+/* Green boxes */
+#mc [style*="background:rgba(61,214,140"],
+.ok {
+  border: 1px solid rgba(61,214,140,.3) !important;
+}
+
+/* All selects - glass */
+select {
+  backdrop-filter: blur(10px) !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.2) !important;
+}
+
+/* Bottom nav items - glass active */
+.bottom-nav-item.active .bnav-icon {
+  box-shadow: 0 2px 10px rgba(0,200,232,.2), inset 0 1px 0 rgba(255,255,255,.15) !important;
+}
+
+/* FAB glass */
+.fab {
+  box-shadow: 0 4px 20px rgba(0,200,232,.3), inset 0 1px 0 rgba(255,255,255,.2) !important;
+}
+
+/* Login card glass */
+.lc {
+  border: 1.5px solid rgba(255,255,255,.15) !important;
+  border-top: 1.5px solid rgba(255,255,255,.25) !important;
+  box-shadow: 0 16px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.1) !important;
+}
+
 </style>
 </head>
 <body>
