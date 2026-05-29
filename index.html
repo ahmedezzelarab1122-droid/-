@@ -440,57 +440,66 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
 }
 
 
-/* ══ TABLES & ROWS ══ */
-.txr { border-bottom: 1px solid rgba(255,255,255,.12) !important; }
+/* ══ MINIMAL ROW SEPARATORS ══ */
+.txr { border-bottom: 1px solid rgba(255,255,255,.10) !important; }
 .txr:last-child { border-bottom: none !important; }
-.srow { border-bottom: 1px solid rgba(255,255,255,.12) !important; }
+.srow { border-bottom: 1px solid rgba(255,255,255,.10) !important; }
 .srow:last-child { border-bottom: none !important; }
-.fr { border-bottom: 1px solid rgba(255,255,255,.10) !important; }
+.fr { border-bottom: 1px solid rgba(255,255,255,.08) !important; }
 .fr:last-child { border-bottom: none !important; }
 
-/* Filter card */
-.ftab { border: 1px solid rgba(255,255,255,.2) !important; color: rgba(255,255,255,.8) !important; }
+/* Remove ALL inner backgrounds */
+#mc div > div { background: transparent !important; }
+#mc .card > div { background: transparent !important; }
+
+/* Keep only outer card glass */
+#mc > div, #mc .card, #mc .stat, #mc .hero-card, #mc .sc, #mc .chip {
+  background: rgba(255,255,255,.09) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255,255,255,.13) !important;
+}
+
+/* Stat top border */
+#mc .stat { border-top: 2px solid #00C8E8 !important; }
+
+/* ftabs */
+.ftab { border: 1px solid rgba(255,255,255,.2) !important; }
 .ftab.on { background: linear-gradient(135deg,#40D8F8,#00C8E8) !important; color: #001820 !important; border-color: transparent !important; }
 
-/* Table header rows in labor/reports */
-#mc [style*="background:#3D2000"],
-#mc [style*="background:#5C3A1E"],
-#mc [style*="background:#3D20"] {
-  background: rgba(0,0,0,.5) !important;
-  border-bottom: 2px solid rgba(0,200,232,.3) !important;
-  color: rgba(0,200,232,.9) !important;
-}
-#mc [style*="background:#3D2000"] *,
-#mc [style*="background:#5C3A1E"] *,
-#mc [style*="background:#3D20"] * { color: rgba(0,200,232,.9) !important; }
+/* All text white */
+#mc *, #swrap * { color: #FFFFFF !important; background: transparent !important; }
 
-/* Total rows */
-#mc [style*="background:rgba(0,200,232,.10)"],
-#mc [style*="background:#FFF8E0"],
-#mc [style*="background:#FFF0C0"] {
-  background: rgba(0,200,232,.12) !important;
-  border-top: 1px solid rgba(0,200,232,.25) !important;
-}
+/* Semantic colors */
+#mc [style*="color:#FF8080"],[style*="color:#D93025"],[style*="color:#C42B1C"] { color:#FF8080 !important }
+#mc [style*="color:#3DD68C"],[style*="color:#1A7A3C"],[style*="color:#1A6B38"] { color:#3DD68C !important }
+#mc [style*="color:#70B5FF"],[style*="color:#1A50A8"] { color:#70B5FF !important }
+#mc [style*="color:#00C8E8"],[style*="color:#C8960C"],[style*="color:#E8B830"] { color:#00C8E8 !important }
+#mc [style*="color:#FFB347"],[style*="color:#D97706"] { color:#FFB347 !important }
 
-/* Supervisor card inner sections */
-#mc [style*="border:1px solid rgba(255,255,255,.12);border-radius:8px"],
-#mc [style*="border:1px solid rgba(255,255,255,.10);border-radius:8px"] {
-  border: 1px solid rgba(255,255,255,.15) !important;
-}
+/* Badges keep colors */
+.bpt { background: rgba(61,214,140,.18) !important; color: #3DD68C !important; }
+.btx { background: rgba(112,181,255,.18) !important; color: #70B5FF !important; }
+.blabor { background: rgba(61,214,140,.18) !important; color: #3DD68C !important; }
+.btransfer { background: rgba(112,181,255,.18) !important; color: #70B5FF !important; }
+.bot { background: rgba(255,255,255,.12) !important; color: rgba(255,255,255,.7) !important; }
+.bcs { background: rgba(0,200,232,.18) !important; color: #00C8E8 !important; }
+.bpt *,.btx *,.blabor *,.btransfer *,.bot *,.bcs * { color: inherit !important; background: transparent !important; }
 
-/* Daily log cards */
-#mc [style*="background:rgba(255,255,255,.08)"] {
-  background: rgba(255,255,255,.07) !important;
-  border: 1px solid rgba(255,255,255,.12) !important;
-}
+/* Buttons */
+.btn.bp { background: linear-gradient(135deg,#40D8F8,#00C8E8) !important; color: #001820 !important; }
+.btn.bp * { color: #001820 !important; }
+.btn.bs { background: rgba(255,255,255,.12) !important; border: 1px solid rgba(255,255,255,.2) !important; }
+.btn.bx { background: linear-gradient(135deg,#1A9950,#2ABF65) !important; color: #fff !important; }
 
-/* Worker sub-sections */
-#mc [style*="background:rgba(0,200,232,.10);border-radius"] {
-  border: 1px solid rgba(0,200,232,.2) !important;
+/* Inputs */
+input:not([type=checkbox]), select, textarea {
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: #FFFFFF !important;
 }
-#mc [style*="background:rgba(112,181,255,.12);border-radius"] {
-  border: 1px solid rgba(112,181,255,.2) !important;
-}
+select option { background: #001820 !important; color: #FFFFFF !important; }
+.pbar { background: rgba(255,255,255,.12) !important; }
 
 </style>
 </head>
