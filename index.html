@@ -473,6 +473,34 @@ input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:v
   backdrop-filter: none !important;
 }
 
+
+/* ══ ALL MC CHILDREN = CARD STYLE ══ */
+#mc > div:not(.sg):not(.shdr) {
+  background: rgba(255,255,255,.08) !important;
+  border: 1.5px solid rgba(255,255,255,.18) !important;
+  border-top: 1.5px solid rgba(255,255,255,.3) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.12) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  padding: 14px !important;
+  margin-bottom: 10px !important;
+}
+#mc > .sg {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  padding: 0 !important;
+}
+#mc > .shdr {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  padding: 0 !important;
+}
+
 </style>
 </head>
 <body>
@@ -814,7 +842,7 @@ function rDash(){
       const sp=gs(s.id),rem=getBalance(s.id),pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
       const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
       const warn=pct>80?`<div style="background:rgba(255,100,100,.15);color:#FF8080;padding:8px 10px;margin-top:6px;font-size:12px;font-weight:600;border-right:3px solid #FF8080">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
-      return`<div style="background:transparent;border:none;padding:14px;margin-bottom:10px;backdrop-filter:blur(14px)">
+      return`<div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:40px;height:40px;background:transparent;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${s.name[0]}</div>
