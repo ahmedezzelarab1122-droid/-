@@ -781,7 +781,7 @@ function showApp(){
   const tbn=document.getElementById('tbname');if(tbn)tbn.textContent=ROLE==='manager'?'لوحة المدير':ROLE==='owner'?'لوحة المالك':CU.name||'المشرف';
   const roleIcons={manager:'⚙️',owner:'👑',supervisor:'👷'};
   const trl=document.getElementById('tbrole');if(trl)trl.textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
-  if(document.getElementById('tbname'))document.getElementById('tbname').innerHTML=`${roleIcons[ROLE]||'👤'} ${CU?.name||''}`;
+  // title set in goBNav
   const items=ROLE==='manager'
     ?[['dash','🏠 الرئيسية'],['txns','📄 المعاملات'],['reports','📊 التقارير'],['setup','⚙️ الإعداد'],['pws','🔑 كلمات المرور'],['transfer','💸 التحويلات'],['labor-mgr','👷 العمالة']]
     :ROLE==='owner'
