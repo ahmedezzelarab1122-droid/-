@@ -1996,8 +1996,8 @@ function rLaborMgr(){
         ? '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px">لم يُضف عمال بعد</div>'
         : `<div style="margin-bottom:12px">${workers.map(w=>`
           <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">
-            <input type="checkbox" id="ww-\${w.id}" value="\${w.id}" style="width:18px;height:18px;accent-color:#00C8E8">
-            <div><div style="font-size:13px;font-weight:500;color:#FFFFFF">\${w.name}</div><div style="font-size:11px;color:rgba(255,255,255,.5)">\${w.jobTitle||'عامل'}</div></div>
+            <input type="checkbox" id="ww-${w.id}" value="${w.id}" style="width:18px;height:18px;accent-color:#00C8E8">
+            <div><div style="font-size:13px;font-weight:500;color:#FFFFFF">${w.name}</div><div style="font-size:11px;color:rgba(255,255,255,.5)">${w.jobTitle||'عامل'}</div></div>
           </label>`).join('')}
         </div>`
       }
