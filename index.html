@@ -137,7 +137,7 @@ body{
 
 /* ══ FAB ══ */
 .fab{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:300;
+  display:none!important;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:300;
   width:52px;height:52px;border-radius:16px;
   background:linear-gradient(145deg,var(--g2),var(--g1));
   color:#001820;border:none;cursor:pointer;
@@ -579,8 +579,9 @@ select {
     <div style="display:flex;gap:6px;align-items:center">
       
       <button id="ibtn" onclick="installApp()" style="display:none;border:1px solid rgba(201,168,76,0.5);border-radius:7px;padding:5px 9px;background:rgba(255,255,255,0.15);font-size:11px;color:#e8c87a;cursor:pointer;font-family:inherit">تثبيت</button>
-      <button onclick="toggleTheme()" id="tbtn" style="border:1px solid rgba(201,168,76,0.4);border-radius:7px;padding:5px 8px;background:rgba(255,255,255,0.1);cursor:pointer;font-size:15px;line-height:1">🌙</button>
+      
       <button class="menu-btn" onclick="openNav()">☰</button>
+      <button onclick="openScan()" id="fab-topbar" style="display:none;border:none;border-radius:12px;width:36px;height:36px;background:linear-gradient(135deg,#40D8F8,#00C8E8);cursor:pointer;font-size:18px;color:#001820;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,200,232,.4);transition:.15s;flex-shrink:0">➕</button>
       <button onclick="doLogout()" style="border:1px solid rgba(201,168,76,0.4);border-radius:7px;padding:5px 9px;background:rgba(255,255,255,0.1);font-size:11px;color:#e8c87a;cursor:pointer;font-family:inherit">خروج</button>
     </div>
   </div>
@@ -817,7 +818,11 @@ function showApp(){
   const fabBtn = document.getElementById('fab-btn');
   const bottomNav = document.getElementById('bottom-nav');
   
-  if(ROLE !== 'owner') fabBtn.style.display = 'flex';
+  if(ROLE !== 'owner'){
+    fabBtn.style.display = 'none';
+    const fabTop = document.getElementById('fab-topbar');
+    if(fabTop) fabTop.style.display = 'flex';
+  }
   
   bottomNav.innerHTML = items.map(([id,lbl],i)=>{
     const parts=lbl.split(' ');
