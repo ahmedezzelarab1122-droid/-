@@ -443,7 +443,7 @@ const server = http.createServer(async (req, res) => {
       e.type === 'labor_waiting' && e.date === entry.date && e.project === entry.project
     );
     if(dup) return sendJSON(res, {error: 'تم تسجيل عمالة انتظار لهذا المشروع في نفس اليوم'}, 400);
-    data.entries.push(entry);
+    await addEntry(entry);
     await saveConfig(data);
     return sendJSON(res, {ok: true});
   }
