@@ -444,7 +444,7 @@ const server = http.createServer(async (req, res) => {
     );
     if(dup) return sendJSON(res, {error: 'تم تسجيل عمالة انتظار لهذا المشروع في نفس اليوم'}, 400);
     data.entries.push(entry);
-    await saveEntries(data);
+    await saveConfig(data);
     return sendJSON(res, {ok: true});
   }
 
