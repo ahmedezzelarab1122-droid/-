@@ -75,7 +75,7 @@ body{
   padding:0;
   transition:right .3s ease;
   box-shadow:-4px 0 30px rgba(0,0,0,.5);
-  overflow-y:auto;
+  overflow-y:auto;display:flex;flex-direction:column;
 }
 .bottom-nav.open{right:0}
 .nav-overlay{position:fixed;inset:0;z-index:499;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);display:none;opacity:0;transition:opacity .25s;}
@@ -797,15 +797,46 @@ function showApp(){
     if(fabTop) fabTop.style.display = 'flex';
   }
   
-  bottomNav.innerHTML = items.map(([id,lbl],i)=>{
-    const parts=lbl.split(' ');
-    const icon=parts[0];
-    const text=parts.slice(1).join(' ');
-    return`<button class="bottom-nav-item${i===0?' active':''}" onclick="goBNav('${id}',this)" data-id="${id}">
-      <div class="bnav-icon"><span>${icon}</span></div>
-      <span>${text}</span>
-    </button>`;
-  }).join('');
+  // Build nav with categories like HR
+  const navSections = ROLE==='manager' ? [
+    { label:'الرئيسية', items:[['dash','🏠','الرئيسية']] },
+    { label:'المالية', items:[['txns','📄','المعاملات'],['reports','📊','التقارير'],['transfer','💸','التحويلات']] },
+    { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور']] },
+    { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
+  ] : ROLE==='owner' ? [
+    { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
+    { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
+  ] : [
+    { label:'الرئيسية', items:[['home','🏠','الرئيسية'],['bal','💰','رصيدي']] },
+    { label:'العمل', items:[['labor','👷','تسجيل عمالة'],['hist','📋','سجلاتي']] },
+  ];
+
+  let navHtml = '';
+  let firstItem = true;
+  navSections.forEach(section=>{
+    navHtml += `<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1px;text-transform:uppercase">${section.label}</div>`;
+    section.items.forEach(([id,icon,text])=>{
+      const active = firstItem ? ' active' : '';
+      firstItem = false;
+      navHtml += `<button class="bottom-nav-item${active}" onclick="goBNav('${id}',this)" data-id="${id}">
+        <div class="bnav-icon"><span>${icon}</span></div>
+        <span>${text}</span>
+      </button>`;
+    });
+  });
+
+  // Settings button at bottom
+  navHtml += `<div style="flex:1"></div>`;
+  if(ROLE==='manager'){
+    navHtml += `<div style="border-top:1px solid rgba(255,255,255,.08);padding:8px 0">
+      <button class="bottom-nav-item" onclick="goBNav('setup',this)" data-id="setup">
+        <div class="bnav-icon"><span>⚙️</span></div>
+        <span>الإعدادات</span>
+      </button>
+    </div>`;
+  }
+
+  bottomNav.innerHTML = navHtml;
   
   if(ROLE==='manager') rDash();
   else if(ROLE==='owner') rOwnerDash();
