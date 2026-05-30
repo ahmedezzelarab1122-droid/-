@@ -2348,7 +2348,7 @@ function rOwnerProj(){
 }
 
 function rOwnerLabor(){
-  const allLabor=DB.entries.filter(e=>e.type==='labor').slice().reverse();
+  const allLabor=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').slice().reverse();
   const fromDate=window._laborFrom||'';
   const toDate=window._laborTo||'';
   console.log('Labor filter:', fromDate, '->', toDate, 'total entries:', allLabor.length);
@@ -2406,7 +2406,7 @@ function exportPDF(){
   const sortedProj=Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
 
   // Labor
-  const laborE=DB.entries.filter(e=>e.type==='labor'&&(!laborFrom||e.date>=laborFrom)&&(!laborTo||e.date<=laborTo));
+  const laborE=DB.entries.filter(e=>(e.type==='labor'||e.type==='labor_waiting')&&(!laborFrom||e.date>=laborFrom)&&(!laborTo||e.date<=laborTo));
   const extW={};compW={};
   laborE.forEach(e=>{
     if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{
@@ -2634,7 +2634,7 @@ function exportSupPDF(supId){
   const vat = invoices.reduce((a,e)=>a+(e.taxAmt||0),0);
 
   // Labor
-  const laborE = entries.filter(e=>e.type==='labor');
+  const laborE = entries.filter(e=>e.type==='labor'||e.type==='labor_waiting');
   const extW={}, compW={};
   const exRate=(DB.laborRates||{}).external||150;
   const compRate=(DB.laborRates||{}).company||100;
