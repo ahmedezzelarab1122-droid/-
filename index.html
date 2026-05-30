@@ -847,6 +847,16 @@ function closeNav(){
   document.getElementById('bottom-nav').classList.remove('open');
   document.getElementById('nav-overlay').classList.remove('open');
 }
+// Close nav on any click outside
+document.addEventListener('click', function(e){
+  const nav = document.getElementById('bottom-nav');
+  const menuBtn = document.querySelector('.menu-btn');
+  if(nav && nav.classList.contains('open')){
+    if(!nav.contains(e.target) && (!menuBtn || !menuBtn.contains(e.target))){
+      closeNav();
+    }
+  }
+});
 function goBNav(id,btn){
   closeNav();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
