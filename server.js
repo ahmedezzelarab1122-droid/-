@@ -415,6 +415,39 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, { ok: true });
   }
 
+  // Labor waiting (no cost)
+  if (pathname === '/api/labor-waiting' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const data = await loadDB();
+    const todayDate = new Date().toISOString().split('T')[0];
+    const entry = {
+      id: Date.now(),
+      supId: 0,
+      supName: 'المدير',
+      project: body.project || '',
+      type: 'labor_waiting',
+      desc: `عمالة انتظار ${body.date || todayDate}`,
+      date: body.date || todayDate,
+      total: 0,
+      laborDetails: {
+        companyCount: (body.presentWorkers||[]).length,
+        externalCount: (body.externalWorkersList||[]).length,
+        laborTotal: 0,
+        presentWorkers: body.presentWorkers || [],
+        externalWorkersList: body.externalWorkersList || [],
+        isWaiting: true
+      }
+    };
+    // Check duplicate for same day
+    const dup = data.entries.find(e => 
+      e.type === 'labor_waiting' && e.date === entry.date && e.project === entry.project
+    );
+    if(dup) return sendJSON(res, {error: 'تم تسجيل عمالة انتظار لهذا المشروع في نفس اليوم'}, 400);
+    data.entries.push(entry);
+    await saveEntries(data);
+    return sendJSON(res, {ok: true});
+  }
+
   // Add budget to supervisor
   if (pathname.match(/\/api\/supervisors\/\d+\/budget/) && req.method === 'POST') {
     const id = parseInt(pathname.split('/')[3]);
@@ -655,46 +688,7 @@ const server = http.createServer(async (req, res) => {
     const f = path.join(__dirname, pathname.replace('/', '') + '.b64');
     if (fs.existsSync(f)) { const buf = Buffer.from(fs.readFileSync(f, 'utf8'), 'base64'); res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(buf); }
   }
-// ── Attendance API for HR System ──
-  if (pathname === '/api/attendance' && req.method === 'GET') {
-    const data = await loadDB();
-    const query = url.parse(req.url, true).query;
-    const month = parseInt(query.month) || new Date().getMonth();
-    const year = parseInt(query.year) || new Date().getFullYear();
-    
-    const laborEntries = data.entries.filter(e => {
-      if (e.type !== 'labor') return false;
-      const d = new Date(e.date);
-      return d.getMonth() === month && d.getFullYear() === year;
-    });
 
-    const workerDays = {};
-    laborEntries.forEach(e => {
-      if (e.laborDetails?.presentWorkers) {
-        e.laborDetails.presentWorkers.forEach(w => {
-          if (!workerDays[w.name]) workerDays[w.name] = new Set();
-          workerDays[w.name].add(e.date);
-        });
-      }
-    });
-
-    const workDays = 26;
-    const employees = Object.entries(workerDays).map(([name, dates]) => ({
-      name,
-      present_days: dates.size,
-      absent_days: Math.max(0, workDays - dates.size),
-      late_minutes: 0,
-      notes: ''
-    }));
-
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    return res.end(JSON.stringify({
-      month: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][month],
-      year, work_days: workDays, employees
-    }));
-  }
-
-  // HTML
   // HTML
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'));
