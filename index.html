@@ -2348,7 +2348,7 @@ function rOwnerProj(){
 }
 
 function rOwnerLabor(){
-  const allLabor=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').slice().reverse();
+  const allLabor=DB.entries.filter(e=>(e.type==='labor'||e.type==='labor_waiting')).slice().reverse();
   const fromDate=window._laborFrom||'';
   const toDate=window._laborTo||'';
   console.log('Labor filter:', fromDate, '->', toDate, 'total entries:', allLabor.length);
