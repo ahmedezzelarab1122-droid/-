@@ -1989,15 +1989,7 @@ function rLaborMgr(){
       </div>
       <input type="hidden" id="wait-proj" value="انتظار - سكن">
       <div class="ctitle" style="margin-top:4px">عمال الشركة</div>
-      ${workers.length===0
-        ? '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px">لم يُضف عمال بعد</div>'
-        : `<div style="margin-bottom:12px">${workers.map(w=>`
-          <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">
-            <input type="checkbox" id="ww-${w.id}" value="${w.id}" style="width:18px;height:18px;accent-color:#00C8E8">
-            <div><div style="font-size:13px;font-weight:500;color:#FFFFFF">${w.name}</div><div style="font-size:11px;color:rgba(255,255,255,.5)">${w.jobTitle||'عامل'}</div></div>
-          </label>`).join('')}
-        </div>`
-      }
+      ${buildWaitingWorkersList(workers)}
       <div class="ctitle">عمال خارجيون</div>
       <div id="wait-ext-list"></div>
       <button onclick="addWaitExtWorker()" style="border:1px dashed rgba(0,200,232,.4);border-radius:10px;padding:10px;background:rgba(0,200,232,.06);font-size:13px;color:rgba(255,255,255,.8);cursor:pointer;font-family:'Tajawal',sans-serif;width:100%;margin-bottom:12px">+ إضافة عامل خارجي</button>
@@ -2036,6 +2028,46 @@ async function deleteWorker(id){
 
 // ── WAITING LABOR ──────────────────────────
 let waitExtCount = 0;
+
+
+
+function buildSupWorkersList(workers){
+  if(!workers||!workers.length) return '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px">لم يُضف عمال من المدير بعد</div>';
+  const registered = getRegisteredToday();
+  const available = workers.filter(w=>!registered.has(w.name));
+  if(!available.length) return '<div style="padding:10px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399;margin-bottom:10px;text-align:center">✅ جميع العمال مسجلون اليوم</div>';
+  return '<div style="margin-bottom:12px">'+available.map(function(w){
+    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">'+
+    '<input type="checkbox" id="cw-'+w.id+'" value="'+w.id+'" data-name="'+w.name+'" onchange="calcLabor()" style="width:18px;height:18px;accent-color:rgba(255,255,255,.9)">'+
+    '<div><div style="font-size:13px;font-weight:500">'+w.name+'</div>'+
+    '<div style="font-size:11px;color:rgba(255,255,255,.75)">'+(w.jobTitle||'عامل')+'</div></div></label>';
+  }).join('')+'</div>';
+}
+
+function buildWaitingWorkersList(workers){
+  if(!workers||!workers.length) return '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px">لم يُضف عمال بعد</div>';
+  const registered = getRegisteredToday();
+  const available = workers.filter(w=>!registered.has(w.name));
+  if(!available.length) return '<div style="padding:10px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399;margin-bottom:10px;text-align:center">✅ جميع العمال في المشاريع اليوم</div>';
+  return '<div style="margin-bottom:12px">'+available.map(w=>
+    '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">'+
+    '<input type="checkbox" id="ww-'+w.id+'" value="'+w.id+'" style="width:18px;height:18px;accent-color:#00C8E8">'+
+    '<div><div style="font-size:13px;font-weight:500;color:#FFFFFF">'+w.name+'</div>'+
+    '<div style="font-size:11px;color:rgba(255,255,255,.5)">'+(w.jobTitle||'عامل')+'</div></div>'+
+    '</label>'
+  ).join('')+'</div>';
+}
+
+function getRegisteredToday(){
+  const todayStr = new Date().toISOString().split('T')[0];
+  const registered = new Set();
+  DB.entries.filter(e=>e.type==='labor'&&e.date===todayStr).forEach(e=>{
+    if(e.laborDetails && e.laborDetails.presentWorkers)
+      e.laborDetails.presentWorkers.forEach(w=>registered.add(w.name));
+  });
+  return registered;
+}
+
 function addWaitExtWorker(){
   waitExtCount++;
   const id = waitExtCount;
@@ -2129,12 +2161,7 @@ function rLaborSup(){
       <div class="ctitle" style="margin-top:12px">عمال الشركة الحاضرون</div>
       ${workers.length===0 
         ? '<div style="font-size:12px;color:rgba(255,255,255,.75);margin-bottom:10px">لم يُضف عمال من المدير بعد</div>'
-        : `<div style="margin-bottom:12px">${workers.map(w=>`
-          <label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">
-            <input type="checkbox" id="cw-${w.id}" value="${w.id}" data-name="${w.name}" onchange="calcLabor()" style="width:18px;height:18px;accent-color:rgba(255,255,255,.9)">
-            <div><div style="font-size:13px;font-weight:500">${w.name}</div><div style="font-size:11px;color:rgba(255,255,255,.75)">${w.jobTitle||'عامل'}</div></div>
-          </label>`).join('\'')}
-        </div>`
+        : buildSupWorkersList(workers)
       }
       
       <div class="ctitle" style="margin-top:4px">العمال الخارجيون</div>
