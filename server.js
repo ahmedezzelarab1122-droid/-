@@ -697,8 +697,9 @@ const server = http.createServer(async (req, res) => {
     const month = parseInt(query.month) || new Date().getMonth();
     const year = parseInt(query.year) || new Date().getFullYear();
 
+    // Include both regular labor AND waiting labor
     const laborEntries = data.entries.filter(e => {
-      if (e.type !== 'labor') return false;
+      if (e.type !== 'labor' && e.type !== 'labor_waiting') return false;
       const d = new Date(e.date);
       return d.getMonth() === month && d.getFullYear() === year;
     });
