@@ -2258,8 +2258,8 @@ function rOwnerDash(){
   const tTax=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
   const tPetty=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
   const tVat=DB.entries.reduce((a,e)=>a+(e.taxAmt||0),0);
-  const tLabor=DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
-  const tExternal=DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.externalCount||0)*(e.laborDetails?.externalRate||0),0);
+  const tLabor=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const tExternal=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').reduce((a,e)=>a+(e.laborDetails?.externalCount||0)*(e.laborDetails?.externalRate||0),0);
 
   document.getElementById('mc').innerHTML=`
     <div class="card" style="background:linear-gradient(135deg,var(--primary),#6b3810);color:#fff;border:none">
