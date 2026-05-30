@@ -2532,15 +2532,19 @@ function buildLaborSection(fromDate, toDate){
   if(!laborEntries.length) return '<div class="shdr" style="margin-top:8px">👷 لا توجد سجلات عمالة في هذه الفترة</div>';
 
   const rates = DB.laborRates || {company:100, external:150};
-  const extW={}, compW={};
 
-  laborEntries.forEach(e=>{
+  // Separate project labor from waiting labor
+  const projectEntries = laborEntries.filter(e=>e.type==='labor');
+  const waitingEntries = laborEntries.filter(e=>e.type==='labor_waiting');
+
+  // Build project worker tables
+  const extW={}, compW={};
+  projectEntries.forEach(e=>{
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
         const k=w.name+'||'+w.jobTitle;
         if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
-        extW[k].days++;
-        extW[k].total+=rates.external;
+        extW[k].days++;extW[k].total+=rates.external;
         if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
         if(e.project)extW[k].projects.add(e.project);
       });
@@ -2555,81 +2559,91 @@ function buildLaborSection(fromDate, toDate){
     }
   });
 
-  const extList  = Object.values(extW).sort((a,b)=>b.days-a.days);
+  // Build waiting worker tables
+  const waitCompW={};
+  waitingEntries.forEach(e=>{
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!waitCompW[w.name])waitCompW[w.name]={name:w.name,days:0,dates:[],projects:new Set()};
+        waitCompW[w.name].days++;
+        if(e.date&&!waitCompW[w.name].dates.includes(e.date))waitCompW[w.name].dates.push(e.date);
+        if(e.project)waitCompW[w.name].projects.add(e.project);
+      });
+    }
+  });
+
+  const extList = Object.values(extW).sort((a,b)=>b.days-a.days);
   const compList = Object.values(compW).sort((a,b)=>b.days-a.days);
+  const waitList = Object.values(waitCompW).sort((a,b)=>b.days-a.days);
+
   const totalExt = extList.reduce((a,w)=>a+w.days,0);
   const totalComp = compList.reduce((a,w)=>a+w.days,0);
-  const totalCost = laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const totalWait = waitList.reduce((a,w)=>a+w.days,0);
+  const totalCost = projectEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
 
   return `
-    <div class="shdr" style="margin-top:10px">👷 تقرير العمالة${fromDate||toDate?' ('+( fromDate||'البداية')+' → '+(toDate||'الآن')+')':''}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-      <div class="stat"><div class="sl">أيام الشركة</div><div class="sv" style="color:rgba(255,255,255,.9)">${totalComp} يوم</div></div>
-      <div class="stat"><div class="sl">أيام الخارجيين</div><div class="sv" style="color:#1A50A8">${totalExt} يوم</div></div>
-      <div class="stat"><div class="sl">إجمالي التكلفة</div><div class="sv" style="color:#D93025">${fmt(totalCost)} ﷼</div></div>
-    </div>
+    <div style="margin-top:10px">
 
     ${extList.length?`
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px;letter-spacing:.5px">👷 العمال الخارجيون — المشاريع</div>
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
-      <div style="background:transparent;color:#FFF0C0;padding:9px 14px;font-size:12px;font-weight:700">👷 العمال الخارجيون</div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:transparent;color:#FFF0C0;padding:8px 14px;font-size:11px;font-weight:600">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:transparent;color:rgba(255,255,255,.7);padding:8px 14px;font-size:11px;font-weight:700">
         <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span>
       </div>
       ${extList.map((w,i)=>`
-        <div style="padding:10px 14px;background:${'transparent'}">
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
-              <div style="font-size:10px;color:rgba(255,255,255,.55)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
-              <div style="font-size:10px;color:#1A50A8;margin-top:2px;font-weight:600">${w.dates.sort().join(' · ')}</div>
-            </div>
-            <div style="text-align:center;font-size:20px;font-weight:900;color:#1A50A8">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.55);font-weight:400">يوم</div></div>
-            <div style="text-align:center;font-size:13px;font-weight:700;color:#D93025">${fmt(w.total)}<div style="font-size:9px;color:rgba(255,255,255,.55);font-weight:400">﷼</div></div>
-          </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:9px 14px;background:transparent">
+          <div><div style="font-size:13px;font-weight:700">${w.name}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4)">${w.dates.sort().join(' · ')}</div></div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:#70B5FF">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">يوم</div></div>
+          <div style="text-align:center;font-size:13px;font-weight:700;color:#f87171">${fmt(w.total)}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">﷼</div></div>
         </div>`).join('')}
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:9px 14px;background:rgba(0,200,232,.10);font-weight:700;font-size:12px">
-        <span style="color:rgba(255,255,255,.9)">الإجمالي</span>
-        <span style="text-align:center;color:#1A50A8">${totalExt} يوم</span>
-        <span style="text-align:center;color:#D93025">${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</span>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:8px 14px;background:rgba(0,200,232,.10);font-weight:700;font-size:12px">
+        <span>الإجمالي</span>
+        <span style="text-align:center;color:#70B5FF">${totalExt} يوم</span>
+        <span style="text-align:center;color:#f87171">${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</span>
       </div>
-    </div>`:''} 
+    </div>`:''}
 
     ${compList.length?`
-    <div class="card" style="padding:0;overflow:hidden">
-      <div style="background:transparent;color:#FFF0C0;padding:9px 14px;font-size:12px;font-weight:700">🏢 عمال الشركة</div>
-      <div style="display:grid;grid-template-columns:2fr 1fr;background:transparent;color:#FFF0C0;padding:8px 14px;font-size:11px;font-weight:600">
-        <span>الاسم</span><span style="text-align:center">إجمالي الأيام</span>
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px;letter-spacing:.5px">🏢 عمال الشركة — المشاريع</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:2fr 1fr;background:transparent;color:rgba(255,255,255,.7);padding:8px 14px;font-size:11px;font-weight:700">
+        <span>الاسم</span><span style="text-align:center">أيام الحضور</span>
       </div>
       ${compList.map((w,i)=>`
-        <div style="padding:10px 14px;background:${'transparent'}">
-          <div style="display:grid;grid-template-columns:2fr 1fr;align-items:center">
-            <div>
-              <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
-              <div style="font-size:10px;color:rgba(255,255,255,.9);margin-top:2px;font-weight:600">${w.dates.sort().join(' · ')}</div>
-              <div style="font-size:10px;color:rgba(255,255,255,.55)">${[...w.projects].join('،')}</div>
-            </div>
-            <div style="text-align:center;font-size:20px;font-weight:900;color:rgba(255,255,255,.9)">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.55);font-weight:400">يوم</div></div>
-          </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;padding:9px 14px;background:transparent">
+          <div><div style="font-size:13px;font-weight:700">${w.name}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">${[...w.projects].join('،')}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4)">${w.dates.sort().join(' · ')}</div></div>
+          <div style="text-align:center;font-size:20px;font-weight:900">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">يوم</div></div>
         </div>`).join('')}
-      <div style="display:grid;grid-template-columns:2fr 1fr;padding:9px 14px;background:rgba(0,200,232,.10);font-weight:700;font-size:12px">
-        <span style="color:rgba(255,255,255,.9)">الإجمالي</span>
-        <span style="text-align:center;color:rgba(255,255,255,.9)">${totalComp} يوم</span>
+      <div style="display:grid;grid-template-columns:2fr 1fr;padding:8px 14px;background:rgba(0,200,232,.10);font-weight:700;font-size:12px">
+        <span>الإجمالي</span>
+        <span style="text-align:center">${totalComp} يوم</span>
       </div>
-    </div>`:''} 
+    </div>`:''}
 
-    ${laborEntries.length ? `
-    <div style="margin-top:10px">
-      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px;letter-spacing:.5px">📅 السجل اليومي</div>
-      ${laborEntries.map(e=>'<div style="border-radius:8px;padding:9px 12px;margin-bottom:7px;background:rgba(255,255,255,.04);border-right:3px solid '+(e.laborDetails?.isWaiting?'#fbbf24':'rgba(0,200,232,.5)')+'">'+
-        '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'+
-        '<div style="font-weight:700;font-size:12px">'+e.date+(e.laborDetails?.isWaiting?' <span style=\"background:rgba(251,191,36,.2);color:#fbbf24;font-size:10px;padding:1px 6px;border-radius:99px\">⏳ انتظار</span>':'')+'</div>'+
-        '<div style="font-size:11px;color:'+(e.laborDetails?.isWaiting?'#fbbf24':'#f87171')+'">'+(e.laborDetails?.isWaiting?'بدون تكلفة':fmt(e.laborDetails?.laborTotal||0)+' ﷼')+'</div>'+
-        '</div>'+
-        '<div style="font-size:10px;color:rgba(255,255,255,.5)">'+gn(e.supId)+' · '+e.project+'</div>'+
-        (e.laborDetails?.presentWorkers?.length?'<div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:3px">🏢 '+e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')+'</div>':'')+
-        '</div>').join('')}
-    </div>` : ''}
-`;
+    ${waitList.length?`
+    <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:8px;letter-spacing:.5px">⏳ عمال الانتظار — السكن</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;border:1px solid rgba(251,191,36,.2)">
+      <div style="display:grid;grid-template-columns:2fr 1fr;background:rgba(251,191,36,.1);color:rgba(255,255,255,.7);padding:8px 14px;font-size:11px;font-weight:700">
+        <span>الاسم</span><span style="text-align:center">أيام الانتظار</span>
+      </div>
+      ${waitList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr;padding:9px 14px;background:transparent">
+          <div><div style="font-size:13px;font-weight:700">${w.name}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4)">${w.dates.sort().join(' · ')}</div></div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:#fbbf24">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">يوم</div></div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr;padding:8px 14px;background:rgba(251,191,36,.1);font-weight:700;font-size:12px">
+        <span style="color:#fbbf24">الإجمالي</span>
+        <span style="text-align:center;color:#fbbf24">${totalWait} يوم — بدون تكلفة</span>
+      </div>
+    </div>`:''}
+
+    </div>
+  `;
 }
 
 
