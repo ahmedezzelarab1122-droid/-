@@ -912,7 +912,7 @@ function rDash(){
 </div>`;
     }).join('')}
     <div class="shdr" style="margin-top:4px">📋 آخر المعاملات</div>
-    <div class="card">${DB.entries.slice(-5).reverse().map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">${gn(e.supId)} · ${e.project}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:2px">${fmt(e.total)} ﷼</div></div></div>`).join('')||'<div class="empty">لا توجد معاملات بعد</div>'}</div>`;
+    <div class="card">${DB.entries.slice(-5).reverse().map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:2px">${fmt(e.total)} ﷼</div></div></div>`).join('')||'<div class="empty">لا توجد معاملات بعد</div>'}</div>`;
 }
 
 // ── TRANSACTIONS ──────────────────
@@ -958,7 +958,7 @@ function rfT(){
   +list.map(e=>`<div class="card" style="padding:10px 12px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${gn(e.supId)} · ${e.project}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div>
+      <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div>
       <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:rgba(255,255,255,.75)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
     </div>
     ${e.items?.length?`<div style="margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:rgba(255,255,255,.85)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
@@ -1592,7 +1592,7 @@ async function doSTransfer(){
 
 // ── LABOR REPORT ───────────────────────
 function rLaborReport(){
-  const laborEntries = DB.entries.filter(e=>e.type==='labor');
+  const laborEntries = DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting');
   if(!laborEntries.length) return '<div class="card"><div class="ctitle">تقرير العمالة</div><div class="empty">لا توجد سجلات عمالة بعد</div></div>';
   
   // Group by date
@@ -1818,7 +1818,7 @@ function buildLaborTable(laborEntries, fromDate, toDate){
           <div style="font-weight:800;color:rgba(255,255,255,.9)">${e.date}</div>
           <div style="font-size:12px;color:var(--red);font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
         </div>
-        <div style="font-size:11px;color:rgba(255,255,255,.75);margin-bottom:5px">${gn(e.supId)} · ${e.project}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.75);margin-bottom:5px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}</div>
         ${e.laborDetails?.presentWorkers?.length?`<div style="background:rgba(0,200,232,.10);border-radius:7px;padding:6px 10px;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.9)">🏢 (${e.laborDetails.companyCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</span></div>`:''}
         ${e.laborDetails?.externalWorkersList?.length?`<div style="background:rgba(112,181,255,.12);border-radius:7px;padding:6px 10px"><span style="font-size:11px;font-weight:700;color:var(--blue)">👷 (${e.laborDetails.externalCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</span></div>`:''}
       </div>`).join('')}`;
@@ -1832,7 +1832,7 @@ function rLaborMgr(){
   const mgrTo = window._mgrLaborTo||'';
 
   // Filter ALL labor entries by date
-  const allLabor = DB.entries.filter(e=>e.type==='labor');
+  const allLabor = DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting');
   const laborEntries = (mgrFrom||mgrTo)
     ? allLabor.filter(e=>(!mgrFrom||e.date>=mgrFrom)&&(!mgrTo||e.date<=mgrTo))
     : allLabor;
@@ -1951,7 +1951,7 @@ function rLaborMgr(){
           <div style="font-weight:800;color:rgba(255,255,255,.9);font-size:14px">${e.date}</div>
           <div style="font-size:12px;color:#D93025;font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
         </div>
-        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:5px">${gn(e.supId)} · ${e.project}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:5px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}</div>
         ${e.laborDetails?.presentWorkers?.length?`<div style="background:rgba(0,200,232,.10);border-radius:8px;padding:7px 10px;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.9)">🏢 (${e.laborDetails.companyCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</span></div>`:''}
         ${e.laborDetails?.externalWorkersList?.length?`<div style="background:rgba(112,181,255,.12);border-radius:8px;padding:7px 10px"><span style="font-size:11px;font-weight:700;color:#1A50A8">👷 (${e.laborDetails.externalCount}): </span><span style="font-size:11px;color:#FFFFFF">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</span></div>`:''}
       </div>`).join('')
@@ -2004,6 +2004,69 @@ async function deleteWorker(id){
   await api('/api/workers/'+id,'DELETE');
   DB = await api('/api/db');
   rLaborMgr();
+}
+
+// ── WAITING LABOR ──────────────────────────
+let waitExtCount = 0;
+function addWaitExtWorker(){
+  waitExtCount++;
+  const id = waitExtCount;
+  const div = document.createElement('div');
+  div.id = 'wait-ext-'+id;
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:7px;align-items:center';
+  div.innerHTML = `
+    <input type="text" placeholder="اسم العامل" id="we-name-${id}" style="flex:2">
+    <select id="we-job-${id}" style="flex:2">
+      <option>مليس</option><option>نجار</option><option>حداد</option>
+      <option>كهربائي</option><option>سباك</option><option>دهان</option>
+      <option>عامل عام</option><option>أخرى</option>
+    </select>
+    <button onclick="document.getElementById('wait-ext-${id}').remove()" style="border:none;background:none;color:var(--rd);cursor:pointer;font-size:18px">✕</button>`;
+  document.getElementById('wait-ext-list').appendChild(div);
+}
+
+async function submitWaitingLabor(){
+  const date = document.getElementById('wait-date')?.value || today();
+  const project = document.getElementById('wait-proj')?.value;
+  const err = document.getElementById('wait-err');
+  const ok = document.getElementById('wait-ok');
+  err.style.display='none'; ok.style.display='none';
+
+  // Collect company workers
+  const workers = DB.companyWorkers || [];
+  const presentWorkers = workers.filter(w => document.getElementById('ww-'+w.id)?.checked)
+    .map(w=>({id:w.id, name:w.name, jobTitle:w.jobTitle}));
+
+  // Collect external workers
+  const extEls = document.querySelectorAll('[id^="we-name-"]');
+  const externalWorkersList = Array.from(extEls).map(el=>{
+    const id = el.id.replace('we-name-','');
+    const name = el.value.trim();
+    const jobTitle = document.getElementById('we-job-'+id)?.value||'عامل';
+    return name ? {name, jobTitle} : null;
+  }).filter(Boolean);
+
+  if(presentWorkers.length + externalWorkersList.length === 0){
+    err.style.display='block'; err.textContent='اختر عمالاً للتسجيل'; return;
+  }
+
+  try{
+    // Use manager's account (id=0) or first supervisor for logging
+    // Type: 'labor_waiting' - no cost
+    const res = await api('/api/labor-waiting','POST',{
+      date, project, presentWorkers, externalWorkersList
+    });
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    ok.style.display='flex';
+    // Reset checkboxes
+    workers.forEach(w=>{const cb=document.getElementById('ww-'+w.id);if(cb)cb.checked=false;});
+    waitExtCount=0;
+    document.getElementById('wait-ext-list').innerHTML='';
+    setTimeout(()=>{ok.style.display='none';rLaborMgr();},2000);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
 }
 
 async function saveLaborRates(){
@@ -2430,7 +2493,7 @@ function initCharts(prefix, entries, supervisors){
 
 // ── LABOR SECTION FOR REPORTS ──────────────
 function buildLaborSection(fromDate, toDate){
-  const allLabor = DB.entries.filter(e=>e.type==='labor');
+  const allLabor = DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting');
   const laborEntries = (fromDate||toDate)
     ? allLabor.filter(e=>(!fromDate||e.date>=fromDate)&&(!toDate||e.date<=toDate))
     : allLabor;
