@@ -778,7 +778,7 @@ function doLogout(){
 function showApp(){
   document.getElementById('lview').style.display='none';
   document.getElementById('aview').style.display='block';
-  const tbn=document.getElementById('tbname');if(tbn)tbn.textContent=ROLE==='manager'?'لوحة المدير':ROLE==='owner'?'لوحة المالك':CU.name||'المشرف';
+  const tbn2=document.getElementById('tbname');if(tbn2)tbn2.textContent=ROLE==='manager'?'الرئيسية':ROLE==='owner'?'الملخص':'الرئيسية';
   const roleIcons={manager:'⚙️',owner:'👑',supervisor:'👷'};
   const trl=document.getElementById('tbrole');if(trl)trl.textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
   // title set in goBNav
@@ -866,8 +866,9 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة'};
   const tbn = document.getElementById('tbname');
-  if(tbn) tbn.textContent = btn.querySelector('span:last-child')?.textContent || '';
+  if(tbn) tbn.textContent = _titles[id] || '';
   const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor};
   map[id]?.();
 }
