@@ -778,10 +778,10 @@ function doLogout(){
 function showApp(){
   document.getElementById('lview').style.display='none';
   document.getElementById('aview').style.display='block';
-  document.getElementById('tbname').textContent=ROLE==='manager'?'لوحة المدير':ROLE==='owner'?'لوحة المالك':CU.name||'المشرف';
+  const tbn=document.getElementById('tbname');if(tbn)tbn.textContent=ROLE==='manager'?'لوحة المدير':ROLE==='owner'?'لوحة المالك':CU.name||'المشرف';
   const roleIcons={manager:'⚙️',owner:'👑',supervisor:'👷'};
-  document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
-  document.getElementById('tbname').innerHTML=`${roleIcons[ROLE]||'👤'} ${CU?.name||''}`;
+  const trl=document.getElementById('tbrole');if(trl)trl.textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
+  if(document.getElementById('tbname'))document.getElementById('tbname').innerHTML=`${roleIcons[ROLE]||'👤'} ${CU?.name||''}`;
   const items=ROLE==='manager'
     ?[['dash','🏠 الرئيسية'],['txns','📄 المعاملات'],['reports','📊 التقارير'],['setup','⚙️ الإعداد'],['pws','🔑 كلمات المرور'],['transfer','💸 التحويلات'],['labor-mgr','👷 العمالة']]
     :ROLE==='owner'
