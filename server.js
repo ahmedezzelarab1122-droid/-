@@ -689,6 +689,46 @@ const server = http.createServer(async (req, res) => {
     if (fs.existsSync(f)) { const buf = Buffer.from(fs.readFileSync(f, 'utf8'), 'base64'); res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(buf); }
   }
 
+
+  // ── Attendance API for HR System ──
+  if (pathname === '/api/attendance' && req.method === 'GET') {
+    const data = await loadDB();
+    const query = url.parse(req.url, true).query;
+    const month = parseInt(query.month) || new Date().getMonth();
+    const year = parseInt(query.year) || new Date().getFullYear();
+
+    const laborEntries = data.entries.filter(e => {
+      if (e.type !== 'labor') return false;
+      const d = new Date(e.date);
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+
+    const workerDays = {};
+    laborEntries.forEach(e => {
+      if (e.laborDetails && e.laborDetails.presentWorkers) {
+        e.laborDetails.presentWorkers.forEach(w => {
+          if (!workerDays[w.name]) workerDays[w.name] = new Set();
+          workerDays[w.name].add(e.date);
+        });
+      }
+    });
+
+    const workDays = 26;
+    const employees = Object.entries(workerDays).map(([name, dates]) => ({
+      name,
+      present_days: dates.size,
+      absent_days: Math.max(0, workDays - dates.size),
+      late_minutes: 0,
+      notes: ''
+    }));
+
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({
+      month: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][month],
+      year, work_days: workDays, employees
+    }));
+  }
+
   // HTML
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'));
