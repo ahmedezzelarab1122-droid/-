@@ -49,7 +49,11 @@ body{
 
 /* ══ TOPBAR ══ */
 .topbar{
-  background:rgba(255,255,255,0.05);
+  background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  padding:.6rem 1rem;display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:200;
+
   backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
   padding:11px 18px;
   display:flex;align-items:center;justify-content:space-between;
@@ -536,23 +540,15 @@ select {
 <!-- APP -->
 <div id="aview" style="display:none">
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:9px">
-      <div style="width:34px;height:34px;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border:1px solid rgba(255,255,255,.15)">
-        <img src="data:image/png;base64,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" style="width:28px;height:28px;object-fit:contain">
-      </div>
-      <div>
-        <div id="tbname" style="font-size:13px;font-weight:700;color:#FFFFFF"></div>
-        <div id="tbrole" style="font-size:10px;color:rgba(255,255,255,.5)"></div>
-      </div>
+    <button class="menu-btn" onclick="openNav()">☰</button>
+    <span id="tbname" style="font-size:14px;font-weight:700;color:#FFFFFF;flex:1;text-align:right"></span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="sync-lbl" style="font-size:11px;color:rgba(245,200,66,.7)">Firebase</span>
+      <span style="font-size:11px;color:rgba(255,255,255,.3)" id="top-date"></span>
+      <button id="ibtn" onclick="installApp()" style="display:none;border:1px solid rgba(245,200,66,.3);border-radius:9px;padding:5px 10px;background:rgba(245,200,66,.1);font-size:11px;color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:600">تثبيت</button>
+      <button onclick="doLogout()" style="border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 10px;background:rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:600">خروج</button>
     </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      
-      <button id="ibtn" onclick="installApp()" style="display:none;border:1px solid rgba(245,200,66,.25);border-radius:9px;padding:6px 12px;background:rgba(245,200,66,.1);font-size:12px;color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:600">تثبيت</button>
-      
-      <button onclick="openScan()" id="fab-topbar" style="display:none;border:none;border-radius:12px;width:36px;height:36px;background:linear-gradient(135deg,#e8b830,#f5c842);cursor:pointer;font-size:18px;color:#001820;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(245,200,66,.35);transition:.15s;flex-shrink:0">➕</button>
-      <button class="menu-btn" onclick="openNav()">☰</button>
-      <button onclick="doLogout()" style="border:1px solid rgba(255,255,255,.18);border-top:1px solid rgba(255,255,255,.28);border-radius:9px;padding:6px 12px;background:rgba(255,255,255,.07);font-size:12px;color:#FFFFFF;cursor:pointer;font-family:'Tajawal',sans-serif;backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,.1);font-weight:600">خروج</button>
-    </div>
+  </div>
   </div>
   <div class="tabs" id="tabs"></div>
   <div id="mc"></div>
@@ -782,7 +778,7 @@ function doLogout(){
 function showApp(){
   document.getElementById('lview').style.display='none';
   document.getElementById('aview').style.display='block';
-  document.getElementById('tbname').textContent=CU.name;
+  document.getElementById('tbname').textContent=ROLE==='manager'?'لوحة المدير':ROLE==='owner'?'لوحة المالك':CU.name||'المشرف';
   const roleIcons={manager:'⚙️',owner:'👑',supervisor:'👷'};
   document.getElementById('tbrole').textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
   document.getElementById('tbname').innerHTML=`${roleIcons[ROLE]||'👤'} ${CU?.name||''}`;
@@ -2755,6 +2751,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch
 
 // START
 initTheme();
+document.getElementById('top-date').textContent=new Date().toLocaleDateString('ar-SA',{day:'numeric',month:'long',year:'numeric'});
 start();
 </script>
 </body>
