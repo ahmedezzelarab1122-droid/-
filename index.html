@@ -1345,6 +1345,29 @@ async function saveEntry(){
   const supName=DB.supervisors.find(s=>s.id==supId)?.name||'';
   const entry={supId,supName,project,type:parsed.type||'petty',desc:parsed.desc||'فاتورة',supplier:parsed.supplier||'',invoiceNo:parsed.invoiceNo||'',date:parsed.date||today(),payMethod:parsed.payMethod||'cash',subtotal:parsed.subtotal||0,taxRate:parsed.taxRate||0,taxAmt:parsed.taxAmt||0,total:parsed.total||parsed.subtotal||0,items:parsed.items||[]};
   if(imgB64) entry.b64Image = imgB64;
+
+  // ── Client-side duplicate check (any supervisor) ──
+  const normalize = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+  if(entry.invoiceNo && entry.invoiceNo.trim()){
+    const dup = DB.entries.find(e=>e.invoiceNo && normalize(e.invoiceNo)===normalize(entry.invoiceNo));
+    if(dup){
+      const dupSup = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
+      document.getElementById('serr').style.display='block';
+      document.getElementById('serr').textContent='⚠️ الفاتورة رقم '+entry.invoiceNo+' مسجلة مسبقاً عند '+dupSup+' بتاريخ '+dup.date;
+      return;
+    }
+  }
+  if(entry.supplier && entry.total && entry.date){
+    const dup2 = DB.entries.find(e=>
+      normalize(e.supplier)===normalize(entry.supplier) &&
+      Math.abs((e.total||0)-(entry.total||0))<0.1 &&
+      e.date===entry.date
+    );
+    if(dup2){
+      const dupSup2 = DB.supervisors.find(s=>s.id==dup2.supId)?.name||'مشرف آخر';
+      document.getElementById('serr').style.display='block'; document.getElementById('serr').textContent='⚠️ فاتورة مكررة — نفس المورد والمبلغ والتاريخ مسجلة عند '+dupSup2; return;
+    }
+  }
   document.getElementById('ss2').style.display='none';
   document.getElementById('sldg').style.display='block';
   document.getElementById('ltxt').textContent='جاري الحفظ...';
