@@ -1352,8 +1352,7 @@ async function saveEntry(){
     const dup = DB.entries.find(e=>e.invoiceNo && normalize(e.invoiceNo)===normalize(entry.invoiceNo));
     if(dup){
       const dupSup = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
-      document.getElementById('serr').style.display='block';
-      document.getElementById('serr').textContent='⚠️ الفاتورة رقم '+entry.invoiceNo+' مسجلة مسبقاً عند '+dupSup+' بتاريخ '+dup.date;
+      alert('⚠️ الفاتورة رقم '+entry.invoiceNo+' مسجلة مسبقاً عند '+dupSup+' بتاريخ '+dup.date);
       return;
     }
   }
@@ -1365,7 +1364,7 @@ async function saveEntry(){
     );
     if(dup2){
       const dupSup2 = DB.supervisors.find(s=>s.id==dup2.supId)?.name||'مشرف آخر';
-      document.getElementById('serr').style.display='block'; document.getElementById('serr').textContent='⚠️ فاتورة مكررة — نفس المورد والمبلغ والتاريخ مسجلة عند '+dupSup2; return;
+      alert('⚠️ فاتورة مكررة! نفس المورد والمبلغ والتاريخ مسجلة مسبقاً عند '+dupSup2); return;
     }
   }
   document.getElementById('ss2').style.display='none';
