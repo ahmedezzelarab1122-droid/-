@@ -2189,7 +2189,7 @@ async function saveLaborRates(){
 function rLaborSup(){
   const rates = DB.laborRates || {company:100,external:150};
   const workers = DB.companyWorkers || [];
-  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+  const pOpts = '<option value="">\-- اختر المشروع --</option>'+DB.projects.map(p=>`<option>${p}</option>`).join('');
   const myLabor = DB.entries.filter(e=>e.supId==CU.id&&e.type==='labor').slice(-5).reverse();
   
   document.getElementById('mc').innerHTML=`
