@@ -1218,7 +1218,7 @@ function rBal(){
 // ── SCAN ───────────────────────────
 function fillSels(){
   ['ssup','csup'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');});
-  ['sproj','cproj'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=DB.projects.map(p=>`<option>${p}</option>`).join('');});
+  ['sproj','cproj'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='<option value="">-- اختر المشروع --</option>'+DB.projects.map(p=>`<option>${p}</option>`).join('');});
   if(ROLE==='supervisor'&&CU){['ssup','csup'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=CU.id;el.disabled=true;}});}
 }
 function openScan(){resetScan();fillSels();document.getElementById('swrap').style.display='flex';}
@@ -1356,6 +1356,7 @@ function showResult(){
 async function saveEntry(){
   const supId=parseInt(document.getElementById('csup').value);
   const project=document.getElementById('cproj').value;
+  if(!project){alert('⚠️ يجب اختيار المشروع أولاً');return;}
   const supName=DB.supervisors.find(s=>s.id==supId)?.name||'';
   const entry={supId,supName,project,type:parsed.type||'petty',desc:parsed.desc||'فاتورة',supplier:parsed.supplier||'',invoiceNo:parsed.invoiceNo||'',date:parsed.date||today(),payMethod:parsed.payMethod||'cash',subtotal:parsed.subtotal||0,taxRate:parsed.taxRate||0,taxAmt:parsed.taxAmt||0,total:parsed.total||parsed.subtotal||0,items:parsed.items||[]};
   if(imgB64) entry.b64Image = imgB64;
@@ -2286,6 +2287,7 @@ function calcLabor(){
 async function submitLabor(){
   const project = document.getElementById('lab-proj').value;
   const err = document.getElementById('lab-err');
+  if(!project){err.style.display='block';err.textContent='⚠️ يجب اختيار المشروع أولاً';return;}
   const ok = document.getElementById('lab-ok');
   err.style.display='none'; ok.style.display='none';
   
