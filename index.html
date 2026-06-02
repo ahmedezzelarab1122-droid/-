@@ -700,20 +700,34 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;const 
 function installApp(){if(dp){dp.prompt();dp.userChoice.then(()=>{dp=null;const b=document.getElementById('ibtn');if(b)b.style.display='none';});}}
 
 // SESSION
-function saveSession(pw,supId){localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId:supId||null}));}
+function saveSession(pw,supId){localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId:supId||null,name:res.name,budget:res.budget||0}));}
 async function restoreSession(){
   try{
     const s=localStorage.getItem('ks');
     if(!s)return false;
     const sess=JSON.parse(s);
-    if(!sess||!sess.pw||!sess.ROLE)return false;
-    const body={role:sess.ROLE,password:sess.pw};
-    if(sess.supId)body.supId=parseInt(sess.supId);
-    const res=await api('/api/login','POST',body);
-    if(!res||!res.ok){localStorage.removeItem('ks');return false;}
-    CU={id:res.supId||0,name:res.name,budget:res.budget||0};
-    ROLE=res.role;
-    return true;
+    if(!sess||!sess.ROLE)return false;
+    // Try server login
+    try{
+      const body={role:sess.ROLE,password:sess.pw};
+      if(sess.supId)body.supId=parseInt(sess.supId);
+      const res=await api('/api/login','POST',body);
+      if(res&&res.ok){
+        CU={id:res.supId||0,name:res.name,budget:res.budget||0};
+        ROLE=res.role;
+        return true;
+      }
+    }catch(e){
+      // Server unavailable - restore from local session
+      console.log('Server unavailable, using local session');
+    }
+    // Use saved session data without server verification
+    if(sess.ROLE&&sess.name){
+      CU={id:sess.supId||0,name:sess.name,budget:sess.budget||0};
+      ROLE=sess.ROLE;
+      return true;
+    }
+    return false;
   }catch(e){localStorage.removeItem('ks');return false;}
 }
 
