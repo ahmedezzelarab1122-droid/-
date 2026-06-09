@@ -1540,9 +1540,21 @@ function rBal(){
 
 // ── SCAN ───────────────────────────
 function fillSels(){
-  ['ssup','csup'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');});
-  ['sproj','cproj'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=DB.projects.map(p=>`<option>${p}</option>`).join('');});
-  if(ROLE==='supervisor'&&CU){['ssup','csup'].forEach(id=>{const el=document.getElementById(id);if(el){el.value=CU.id;el.disabled=true;}});}
+  ['ssup','csup'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    if(ROLE==='supervisor'&&CU){
+      el.innerHTML=`<option value="${CU.id}">${CU.name}</option>`;
+      el.disabled=true;
+    } else {
+      el.innerHTML='<option value="">-- اختر المشرف --</option>'+DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+      el.disabled=false;
+    }
+  });
+  ['sproj','cproj'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.innerHTML='<option value="">-- اختر المشروع --</option>'+DB.projects.map(p=>`<option>${p}</option>`).join('');
+  });
 }
 function openScan(){resetScan();fillSels();document.getElementById('swrap').style.display='flex';}
 function closeScan(){document.getElementById('swrap').style.display='none';resetScan();}
@@ -1717,6 +1729,7 @@ function showResult(){
 async function saveEntry(){
   const supId=parseInt(document.getElementById('csup').value);
   const project=document.getElementById('cproj').value;
+  if(!supId||isNaN(supId)){alert('⚠️ يجب اختيار المشرف أولاً');return;}
   if(!project){alert('⚠️ يجب اختيار المشروع أولاً');return;}
   if(ROLE==='supervisor'){
     const entryDate=parsed.date||'';
