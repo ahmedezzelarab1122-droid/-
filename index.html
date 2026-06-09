@@ -1731,6 +1731,15 @@ async function saveEntry(){
   const project=document.getElementById('cproj').value;
   if(!supId||isNaN(supId)){alert('⚠️ يجب اختيار المشرف أولاً');return;}
   if(!project){alert('⚠️ يجب اختيار المشروع أولاً');return;}
+  // ── فحص وقت الرفع (للمشرف فقط) ──
+  if(ROLE==='supervisor'){
+    const nowHour = new Date().getHours();
+    if(nowHour < 7 || nowHour >= 17){
+      const timeStr = new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+      alert('⚠️ خارج وقت العمل\nوقت الرفع المسموح: 7:00 صباحاً — 5:00 مساءً\nالوقت الحالي: '+timeStr+'\nيرجى رفع الفاتورة خلال أوقات العمل');
+      return;
+    }
+  }
   if(ROLE==='supervisor'){
     const entryDate=parsed.date||'';
     const todayStr=today();
