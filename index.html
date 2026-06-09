@@ -818,6 +818,7 @@ function showApp(){
     { label:'المالية', items:[['txns','📄','المعاملات'],['reports','📊','التقارير'],['transfer','💸','التحويلات']] },
     { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور']] },
     { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
+    { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
   ] : ROLE==='owner' ? [
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
     { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
@@ -881,17 +882,17 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns};
   map[id]?.();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns};
   map[id]?.();
 }
 
@@ -981,7 +982,7 @@ function rfT(){
   +list.map(e=>`<div class="card" style="padding:10px 12px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div>
+      <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}${e.rejected?' · <span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700">✕ غير مقبولة</span>':''}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div>
       <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:rgba(255,255,255,.75)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
     </div>
     ${e.items?.length?`<div style="margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:rgba(255,255,255,.85)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
@@ -990,11 +991,183 @@ function rfT(){
       عرض الفاتورة
     </a></div>` : ''}
     <button onclick="delE(${e.id})" style="margin-top:5px;border:none;background:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:11px;font-family:inherit">✕ حذف</button>
+    ${ROLE==='manager'||ROLE==='owner'?`<button onclick="toggleReject(${e.id},${!!e.rejected})" style="margin-top:3px;border:none;background:none;cursor:pointer;font-size:11px;font-family:inherit;color:${e.rejected?'#34d399':'#f87171'}">${e.rejected?'✓ قبول':'✕ رفض'}</button>`:''}
   </div>`).join('');
 }
+
+async function toggleReject(id, isRejected){
+  if(!confirm(isRejected?'قبول الفاتورة وإعادتها للرصيد؟':'رفض الفاتورة وإزالتها من الرصيد؟')) return;
+  const entry = DB.entries.find(e=>e.id===id);
+  if(!entry) return;
+  entry.rejected = !isRejected;
+  await api('/api/entries/'+id+'/reject','POST',{rejected:!isRejected});
+  DB = await api('/api/db');
+  rfT(); rDash();
+}
+
 async function delE(id){if(!confirm('حذف؟'))return;await api('/api/entries/'+id,'DELETE');DB=await api('/api/db');rfT();rDash();}
 
 // ── REPORTS ────────────────────────
+
+// ── RETURNS (فواتير المرتجعات) ──────────────────────
+let returnParsed = null;
+let returnB64 = null;
+
+function rReturns(){
+  const invoiceOpts = DB.entries
+    .filter(e=>e.type==='petty'||e.type==='tax')
+    .sort((a,b)=>b.id-a.id)
+    .map(e=>`<option value="${e.id}">#${e.id} — ${e.supplier||e.desc} — ${fmt(e.total)} ﷼ — ${e.date}</option>`)
+    .join('');
+
+  document.getElementById('main').innerHTML = `
+    <div class="card">
+      <div class="ctitle">↩️ فواتير المرتجعات</div>
+
+      <div class="fg" style="margin-bottom:12px">
+        <label class="lbl">فاتورة الشراء الأصلية</label>
+        <select id="ret-orig" style="width:100%">
+          <option value="">-- اختر الفاتورة الأصلية --</option>
+          ${invoiceOpts}
+        </select>
+      </div>
+
+      <div class="fg" style="margin-bottom:12px">
+        <label class="lbl">ارفع صورة فاتورة المرتجع</label>
+        <div class="dropz" id="ret-drop" onclick="document.getElementById('ret-file').click()" style="cursor:pointer">
+          <span id="ret-drop-icon">📷</span>
+          <div id="ret-drop-txt" style="margin-top:8px;font-size:13px;color:rgba(255,255,255,.6)">اضغط لرفع صورة أو PDF للمرتجع</div>
+        </div>
+        <input type="file" id="ret-file" accept="image/*,.pdf" style="display:none" onchange="handleReturnFile(this)">
+      </div>
+
+      <div id="ret-preview" style="display:none;margin-bottom:12px">
+        <div class="ctitle" style="margin-bottom:8px">نتيجة التحليل</div>
+        <div id="ret-result" style="background:rgba(255,255,255,.05);border-radius:10px;padding:12px;font-size:13px"></div>
+      </div>
+
+      <div id="ret-err" class="err" style="display:none"></div>
+      <div id="ret-ok" class="ok" style="display:none"></div>
+
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn bp" onclick="analyzeReturn()" id="ret-analyze-btn" style="display:none">🤖 تحليل المرتجع</button>
+        <button class="btn" onclick="saveReturn()" id="ret-save-btn" style="display:none;background:rgba(52,211,153,.15);color:#34d399;border-color:rgba(52,211,153,.3)">✅ حفظ المرتجع</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="ctitle">سجل المرتجعات</div>
+      <div id="ret-list">
+        ${DB.entries.filter(e=>e.type==='return').length===0
+          ? '<div class="empty">لا توجد مرتجعات بعد</div>'
+          : DB.entries.filter(e=>e.type==='return').sort((a,b)=>b.id-a.id).map(e=>`
+            <div style="padding:10px;border-bottom:1px solid rgba(255,255,255,.06)">
+              <div style="display:flex;justify-content:space-between">
+                <div>
+                  <div style="font-weight:700;font-size:13px">${e.desc}</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,.5)">${e.date} · ${gn(e.supId)} · ${e.project}</div>
+                  ${e.origInvoiceId?`<div style="font-size:11px;color:#70B5FF">↩ مرتجع من فاتورة #${e.origInvoiceId}</div>`:''}
+                </div>
+                <div style="color:#34d399;font-weight:700">+${fmt(e.total)} ﷼</div>
+              </div>
+            </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+async function handleReturnFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const isPdf = file.type==='application/pdf';
+  const reader = new FileReader();
+  reader.onload = async function(ev){
+    returnB64 = ev.target.result.split(',')[1];
+    document.getElementById('ret-drop-txt').textContent = file.name;
+    document.getElementById('ret-drop-icon').textContent = isPdf?'📄':'🖼️';
+    document.getElementById('ret-analyze-btn').style.display = 'block';
+    document.getElementById('ret-err').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeReturn(){
+  if(!returnB64){alert('يرجى رفع صورة المرتجع أولاً');return;}
+  document.getElementById('ret-analyze-btn').textContent = '⏳ جاري التحليل...';
+  try{
+    const res = await api('/api/analyze','POST',{b64:returnB64,isPdf:false,text:'هذه فاتورة مرتجع، استخرج المبلغ المرتجع والمورد ورقم الفاتورة والتاريخ'});
+    if(res.error) throw new Error(res.error);
+    returnParsed = res;
+    // Show result
+    const origId = parseInt(document.getElementById('ret-orig').value);
+    const orig = DB.entries.find(e=>e.id===origId);
+    let html = `<div style="margin-bottom:8px"><b>المورد:</b> ${res.supplier||'—'}</div>`;
+    html += `<div style="margin-bottom:8px"><b>المبلغ المرتجع:</b> <span style="color:#34d399;font-weight:700">${fmt(res.total)} ﷼</span></div>`;
+    html += `<div style="margin-bottom:8px"><b>رقم الفاتورة:</b> ${res.invoiceNo||'—'}</div>`;
+    html += `<div style="margin-bottom:8px"><b>التاريخ:</b> ${res.date||'—'}</div>`;
+    if(orig){
+      html += `<div style="margin-top:10px;padding:8px;background:rgba(112,181,255,.1);border-radius:8px">`;
+      html += `<b>الفاتورة الأصلية:</b> ${orig.supplier||orig.desc} — ${fmt(orig.total)} ﷼<br>`;
+      const diff = (orig.total||0)-(res.total||0);
+      html += `<b>المتبقي بعد المرتجع:</b> <span style="color:#f5c842">${fmt(diff)} ﷼</span>`;
+      html += `</div>`;
+    }
+    // Quality check
+    if(!res.total || res.total===0){
+      html += `<div style="margin-top:8px;padding:8px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171">⚠️ تعذر قراءة المبلغ بوضوح — يرجى رفع صورة أوضح</div>`;
+      document.getElementById('ret-save-btn').style.display = 'none';
+    } else {
+      document.getElementById('ret-save-btn').style.display = 'block';
+    }
+    document.getElementById('ret-preview').style.display = 'block';
+    document.getElementById('ret-result').innerHTML = html;
+  }catch(e){
+    document.getElementById('ret-err').style.display='block';
+    document.getElementById('ret-err').textContent='❌ '+e.message;
+  }
+  document.getElementById('ret-analyze-btn').textContent = '🤖 تحليل المرتجع';
+}
+
+async function saveReturn(){
+  if(!returnParsed||!returnParsed.total){alert('يرجى تحليل الفاتورة أولاً');return;}
+  const origId = parseInt(document.getElementById('ret-orig').value);
+  if(!origId){alert('يرجى اختيار الفاتورة الأصلية');return;}
+  const orig = DB.entries.find(e=>e.id===origId);
+  if(!orig){alert('الفاتورة الأصلية غير موجودة');return;}
+
+  const entry = {
+    supId: orig.supId,
+    supName: orig.supName,
+    project: orig.project,
+    type: 'return',
+    desc: 'مرتجع: '+(returnParsed.supplier||orig.supplier||''),
+    supplier: returnParsed.supplier||orig.supplier||'',
+    invoiceNo: returnParsed.invoiceNo||'RET-'+Date.now(),
+    date: returnParsed.date||today(),
+    payMethod: 'cash',
+    subtotal: returnParsed.subtotal||returnParsed.total||0,
+    taxRate: returnParsed.taxRate||0,
+    taxAmt: returnParsed.taxAmt||0,
+    total: returnParsed.total||0,
+    origInvoiceId: origId,
+    b64Image: returnB64,
+    items: returnParsed.items||[]
+  };
+
+  const res = await api('/api/entries','POST',entry);
+  if(res.error){
+    document.getElementById('ret-err').style.display='block';
+    document.getElementById('ret-err').textContent=res.error;
+    return;
+  }
+  DB = await api('/api/db');
+  document.getElementById('ret-ok').style.display='block';
+  document.getElementById('ret-ok').textContent='✅ تم حفظ المرتجع وإضافته للرصيد';
+  document.getElementById('ret-save-btn').style.display='none';
+  returnParsed=null; returnB64=null;
+  setTimeout(()=>rReturns(),1500);
+}
+
 function rReports(){
   const rFrom = window._reportFrom||'';
   const rTo = window._reportTo||'';
@@ -1357,6 +1530,15 @@ async function saveEntry(){
   const supId=parseInt(document.getElementById('csup').value);
   const project=document.getElementById('cproj').value;
   if(!project){alert('⚠️ يجب اختيار المشروع أولاً');return;}
+  // Block supervisor from using old dates
+  if(ROLE==='supervisor'){
+    const entryDate = parsed.date || '';
+    const todayStr = today();
+    if(entryDate && entryDate !== todayStr){
+      alert('⚠️ لا يمكن قبول الفاتورة\nتاريخ الفاتورة ('+entryDate+') لا يطابق تاريخ اليوم ('+todayStr+')\nيرجى رفع فاتورة بتاريخ اليوم فقط');
+      return;
+    }
+  }
   const supName=DB.supervisors.find(s=>s.id==supId)?.name||'';
   const entry={supId,supName,project,type:parsed.type||'petty',desc:parsed.desc||'فاتورة',supplier:parsed.supplier||'',invoiceNo:parsed.invoiceNo||'',date:parsed.date||today(),payMethod:parsed.payMethod||'cash',subtotal:parsed.subtotal||0,taxRate:parsed.taxRate||0,taxAmt:parsed.taxAmt||0,total:parsed.total||parsed.subtotal||0,items:parsed.items||[]};
   if(imgB64) entry.b64Image = imgB64;
