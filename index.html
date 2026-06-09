@@ -1743,21 +1743,62 @@ async function saveEntry(){
   const uploadTs = new Date().toISOString();
   const entry={supId,supName,project,type:parsed.type||'petty',desc:parsed.desc||'فاتورة',supplier:parsed.supplier||'',invoiceNo:parsed.invoiceNo||'',date:parsed.date||today(),payMethod:parsed.payMethod||'cash',subtotal:parsed.subtotal||0,taxRate:parsed.taxRate||0,taxAmt:parsed.taxAmt||0,total:parsed.total||parsed.subtotal||0,items:parsed.items||[],uploadedAt:uploadTs};
   if(imgB64) entry.b64Image = imgB64;
-  // Client-side duplicate check (any supervisor)
+  // ── فحص التكرار الشامل ──
   const _norm = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+  const _normItems = items => (items||[]).map(it=>_norm(it.desc)+'|'+it.qty+'|'+it.unitPrice).sort().join(',');
+  const invoices = DB.entries.filter(e=>e.type==='petty'||e.type==='tax');
+
+  // 1. رقم الفاتورة مكرر
   if(entry.invoiceNo && entry.invoiceNo.trim()){
-    const dup = DB.entries.find(e=>e.invoiceNo && _norm(e.invoiceNo)===_norm(entry.invoiceNo));
+    const dup = invoices.find(e=>e.invoiceNo && _norm(e.invoiceNo)===_norm(entry.invoiceNo));
     if(dup){
-      const dupSup = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
-      alert('⚠️ الفاتورة رقم '+entry.invoiceNo+' مسجلة مسبقاً عند '+dupSup+' بتاريخ '+dup.date);
+      const who = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
+      alert('⚠️ تكرار — رقم الفاتورة\nالفاتورة رقم "'+entry.invoiceNo+'" مسجلة مسبقاً\nعند: '+who+' | تاريخ: '+dup.date+' | مبلغ: '+fmt(dup.total)+' ﷼');
       return;
     }
   }
+
+  // 2. نفس المورد + المبلغ + التاريخ
   if(entry.supplier && entry.total && entry.date){
-    const dup2 = DB.entries.find(e=>_norm(e.supplier)===_norm(entry.supplier)&&Math.abs((e.total||0)-(entry.total||0))<0.1&&e.date===entry.date);
+    const dup2 = invoices.find(e=>
+      _norm(e.supplier)===_norm(entry.supplier) &&
+      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
+      e.date===entry.date
+    );
     if(dup2){
-      const dupSup2 = DB.supervisors.find(s=>s.id==dup2.supId)?.name||'مشرف آخر';
-      alert('⚠️ فاتورة مكررة! نفس المورد والمبلغ والتاريخ مسجلة مسبقاً عند '+dupSup2); return;
+      const who2 = DB.supervisors.find(s=>s.id==dup2.supId)?.name||'مشرف آخر';
+      alert('⚠️ تكرار — نفس المورد والمبلغ والتاريخ\nالمورد: '+entry.supplier+'\nالمبلغ: '+fmt(entry.total)+' ﷼ | التاريخ: '+entry.date+'\nمسجلة مسبقاً عند: '+who2);
+      return;
+    }
+  }
+
+  // 3. نفس المبلغ + نفس المكونات (items)
+  if(entry.items && entry.items.length > 0){
+    const entryItemsKey = _normItems(entry.items);
+    const dup3 = invoices.find(e=>
+      e.items && e.items.length > 0 &&
+      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
+      _normItems(e.items)===entryItemsKey
+    );
+    if(dup3){
+      const who3 = DB.supervisors.find(s=>s.id==dup3.supId)?.name||'مشرف آخر';
+      alert('⚠️ تكرار — نفس المكونات والمبلغ\nتم تسجيل فاتورة بنفس البنود والمبلغ مسبقاً\nعند: '+who3+' | تاريخ: '+dup3.date);
+      return;
+    }
+  }
+
+  // 4. نفس المبلغ + نفس التاريخ + نفس المشرف
+  if(entry.total && entry.date){
+    const dup4 = invoices.find(e=>
+      e.supId==entry.supId &&
+      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
+      e.date===entry.date &&
+      _norm(e.supplier||'')===_norm(entry.supplier||'')
+    );
+    if(dup4 && dup4.invoiceNo!==entry.invoiceNo){
+      const who4 = DB.supervisors.find(s=>s.id==dup4.supId)?.name||'مشرف';
+      alert('⚠️ تكرار محتمل\nيوجد فاتورة بنفس المبلغ والتاريخ والمورد عند '+who4+'\nرقم الفاتورة السابقة: '+(dup4.invoiceNo||'غير محدد'));
+      return;
     }
   }
 
