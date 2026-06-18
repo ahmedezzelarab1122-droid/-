@@ -7,6 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#b8860b">
 <link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/favicon.ico">
 <title>مصروفات كيان</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -819,6 +821,7 @@ function showApp(){
     { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور']] },
     { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
     { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
+    { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
   ] : ROLE==='owner' ? [
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
     { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
@@ -826,6 +829,7 @@ function showApp(){
     { label:'الرئيسية', items:[['home','🏠','الرئيسية'],['bal','💰','رصيدي']] },
     { label:'العمل', items:[['labor','👷','تسجيل عمالة'],['hist','📋','سجلاتي']] },
     { label:'المرتجعات', items:[['sup-returns','↩️','فواتير مرتجعاتي']] },
+    { label:'المخزون', items:[['inventory','📦','المخزون والعهدة']] },
   ];
 
   let navHtml = '';
@@ -883,17 +887,17 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr};
   map[id]?.();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr};
   map[id]?.();
 }
 
@@ -1170,6 +1174,280 @@ async function saveReturn2(){
   document.getElementById('ret-save-btn2').style.display='none';
   returnParsed_2=null; returnB64_2=null;
   setTimeout(()=>rSupReturns(),2000);
+}
+
+
+// ── INVENTORY SYSTEM ──────────────────────────────
+// DB storage: DB.inventory = [{id, supId, supName, project, items:[{name,unit,received,used,date}], createdAt}]
+// We use DB.entries with type='inventory_receive' and type='inventory_use'
+
+function getInventory(supId, project){
+  // Get all receives for this sup/project
+  const receives = DB.entries.filter(e=>e.type==='inventory_receive'&&(supId?e.supId==supId:true)&&(project?e.project===project:true));
+  const uses = DB.entries.filter(e=>e.type==='inventory_use'&&(supId?e.supId==supId:true)&&(project?e.project===project:true));
+  // Aggregate by item name per sup+project
+  const items = {};
+  receives.forEach(e=>{
+    (e.inventoryItems||[]).forEach(it=>{
+      const key = e.supId+'|'+e.project+'|'+it.name;
+      if(!items[key]) items[key]={name:it.name,unit:it.unit,supId:e.supId,project:e.project,received:0,used:0};
+      items[key].received += (+it.qty||0);
+    });
+  });
+  uses.forEach(e=>{
+    (e.inventoryItems||[]).forEach(it=>{
+      const key = e.supId+'|'+e.project+'|'+it.name;
+      if(!items[key]) items[key]={name:it.name,unit:it.unit,supId:e.supId,project:e.project,received:0,used:0};
+      items[key].used += (+it.qty||0);
+    });
+  });
+  return Object.values(items).map(it=>({...it, remaining:it.received-it.used}));
+}
+
+// ── SUPERVISOR INVENTORY ──
+let invB64 = null;
+let invParsed = null;
+
+function rInventory(){
+  const myItems = getInventory(CU.id, null);
+  const projects = [...new Set(DB.entries.filter(e=>e.supId==CU.id&&(e.type==='inventory_receive'||e.type==='inventory_use')).map(e=>e.project))];
+  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+
+  document.getElementById('mc').innerHTML = `
+    <div class="card">
+      <div class="ctitle">📦 استلام بضاعة جديدة</div>
+      <div class="fg">
+        <label class="lbl">المشروع</label>
+        <select id="inv-proj"><option value="">-- اختر المشروع --</option>${pOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">ارفع إيصال الاستلام (اختياري)</label>
+        <div class="drop" id="inv-drop" onclick="document.getElementById('inv-file').click()" style="cursor:pointer">
+          <div style="font-size:28px;margin-bottom:5px" id="inv-icon">📷</div>
+          <div id="inv-txt" style="font-size:13px;color:rgba(255,255,255,.6)">ارفع صورة الإيصال والذكاء يقرأ الأصناف</div>
+        </div>
+        <input type="file" id="inv-file" accept="image/*,.pdf" style="display:none" onchange="pickInvFile(this)">
+      </div>
+      <div id="inv-ai-result" style="display:none"></div>
+      <div class="ctitle" style="margin-top:8px">أو أضف يدوياً</div>
+      <div id="inv-manual-items">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin-bottom:6px">
+          <input id="inv-item-0" placeholder="اسم الصنف" style="font-size:12px">
+          <input id="inv-qty-0" type="number" placeholder="الكمية" style="font-size:12px">
+          <input id="inv-unit-0" placeholder="الوحدة" style="font-size:12px">
+          <button onclick="addInvRow()" style="border:1px solid rgba(245,200,66,.3);border-radius:8px;background:rgba(245,200,66,.1);color:#f5c842;font-size:18px;cursor:pointer;padding:0 10px">+</button>
+        </div>
+      </div>
+      <div class="err" id="inv-err" style="display:none"></div>
+      <div id="inv-ok" class="ok" style="display:none"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn bp" onclick="analyzeInvReceipt()" id="inv-ai-btn" style="display:none">🤖 قراءة الأصناف بالذكاء</button>
+        <button class="btn" onclick="saveInvReceive()" style="background:rgba(52,211,153,.15);color:#34d399;border-color:rgba(52,211,153,.3)">✅ حفظ الاستلام</button>
+      </div>
+    </div>
+
+    ${myItems.length ? `
+    <div class="shdr">📋 مخزوني الحالي (عهدة)</div>
+    ${[...new Set(myItems.map(it=>it.project))].map(proj=>`
+      <div class="card" style="padding:12px 14px;margin-bottom:8px">
+        <div style="font-weight:700;color:#f5c842;margin-bottom:10px;font-size:13px">🏗️ ${proj}</div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;font-size:11px;font-weight:700;color:rgba(255,255,255,.5);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px">
+          <span>الصنف</span><span style="text-align:center">مستلم</span><span style="text-align:center">مستخدم</span><span style="text-align:center">متبقي (عهدة)</span>
+        </div>
+        ${myItems.filter(it=>it.project===proj).map(it=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);align-items:center">
+            <div style="font-size:13px;font-weight:600">${it.name}</div>
+            <div style="text-align:center;font-size:13px;color:#70B5FF">${it.received} ${it.unit}</div>
+            <div style="text-align:center;font-size:13px;color:#f87171">${it.used} ${it.unit}</div>
+            <div style="text-align:center;font-size:13px;font-weight:700;color:${it.remaining<0?'#f87171':it.remaining===0?'rgba(255,255,255,.4)':'#34d399'}">${it.remaining} ${it.unit}</div>
+          </div>`).join('')}
+      </div>`).join('')}
+
+    <div class="shdr">🔧 تسجيل استخدام</div>
+    <div class="card">
+      <div class="fg">
+        <label class="lbl">المشروع</label>
+        <select id="use-proj" onchange="loadUseItems()"><option value="">-- اختر المشروع --</option>${[...new Set(myItems.map(it=>it.project))].map(p=>`<option>${p}</option>`).join('')}</select>
+      </div>
+      <div id="use-items-list"></div>
+      <div class="err" id="use-err" style="display:none"></div>
+      <div id="use-ok" class="ok" style="display:none"></div>
+      <button class="btn bp" onclick="saveInvUse()">💾 حفظ الاستخدام</button>
+    </div>` : '<div class="empty">لا يوجد مخزون بعد — ابدأ بإضافة استلام</div>'}
+  `;
+}
+
+let invRowCount = 1;
+function addInvRow(){
+  const id = invRowCount++;
+  const div = document.createElement('div');
+  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin-bottom:6px';
+  div.innerHTML=`<input id="inv-item-${id}" placeholder="اسم الصنف" style="font-size:12px"><input id="inv-qty-${id}" type="number" placeholder="الكمية" style="font-size:12px"><input id="inv-unit-${id}" placeholder="الوحدة" style="font-size:12px"><button onclick="this.parentElement.remove()" style="border:1px solid rgba(255,100,100,.3);border-radius:8px;background:rgba(255,100,100,.1);color:#f87171;font-size:16px;cursor:pointer;padding:0 10px">✕</button>`;
+  document.getElementById('inv-manual-items').appendChild(div);
+}
+
+async function pickInvFile(input){
+  const file = input.files[0];if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    invB64 = ev.target.result.split(',')[1];
+    document.getElementById('inv-icon').textContent = file.type==='application/pdf'?'📄':'🖼️';
+    document.getElementById('inv-txt').textContent = file.name;
+    document.getElementById('inv-ai-btn').style.display='block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeInvReceipt(){
+  if(!invB64){alert('يرجى رفع صورة الإيصال أولاً');return;}
+  const btn=document.getElementById('inv-ai-btn');
+  btn.textContent='⏳ جاري القراءة...';btn.disabled=true;
+  try{
+    const res = await api('/api/analyze','POST',{b64:invB64,text:'هذا إيصال استلام بضاعة. استخرج الأصناف والكميات والوحدات فقط في items. كل صنف يكون له: desc=اسم الصنف، qty=الكمية، unit=الوحدة'});
+    if(res.error) throw new Error(res.error);
+    invParsed = res;
+    // Show parsed items
+    const items = res.items||[];
+    if(!items.length){
+      document.getElementById('inv-ai-result').style.display='block';
+      document.getElementById('inv-ai-result').innerHTML='<div style="padding:8px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171;margin-bottom:10px">⚠️ تعذر قراءة الأصناف — أضفها يدوياً</div>';
+    } else {
+      // Fill manual items with parsed data
+      const manualDiv = document.getElementById('inv-manual-items');
+      manualDiv.innerHTML='';
+      invRowCount=0;
+      items.forEach((it,i)=>{
+        const id=invRowCount++;
+        const div=document.createElement('div');
+        div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin-bottom:6px';
+        div.innerHTML=`<input id="inv-item-${id}" value="${it.desc||''}" style="font-size:12px"><input id="inv-qty-${id}" type="number" value="${it.qty||''}" style="font-size:12px"><input id="inv-unit-${id}" value="${it.unit||'وحدة'}" style="font-size:12px"><button onclick="this.parentElement.remove()" style="border:1px solid rgba(255,100,100,.3);border-radius:8px;background:rgba(255,100,100,.1);color:#f87171;font-size:16px;cursor:pointer;padding:0 10px">✕</button>`;
+        manualDiv.appendChild(div);
+      });
+      document.getElementById('inv-ai-result').style.display='block';
+      document.getElementById('inv-ai-result').innerHTML=`<div style="padding:8px;background:rgba(52,211,153,.1);border-radius:8px;color:#34d399;margin-bottom:10px">✅ تم قراءة ${items.length} صنف — راجع البيانات وعدّل إن احتجت</div>`;
+    }
+  }catch(e){
+    document.getElementById('inv-ai-result').style.display='block';
+    document.getElementById('inv-ai-result').innerHTML=`<div style="padding:8px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171;margin-bottom:10px">❌ ${e.message}</div>`;
+  }
+  btn.textContent='🤖 قراءة الأصناف بالذكاء';btn.disabled=false;
+}
+
+async function saveInvReceive(){
+  const project = document.getElementById('inv-proj').value;
+  const err = document.getElementById('inv-err');
+  if(!project){err.style.display='block';err.textContent='⚠️ يجب اختيار المشروع';return;}
+  
+  // Collect items
+  const items=[];
+  document.querySelectorAll('[id^="inv-item-"]').forEach(el=>{
+    const id=el.id.replace('inv-item-','');
+    const name=el.value.trim();
+    const qty=parseFloat(document.getElementById('inv-qty-'+id)?.value)||0;
+    const unit=document.getElementById('inv-unit-'+id)?.value||'وحدة';
+    if(name&&qty>0) items.push({name,qty,unit});
+  });
+  
+  if(!items.length){err.style.display='block';err.textContent='⚠️ أضف صنفاً واحداً على الأقل';return;}
+  err.style.display='none';
+  
+  const entry={
+    supId:CU.id, supName:CU.name, project,
+    type:'inventory_receive',
+    desc:'استلام بضاعة — '+items.map(it=>it.name).join('، '),
+    date:today(), total:0,
+    inventoryItems:items,
+    b64Image:invB64||null
+  };
+  
+  const res=await api('/api/entries','POST',entry);
+  if(res.error){err.style.display='block';err.textContent=res.error;return;}
+  DB=await api('/api/db');
+  invB64=null;invParsed=null;invRowCount=1;
+  document.getElementById('inv-ok').style.display='block';
+  document.getElementById('inv-ok').textContent='✅ تم حفظ الاستلام — '+items.length+' صنف';
+  setTimeout(()=>rInventory(),1500);
+}
+
+function loadUseItems(){
+  const proj=document.getElementById('use-proj').value;
+  if(!proj) return;
+  const items=getInventory(CU.id,proj).filter(it=>it.remaining>0);
+  const el=document.getElementById('use-items-list');
+  if(!items.length){el.innerHTML='<div style="color:rgba(255,255,255,.5);font-size:12px;padding:8px 0">لا يوجد مخزون في هذا المشروع</div>';return;}
+  el.innerHTML='<div style="margin:10px 0">'+items.map(it=>`
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px;align-items:center">
+      <div style="font-size:13px;font-weight:600">${it.name}<div style="font-size:10px;color:rgba(255,255,255,.5)">متبقي: ${it.remaining} ${it.unit}</div></div>
+      <input type="number" id="use-qty-${it.name}" placeholder="المستخدم" min="0" max="${it.remaining}" style="font-size:12px">
+      <span style="font-size:11px;color:rgba(255,255,255,.5)">${it.unit}</span>
+    </div>`).join('')+'</div>';
+}
+
+async function saveInvUse(){
+  const proj=document.getElementById('use-proj').value;
+  const err=document.getElementById('use-err');
+  if(!proj){err.style.display='block';err.textContent='⚠️ اختر المشروع';return;}
+  const items=getInventory(CU.id,proj).filter(it=>it.remaining>0);
+  const used=[];
+  items.forEach(it=>{
+    const qty=parseFloat(document.getElementById('use-qty-'+it.name)?.value)||0;
+    if(qty>0){
+      if(qty>it.remaining){err.style.display='block';err.textContent='⚠️ الكمية المستخدمة ('+qty+') أكبر من المتبقي ('+it.remaining+') لصنف: '+it.name;return;}
+      used.push({name:it.name,qty,unit:it.unit});
+    }
+  });
+  if(!used.length){err.style.display='block';err.textContent='⚠️ أدخل كمية مستخدمة لصنف واحد على الأقل';return;}
+  err.style.display='none';
+  const entry={
+    supId:CU.id,supName:CU.name,project:proj,
+    type:'inventory_use',
+    desc:'استخدام — '+used.map(it=>it.name).join('، '),
+    date:today(),total:0,
+    inventoryItems:used
+  };
+  const res=await api('/api/entries','POST',entry);
+  if(res.error){err.style.display='block';err.textContent=res.error;return;}
+  DB=await api('/api/db');
+  document.getElementById('use-ok').style.display='block';
+  document.getElementById('use-ok').textContent='✅ تم تسجيل الاستخدام';
+  setTimeout(()=>rInventory(),1500);
+}
+
+// ── MANAGER INVENTORY ──
+function rInventoryMgr(){
+  const allItems = getInventory(null, null);
+  const bySup = {};
+  allItems.forEach(it=>{
+    if(!bySup[it.supId]) bySup[it.supId]={supId:it.supId,items:[]};
+    bySup[it.supId].items.push(it);
+  });
+
+  document.getElementById('mc').innerHTML = `
+    <div class="ctitle">📦 مخزون المشرفين والعهدات</div>
+    ${Object.values(bySup).length===0 ? '<div class="empty">لا يوجد مخزون بعد</div>' :
+    Object.values(bySup).map(sup=>{
+      const supName = DB.supervisors.find(s=>s.id==sup.supId)?.name||'مشرف';
+      const projects = [...new Set(sup.items.map(it=>it.project))];
+      return `
+      <div class="card" style="margin-bottom:10px">
+        <div style="font-weight:800;color:#f5c842;font-size:14px;margin-bottom:12px">👷 ${supName}</div>
+        ${projects.map(proj=>`
+          <div style="margin-bottom:10px">
+            <div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:6px">🏗️ ${proj}</div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;font-size:10px;font-weight:700;color:rgba(255,255,255,.4);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:4px">
+              <span>الصنف</span><span style="text-align:center">مستلم</span><span style="text-align:center">مستخدم</span><span style="text-align:center">عهدة</span>
+            </div>
+            ${sup.items.filter(it=>it.project===proj).map(it=>`
+              <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+                <div style="font-size:12px;font-weight:600">${it.name}</div>
+                <div style="text-align:center;font-size:12px;color:#70B5FF">${it.received} ${it.unit}</div>
+                <div style="text-align:center;font-size:12px;color:#f87171">${it.used} ${it.unit}</div>
+                <div style="text-align:center;font-size:12px;font-weight:700;color:${it.remaining<0?'#f87171':it.remaining===0?'rgba(255,255,255,.3)':'#34d399'}">${it.remaining} ${it.unit}</div>
+              </div>`).join('')}
+          </div>`).join('')}
+      </div>`;
+    }).join('')}
+  `;
 }
 
 function rReturns(){
