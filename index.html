@@ -1567,8 +1567,8 @@ function rCostCenter(){
         }
       }
     });
-    // B2B alert
-    if(c.b2b?.completed){
+    // B2B alert - only for B2B contracts
+    if(c.isB2B && c.b2b?.completed){
       const remaining=(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
       if(remaining>0){
         const daysSince=Math.ceil((today_d-new Date(c.b2b.completedDate))/(1000*60*60*24));
@@ -1617,6 +1617,13 @@ function rCostCenter(){
       <div class="fg"><label class="lbl">قيمة العقد (﷼)</label><input id="cc-value" type="number" placeholder="0.00"></div>
       <div class="fg"><label class="lbl">تاريخ العقد</label><input id="cc-date" type="date" value="${today()}"></div>
       <div class="fg"><label class="lbl">ملاحظات</label><input id="cc-notes" placeholder="وصف المشروع أو شروط الدفع..."></div>
+      <div class="fg" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(167,139,250,.08);border-radius:10px;border:1px solid rgba(167,139,250,.2)">
+        <input type="checkbox" id="cc-b2b" style="width:20px;height:20px;accent-color:#C4B5FD;flex-shrink:0">
+        <div>
+          <label for="cc-b2b" style="font-size:13px;font-weight:700;color:#C4B5FD;cursor:pointer">🔄 عقد باك تو باك (B2B)</label>
+          <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">الدفع يكون بعد اكتمال الأعمال</div>
+        </div>
+      </div>
       <button class="btn bp" onclick="addContract()">✅ إضافة العقد</button>
     </div>
 
@@ -1666,23 +1673,19 @@ function rCostCenter(){
           <span id="prog-${c.id}" style="font-size:13px;font-weight:700;color:#f5c842;min-width:35px">${c.progress||0}%</span>
         </div>
 
-        <!-- Back to Back -->
-        <div style="margin-bottom:10px;padding:10px 12px;background:rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.08);border-radius:10px;border:1px solid rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.2)">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${c.b2b?.completed?'8':'0'}px">
+        <!-- Back to Back - only for B2B contracts -->
+        ${c.isB2B ? `<div style="margin-bottom:10px;padding:10px 12px;background:rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.08);border-radius:10px;border:1px solid rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${c.b2b?.completed?8:0}px">
             <div>
-              <div style="font-size:12px;font-weight:700;color:${c.b2b?.completed?'#34d399':'#C4B5FD'}">🔄 باك تو باك (B2B)</div>
-              ${c.b2b?.completed?`<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">اكتملت الأعمال: ${c.b2b.completedDate} — منذ <strong style="color:#fbbf24">${Math.ceil((new Date()-new Date(c.b2b.completedDate))/(1000*60*60*24))} يوم</strong></div>`:'<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">الدفع بعد اكتمال الأعمال</div>'}
+              <div style="font-size:12px;font-weight:700;color:${c.b2b?.completed?'#34d399':'#C4B5FD'}">🔄 عقد باك تو باك (B2B)</div>
+              ${c.b2b?.completed?'<div style=\"font-size:10px;color:rgba(255,255,255,.5);margin-top:2px\">اكتملت الأعمال: '+c.b2b.completedDate+' — منذ <strong style=\"color:#fbbf24\">'+(Math.ceil((new Date()-new Date(c.b2b.completedDate))/(1000*60*60*24)))+' يوم</strong></div>':'<div style=\"font-size:10px;color:rgba(255,255,255,.4);margin-top:2px\">الدفع بعد اكتمال الأعمال</div>'}
             </div>
             <button onclick="toggleB2B('${c.id}')" style="border:1px solid rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.4);border-radius:8px;padding:5px 12px;background:rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.15);color:${c.b2b?.completed?'#34d399':'#C4B5FD'};cursor:pointer;font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif">
               ${c.b2b?.completed?'✓ مكتمل':'تسجيل اكتمال'}
             </button>
           </div>
-          ${c.b2b?.completed?`
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="font-size:12px;color:rgba(255,255,255,.7)">المستحقات المتبقية للصرف:</div>
-            <div style="font-size:15px;font-weight:800;color:${(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0)>0?'#fbbf24':'#34d399'}">${fmt((c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0))} ﷼</div>
-          </div>`:''}
-        </div>
+          ${c.b2b?.completed?`<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:12px;color:rgba(255,255,255,.7)">المستحقات المتبقية:</div><div style="font-size:15px;font-weight:800;color:${(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0)>0?'#fbbf24':'#34d399'}">${fmt((c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0))} ﷼</div></div>`:''}
+        </div>` : ''}
 
         <!-- جدول الدفعات -->
         <div style="margin-bottom:8px">
@@ -2034,7 +2037,8 @@ function addContract(){
   // Auto-add payments from AI contract analysis
   const payments = window._contractPayments||[];
   delete window._contractPayments;
-  cs.push({id:'c-'+Date.now(),clientName:client,project,value,date,notes,progress:0,payments,transfers:[]});
+  const isB2B=document.getElementById('cc-b2b')?.checked||false;
+  cs.push({id:'c-'+Date.now(),clientName:client,project,value,date,notes,progress:0,payments,transfers:[],isB2B});
   saveContracts(cs);
   if(payments.length) alert('✅ تم إضافة العقد مع '+payments.length+' دفعة من جدول الدفعات');
   rCostCenter();
