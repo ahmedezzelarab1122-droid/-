@@ -1873,21 +1873,37 @@ async function analyzeContract(input){
   status.textContent='⏳ جاري قراءة العقد...';
   icon.textContent='⏳';
 
+  const isB2B = document.getElementById('cc-b2b')?.checked||false;
+
   const reader = new FileReader();
   reader.onload = async ev => {
     const b64 = ev.target.result.split(',')[1];
     try{
-      const prompt = `هذا عقد مقاولات أو عقد أعمال. استخرج المعلومات التالية:
+      let prompt;
+      if(isB2B){
+        // B2B: no payment schedule, just contract value and duration
+        prompt = `هذا عقد مقاولات من نوع "باك تو باك" — الدفع يكون بعد اكتمال الأعمال. استخرج:
 - اسم العميل أو الجهة المالكة (supplier)
-- قيمة العقد الإجمالية بالأرقام (total)
+- قيمة العقد الإجمالية شاملة الضريبة بالأرقام (total)
 - تاريخ العقد (date بصيغة YYYY-MM-DD)
-- وصف الأعمال أو المشروع (desc)
-- جدول الدفعات إن وجد في items: كل دفعة تحتوي على (desc=وصف الدفعة, qty=نسبة% أو 0, unit=تاريخ الاستحقاق إن وجد, unitPrice=المبلغ, total=المبلغ)
+- وصف الأعمال (desc)
+- مدة الضمان أو مدة الاستحقاق بعد الاكتمال إن وجدت (invoiceNo)
+لا تضع جدول دفعات — items=[]
+الإخراج JSON نقي فقط.`;
+      } else {
+        // Regular: extract payment schedule
+        prompt = `هذا عقد مقاولات بجدول دفعات. استخرج:
+- اسم العميل أو الجهة المالكة (supplier)
+- قيمة العقد الإجمالية شاملة الضريبة بالأرقام (total)
+- تاريخ العقد (date بصيغة YYYY-MM-DD)
+- وصف الأعمال (desc)
+- جدول الدفعات في items: كل دفعة تحتوي على:
+  * desc = وصف الدفعة أو المرحلة
+  * total = مبلغ الدفعة شاملاً الضريبة
+  * unit = تاريخ الاستحقاق بصيغة YYYY-MM-DD إن وجد، وإلا اتركه فارغاً
+  * qty = نسبة الإنجاز المطلوبة % إن وجدت، وإلا 0
 الإخراج JSON نقي فقط بدون أي نص إضافي.`;
-
-      const content = isPdf
-        ? [{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:prompt}]
-        : [{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:prompt}];
+      }
 
       const res = await api('/api/analyze','POST',{b64, text:prompt, isPdf});
       if(res.error) throw new Error(res.error);
@@ -1896,28 +1912,40 @@ async function analyzeContract(input){
       if(res.supplier) document.getElementById('cc-client').value = res.supplier;
       if(res.total && res.total>0) document.getElementById('cc-value').value = res.total;
       if(res.date) document.getElementById('cc-date').value = res.date;
-      if(res.desc) document.getElementById('cc-notes').value = res.desc;
 
-      // Build payment schedule from items
-      let paymentInfo = '';
-      if(res.items && res.items.length>0){
-        paymentInfo = '\n\nجدول الدفعات المستخرج من العقد:\n';
-        res.items.forEach((it,i)=>{
-          paymentInfo += (i+1)+'. '+it.desc+': '+fmt(it.total||it.unitPrice)+' ﷼'+(it.unit&&it.unit.includes('-')?' — '+it.unit:'')+'\n';
-        });
-        document.getElementById('cc-notes').value = (res.desc||'')+paymentInfo;
-        // Store payments for auto-add
-        window._contractPayments = res.items.map(it=>({
-          amount: it.total||it.unitPrice||0,
-          type: (it.unit&&it.unit.match(/\d{4}-\d{2}-\d{2}/))?'date':'progress',
-          dueDate: it.unit&&it.unit.match(/\d{4}-\d{2}-\d{2}/)?it.unit:null,
-          progressPct: it.qty>0?it.qty:null,
-          status: 'pending',
-          desc: it.desc
-        })).filter(p=>p.amount>0);
+      let summaryMsg = '';
+
+      if(isB2B){
+        // B2B: just show contract value, no payments
+        const duration = res.invoiceNo||'';
+        document.getElementById('cc-notes').value = (res.desc||'')+(duration?' — مدة الاستحقاق: '+duration:'');
+        window._contractPayments = [];
+        summaryMsg = '✅ تم استخراج بيانات عقد B2B — قيمة العقد: '+fmt(res.total)+' ﷼'+(duration?' — '+duration:'');
+      } else {
+        // Regular: extract payments
+        const items = res.items||[];
+        let notes = res.desc||'';
+        if(items.length>0){
+          notes += '  جدول الدفعات: ';
+          items.forEach((it,i)=>{
+            notes += (i+1)+'. '+(it.desc||'دفعة '+(i+1))+': '+fmt(it.total||0)+' ﷼'+(it.unit?' — '+it.unit:'')+(it.qty>0?' ('+it.qty+'%)':'')+' | ';
+          });
+          window._contractPayments = items.map(it=>({
+            amount: it.total||0,
+            type: (it.unit&&/\d{4}-\d{2}-\d{2}/.test(it.unit))?'date':(it.qty>0?'progress':'date'),
+            dueDate: (it.unit&&/\d{4}-\d{2}-\d{2}/.test(it.unit))?it.unit:null,
+            progressPct: it.qty>0?it.qty:null,
+            status: 'pending'
+          })).filter(p=>p.amount>0);
+          summaryMsg = '✅ تم استخراج '+items.length+' دفعة من جدول الدفعات — راجع البيانات';
+        } else {
+          window._contractPayments = [];
+          summaryMsg = '✅ تم استخراج بيانات العقد — لم يُعثر على جدول دفعات، أضفها يدوياً';
+        }
+        document.getElementById('cc-notes').value = notes;
       }
 
-      status.innerHTML = `<span style="color:#34d399">✅ تم استخراج بيانات العقد${res.items?.length?' و'+res.items.length+' دفعة':''} — راجع البيانات وأضف العقد</span>`;
+      status.innerHTML = '<span style="color:#34d399">'+summaryMsg+'</span>';
       icon.textContent='✅';
       txt.textContent = res.supplier||'تم قراءة العقد';
     }catch(e){
