@@ -1807,9 +1807,7 @@ async function pickTransferFile(contractId, input){
     document.getElementById('tr-icon-'+contractId).textContent = '⏳';
     document.getElementById('tr-txt-'+contractId).textContent = 'جاري قراءة الإيصال...';
     try{
-      const res = await api('/api/analyze','POST',{
-        b64: _trB64[contractId],
-        text: 'هذا إيصال حوالة بنكية أو تحويل مالي أو شيك. المطلوب استخراج: 1) المبلغ الكلي المحول بالأرقام (total) 2) تاريخ التحويل (date) بصيغة YYYY-MM-DD 3) رقم المرجع أو رقم العملية (invoiceNo) 4) اسم البنك أو الجهة (supplier). الإخراج JSON نقي فقط: {"total":رقم,"date":"تاريخ","invoiceNo":"رقم","supplier":"البنك"}'
+      const res = await api('/api/analyze-transfer','POST',{b64: _trB64[contractId]
       });
       if(res.error) throw new Error(res.error);
       _trParsed[contractId] = res;
