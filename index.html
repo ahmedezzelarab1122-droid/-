@@ -741,6 +741,13 @@ async function start(){
     localStorage.setItem('budgets_reset_v2','1');
   }
   try{DB=await api('/api/db');}catch(e){}
+  // Load contracts from server (sync across browsers)
+  try{
+    const cr=await api('/api/contracts');
+    if(cr&&cr.contracts&&cr.contracts.length>0){
+      localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));
+    }
+  }catch(e){}
   const ok=await restoreSession().catch(()=>false);
   if(ok&&CU&&ROLE){showApp();}
   else{document.getElementById('lview').style.display='flex';}
@@ -2068,8 +2075,15 @@ function toggleB2B(contractId){
   saveContracts(cs);rCostCenter();
 }
 
-function getContracts(){ return JSON.parse(localStorage.getItem('kayan_contracts')||'[]'); }
-function saveContracts(cs){ localStorage.setItem('kayan_contracts',JSON.stringify(cs)); }
+function getContracts(){ 
+  try { return JSON.parse(localStorage.getItem('kayan_contracts')||'[]'); } 
+  catch(e){ return []; } 
+}
+function saveContracts(cs){ 
+  localStorage.setItem('kayan_contracts',JSON.stringify(cs));
+  // Sync to server in background
+  api('/api/contracts','POST',{contracts:cs}).catch(()=>{});
+}
 
 function addContract(){
   const client=document.getElementById('cc-client').value.trim();
