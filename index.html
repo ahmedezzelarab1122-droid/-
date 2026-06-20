@@ -822,9 +822,11 @@ function showApp(){
     { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
     { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
     { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
+    { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
   ] : ROLE==='owner' ? [
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
     { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
+    { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
   ] : [
     { label:'الرئيسية', items:[['home','🏠','الرئيسية'],['bal','💰','رصيدي']] },
     { label:'العمل', items:[['labor','👷','تسجيل عمالة'],['hist','📋','سجلاتي']] },
@@ -887,17 +889,17 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter};
   map[id]?.();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter};
   map[id]?.();
 }
 
@@ -1448,6 +1450,351 @@ function rInventoryMgr(){
       </div>`;
     }).join('')}
   `;
+}
+
+
+// ── COST CENTER (مركز تكلفة المشروع) ──────────────────
+function rCostCenter(){
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
+  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+
+  // Check for alerts
+  const today_d = new Date();
+  const alerts = [];
+  contracts.forEach(c=>{
+    (c.payments||[]).forEach(p=>{
+      if(p.status==='pending'){
+        if(p.type==='date' && p.dueDate){
+          const due = new Date(p.dueDate);
+          const diff = Math.ceil((due-today_d)/(1000*60*60*24));
+          if(diff<=7 && diff>=0) alerts.push({contract:c, payment:p, msg:'دفعة قادمة خلال '+diff+' يوم', color:'#fbbf24'});
+          if(diff<0) alerts.push({contract:c, payment:p, msg:'دفعة متأخرة منذ '+Math.abs(diff)+' يوم', color:'#f87171'});
+        }
+        if(p.type==='progress' && c.progress>=(p.progressPct||0)){
+          alerts.push({contract:c, payment:p, msg:'تم بلوغ '+p.progressPct+'% من الإنجاز', color:'#34d399'});
+        }
+      }
+    });
+  });
+
+  document.getElementById('mc').innerHTML = `
+    ${alerts.length ? `
+    <div style="margin-bottom:12px">
+      ${alerts.map(a=>`
+        <div style="background:rgba(${a.color==='#f87171'?'248,113,113':'a.color'==='#fbbf24'?'251,191,36':'52,211,153'},.12);border-radius:10px;padding:10px 14px;margin-bottom:6px;border-right:3px solid ${a.color};display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:13px;color:${a.color}">🔔 ${a.msg}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">${a.contract.clientName} · ${a.contract.project} · ${fmt(a.payment.amount)} ﷼</div>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <div class="card">
+      <div class="ctitle">➕ عقد جديد</div>
+      <div class="fg"><label class="lbl">اسم العميل</label><input id="cc-client" placeholder="اسم العميل أو الشركة"></div>
+      <div class="fg"><label class="lbl">المشروع</label><select id="cc-proj"><option value="">-- اختر المشروع --</option>${pOpts}</select></div>
+      <div class="fg"><label class="lbl">قيمة العقد (﷼)</label><input id="cc-value" type="number" placeholder="0.00"></div>
+      <div class="fg"><label class="lbl">تاريخ العقد</label><input id="cc-date" type="date" value="${today()}"></div>
+      <div class="fg"><label class="lbl">ملاحظات</label><input id="cc-notes" placeholder="وصف المشروع..."></div>
+      <button class="btn bp" onclick="addContract()">✅ إضافة العقد</button>
+    </div>
+
+    ${contracts.length===0 ? '<div class="empty">لا توجد عقود بعد</div>' :
+    contracts.slice().reverse().map(c=>{
+      const totalReceived = (c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      const totalDue = (c.payments||[]).filter(p=>p.status==='paid').reduce((a,p)=>a+(p.amount||0),0);
+      const remaining = (c.value||0) - totalReceived;
+      const pendingPayments = (c.payments||[]).filter(p=>p.status==='pending');
+      const paidPayments = (c.payments||[]).filter(p=>p.status==='paid');
+      const pct = Math.min(100,Math.round(totalReceived/(c.value||1)*100));
+      return `
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#f5c842">${c.clientName}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.6)">🏗️ ${c.project} · ${c.date}</div>
+            ${c.notes?`<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${c.notes}</div>`:''}
+          </div>
+          <button onclick="deleteContract('${c.id}')" style="border:none;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px">✕</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+          <div style="background:rgba(245,200,66,.08);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">قيمة العقد</div>
+            <div style="font-size:14px;font-weight:800;color:#f5c842">${fmt(c.value)} ﷼</div>
+          </div>
+          <div style="background:rgba(52,211,153,.08);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">إجمالي الحوالات</div>
+            <div style="font-size:14px;font-weight:800;color:#34d399">${fmt(totalReceived)} ﷼</div>
+          </div>
+          <div style="background:rgba(${remaining<0?'248,113,113':'112,181,255'},.08);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">المتبقي</div>
+            <div style="font-size:14px;font-weight:800;color:${remaining<0?'#f87171':'#70B5FF'}">${fmt(remaining)} ﷼</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <div class="pbar"><div class="pf" style="width:${pct}%;background:linear-gradient(90deg,#34d399,#f5c842)"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.5);margin-top:3px"><span>تم استلام ${pct}%</span><span>متبقي ${100-pct}%</span></div>
+        </div>
+
+        <!-- نسبة الإنجاز -->
+        <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;color:rgba(255,255,255,.7)">نسبة الإنجاز:</span>
+          <input type="range" min="0" max="100" value="${c.progress||0}" oninput="updateProgress('${c.id}',this.value);document.getElementById('prog-${c.id}').textContent=this.value+'%'" style="flex:1">
+          <span id="prog-${c.id}" style="font-size:13px;font-weight:700;color:#f5c842;min-width:35px">${c.progress||0}%</span>
+        </div>
+
+        <!-- جدول الدفعات -->
+        <div style="margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">📋 جدول الدفعات</div>
+          ${(c.payments||[]).map((p,i)=>`
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-bottom:5px;align-items:center;padding:6px 8px;background:rgba(255,255,255,.04);border-radius:7px">
+              <div style="font-size:12px;font-weight:600">${fmt(p.amount)} ﷼</div>
+              <div style="font-size:11px;color:rgba(255,255,255,.6)">${p.type==='date'?'📅 '+p.dueDate:'📊 '+p.progressPct+'% إنجاز'}</div>
+              <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${p.status==='paid'?'rgba(52,211,153,.2)':'rgba(251,191,36,.2)'};color:${p.status==='paid'?'#34d399':'#fbbf24'};text-align:center">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</span>
+              <button onclick="togglePayment('${c.id}',${i})" style="border:none;background:none;cursor:pointer;font-size:14px;color:${p.status==='paid'?'#34d399':'rgba(255,255,255,.4)'}">${p.status==='paid'?'✓':'○'}</button>
+            </div>`).join('')}
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-top:6px">
+            <input type="number" id="pay-amt-${c.id}" placeholder="المبلغ ﷼" style="font-size:11px;padding:6px 8px">
+            <select id="pay-type-${c.id}" style="font-size:11px;padding:6px 8px" onchange="document.getElementById('pay-extra-${c.id}').style.display=this.value==='date'?'block':'none'">
+              <option value="date">📅 بتاريخ</option>
+              <option value="progress">📊 بنسبة إنجاز</option>
+            </select>
+            <div>
+              <input id="pay-extra-${c.id}" type="date" style="font-size:11px;padding:6px 8px;width:100%">
+            </div>
+            <button onclick="addPayment('${c.id}')" style="border:1px solid rgba(245,200,66,.3);border-radius:7px;background:rgba(245,200,66,.1);color:#f5c842;cursor:pointer;font-size:12px;padding:0 10px">+</button>
+          </div>
+        </div>
+
+        <!-- الحوالات الواردة -->
+        <div>
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">💰 الحوالات الواردة</div>
+          ${(c.transfers||[]).slice().reverse().map(t=>`
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px">
+              <div>
+                <span style="color:rgba(255,255,255,.8)">${t.date}</span>
+                ${t.ref?`<span style="color:rgba(255,255,255,.5);margin-right:6px">${t.ref}</span>`:''}
+                ${t.bank?`<span style="background:rgba(112,181,255,.15);color:#70B5FF;font-size:10px;padding:1px 6px;border-radius:99px;margin-right:4px">${t.bank}</span>`:''}
+              </div>
+              <span style="color:#34d399;font-weight:700">+${fmt(t.amount)} ﷼</span>
+            </div>`).join('')}
+          <!-- AI Upload -->
+          <div style="margin-top:10px">
+            <div style="border:2px dashed rgba(52,211,153,.3);border-radius:10px;padding:10px;text-align:center;cursor:pointer;background:rgba(52,211,153,.05)" onclick="document.getElementById('tr-file-${c.id}').click()">
+              <div id="tr-icon-${c.id}" style="font-size:22px;margin-bottom:4px">📷</div>
+              <div id="tr-txt-${c.id}" style="font-size:11px;color:rgba(255,255,255,.5)">ارفع إيصال الحوالة — الذكاء يقرأها تلقائياً</div>
+            </div>
+            <input type="file" id="tr-file-${c.id}" accept="image/*,.pdf" style="display:none" onchange="pickTransferFile('${c.id}',this)">
+            <div id="tr-preview-${c.id}" style="display:none;margin-top:8px;background:rgba(52,211,153,.08);border-radius:8px;padding:10px">
+              <div id="tr-result-${c.id}"></div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <button onclick="confirmTransfer('${c.id}')" style="flex:1;border:1px solid rgba(52,211,153,.4);border-radius:8px;background:rgba(52,211,153,.15);color:#34d399;cursor:pointer;font-size:12px;font-weight:700;padding:8px;font-family:'Tajawal',sans-serif">✅ تأكيد وحفظ</button>
+                <button onclick="cancelTransfer('${c.id}')" style="border:1px solid rgba(255,255,255,.15);border-radius:8px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-size:12px;padding:8px 12px;font-family:'Tajawal',sans-serif">إلغاء</button>
+              </div>
+            </div>
+            <!-- Manual fallback -->
+            <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr auto;gap:6px">
+              <input type="number" id="tr-amt-${c.id}" placeholder="أو أدخل المبلغ يدوياً ﷼" style="font-size:11px;padding:6px 8px">
+              <input id="tr-ref-${c.id}" placeholder="رقم مرجعي" style="font-size:11px;padding:6px 8px">
+              <button onclick="addTransfer('${c.id}')" style="border:1px solid rgba(52,211,153,.3);border-radius:7px;background:rgba(52,211,153,.1);color:#34d399;cursor:pointer;font-size:12px;padding:0 12px">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- كشف حساب -->
+        <button onclick="exportContractPDF('${c.id}')" style="width:100%;margin-top:12px;padding:10px;background:rgba(217,48,37,.15);color:#f87171;border:1px solid rgba(217,48,37,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 كشف حساب العميل</button>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+
+// ── AI TRANSFER READER ──
+const _trParsed = {};
+const _trB64 = {};
+
+async function pickTransferFile(contractId, input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    _trB64[contractId] = ev.target.result.split(',')[1];
+    document.getElementById('tr-icon-'+contractId).textContent = '⏳';
+    document.getElementById('tr-txt-'+contractId).textContent = 'جاري قراءة الإيصال...';
+    try{
+      const res = await api('/api/analyze','POST',{
+        b64: _trB64[contractId],
+        text: 'هذا إيصال حوالة بنكية أو تحويل مالي. استخرج: المبلغ المحول (total)، التاريخ (date)، رقم المرجع أو رقم العملية (invoiceNo)، اسم البنك أو الجهة المحولة (supplier). الإخراج JSON فقط.'
+      });
+      if(res.error) throw new Error(res.error);
+      _trParsed[contractId] = res;
+      let html = '';
+      if(!res.total||res.total===0){
+        html = '<div style="color:#f87171;font-size:12px">⚠️ تعذر قراءة المبلغ — استخدم الإدخال اليدوي</div>';
+        document.getElementById('tr-preview-'+contractId).querySelector('button').style.display='none';
+      } else {
+        html = `<div style="font-size:12px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:rgba(255,255,255,.6)">المبلغ</span><span style="color:#34d399;font-weight:800;font-size:14px">${fmt(res.total)} ﷼</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:rgba(255,255,255,.6)">التاريخ</span><span>${res.date||today()}</span></div>
+          ${res.invoiceNo?`<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:rgba(255,255,255,.6)">المرجع</span><span>${res.invoiceNo}</span></div>`:''}
+          ${res.supplier?`<div style="display:flex;justify-content:space-between"><span style="color:rgba(255,255,255,.6)">البنك/الجهة</span><span style="color:#70B5FF">${res.supplier}</span></div>`:''}
+        </div>`;
+      }
+      document.getElementById('tr-result-'+contractId).innerHTML = html;
+      document.getElementById('tr-preview-'+contractId).style.display = 'block';
+      document.getElementById('tr-icon-'+contractId).textContent = '✅';
+      document.getElementById('tr-txt-'+contractId).textContent = 'تم قراءة الإيصال';
+    }catch(e){
+      document.getElementById('tr-icon-'+contractId).textContent = '❌';
+      document.getElementById('tr-txt-'+contractId).textContent = 'فشل القراءة — استخدم الإدخال اليدوي';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function confirmTransfer(contractId){
+  const parsed = _trParsed[contractId];
+  if(!parsed||!parsed.total){alert('لا توجد بيانات للحفظ');return;}
+  const cs = getContracts();
+  const c = cs.find(c=>c.id===contractId); if(!c) return;
+  c.transfers.push({
+    amount: parsed.total,
+    ref: parsed.invoiceNo||'',
+    bank: parsed.supplier||'',
+    date: parsed.date||today()
+  });
+  saveContracts(cs);
+  delete _trParsed[contractId];
+  delete _trB64[contractId];
+  rCostCenter();
+}
+
+function cancelTransfer(contractId){
+  delete _trParsed[contractId];
+  delete _trB64[contractId];
+  document.getElementById('tr-preview-'+contractId).style.display='none';
+  document.getElementById('tr-icon-'+contractId).textContent='📷';
+  document.getElementById('tr-txt-'+contractId).textContent='ارفع إيصال الحوالة — الذكاء يقرأها تلقائياً';
+}
+
+function getContracts(){ return JSON.parse(localStorage.getItem('kayan_contracts')||'[]'); }
+function saveContracts(cs){ localStorage.setItem('kayan_contracts',JSON.stringify(cs)); }
+
+function addContract(){
+  const client=document.getElementById('cc-client').value.trim();
+  const project=document.getElementById('cc-proj').value;
+  const value=parseFloat(document.getElementById('cc-value').value)||0;
+  const date=document.getElementById('cc-date').value||today();
+  const notes=document.getElementById('cc-notes').value.trim();
+  if(!client||!project||!value){alert('⚠️ يرجى تعبئة اسم العميل والمشروع وقيمة العقد');return;}
+  const cs=getContracts();
+  cs.push({id:'c-'+Date.now(),clientName:client,project,value,date,notes,progress:0,payments:[],transfers:[]});
+  saveContracts(cs);rCostCenter();
+}
+
+function deleteContract(id){
+  if(!confirm('حذف هذا العقد وكل بياناته؟'))return;
+  saveContracts(getContracts().filter(c=>c.id!==id));rCostCenter();
+}
+
+function updateProgress(id,val){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===id);if(!c)return;
+  c.progress=parseInt(val)||0;saveContracts(cs);
+  // Check if any pending progress payment is now due
+  (c.payments||[]).forEach(p=>{if(p.type==='progress'&&p.status==='pending'&&c.progress>=(p.progressPct||0)){alert('🔔 تنبيه: تم بلوغ '+p.progressPct+'% — دفعة مستحقة: '+fmt(p.amount)+' ﷼');}});
+}
+
+function addPayment(contractId){
+  const amt=parseFloat(document.getElementById('pay-amt-'+contractId).value)||0;
+  const type=document.getElementById('pay-type-'+contractId).value;
+  if(!amt){alert('⚠️ أدخل مبلغ الدفعة');return;}
+  const extra=document.getElementById('pay-extra-'+contractId).value;
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  const payment={amount:amt,type,status:'pending'};
+  if(type==='date') payment.dueDate=extra||today();
+  else payment.progressPct=parseInt(extra)||0;
+  c.payments.push(payment);saveContracts(cs);rCostCenter();
+}
+
+function togglePayment(contractId,idx){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  c.payments[idx].status=c.payments[idx].status==='paid'?'pending':'paid';
+  saveContracts(cs);rCostCenter();
+}
+
+function addTransfer(contractId){
+  const amt=parseFloat(document.getElementById('tr-amt-'+contractId).value)||0;
+  const ref=document.getElementById('tr-ref-'+contractId).value.trim();
+  if(!amt){alert('⚠️ أدخل مبلغ الحوالة');return;}
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  c.transfers.push({amount:amt,ref,date:today()});
+  saveContracts(cs);rCostCenter();
+}
+
+function exportContractPDF(contractId){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const totalReceived=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+  const remaining=(c.value||0)-totalReceived;
+  const paidPay=(c.payments||[]).filter(p=>p.status==='paid').reduce((a,p)=>a+(p.amount||0),0);
+  const pendingPay=(c.payments||[]).filter(p=>p.status==='pending').reduce((a,p)=>a+(p.amount||0),0);
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>كشف حساب - ${c.clientName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}
+  h1{font-size:22px;font-weight:900;margin-bottom:4px}
+  h2{font-size:14px;font-weight:800;margin:16px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+  .box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}
+  .box-label{font-size:10px;color:#555;margin-bottom:4px;font-weight:600}
+  .box-value{font-size:18px;font-weight:900}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px}
+  th{background:#000;color:#fff;padding:8px;text-align:right;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  td{padding:7px 8px;border:1px solid #ddd}
+  tr:nth-child(even) td{background:#f9f9f9;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .total{background:#eee;font-weight:800;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  @media print{body{padding:10px}}
+</style></head><body>
+<h1>كشف حساب العميل</h1>
+<div style="font-size:12px;color:#555;margin-bottom:16px">تاريخ الكشف: ${now}</div>
+<table style="margin-bottom:16px">
+  <tr><td style="font-weight:700">اسم العميل</td><td>${c.clientName}</td><td style="font-weight:700">المشروع</td><td>${c.project}</td></tr>
+  <tr><td style="font-weight:700">تاريخ العقد</td><td>${c.date}</td><td style="font-weight:700">نسبة الإنجاز</td><td>${c.progress||0}%</td></tr>
+  ${c.notes?`<tr><td style="font-weight:700">ملاحظات</td><td colspan="3">${c.notes}</td></tr>`:''}
+</table>
+<div class="summary">
+  <div class="box"><div class="box-label">قيمة العقد</div><div class="box-value">${fmt(c.value)} ﷼</div></div>
+  <div class="box"><div class="box-label">إجمالي الحوالات</div><div class="box-value" style="color:#1A7A3C">${fmt(totalReceived)} ﷼</div></div>
+  <div class="box"><div class="box-label">المتبقي</div><div class="box-value" style="color:${remaining<0?'#D93025':'#1A50A8'}">${fmt(remaining)} ﷼</div></div>
+</div>
+${c.transfers?.length?`
+<h2>💰 الحوالات الواردة</h2>
+<table>
+  <tr><th>#</th><th>التاريخ</th><th>الرقم المرجعي</th><th>المبلغ</th></tr>
+  ${c.transfers.map((t,i)=>`<tr><td>${i+1}</td><td>${t.date}</td><td>${t.ref||'—'}</td><td style="font-weight:700;color:#1A7A3C">${fmt(t.amount)} ﷼</td></tr>`).join('')}
+  <tr class="total"><td colspan="3">الإجمالي</td><td>${fmt(totalReceived)} ﷼</td></tr>
+</table>`:''}
+${c.payments?.length?`
+<h2>📋 جدول الدفعات</h2>
+<table>
+  <tr><th>المبلغ</th><th>الاستحقاق</th><th>الحالة</th></tr>
+  ${c.payments.map(p=>`<tr><td style="font-weight:700">${fmt(p.amount)} ﷼</td><td>${p.type==='date'?p.dueDate:p.progressPct+'% إنجاز'}</td><td style="color:${p.status==='paid'?'#1A7A3C':'#D97706'};font-weight:700">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</td></tr>`).join('')}
+  <tr class="total"><td>مدفوع: ${fmt(paidPay)} ﷼</td><td>معلق: ${fmt(pendingPay)} ﷼</td><td>الإجمالي: ${fmt(c.payments.reduce((a,p)=>a+p.amount,0))} ﷼</td></tr>
+</table>`:''}
+</body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),800);
 }
 
 function rReturns(){
