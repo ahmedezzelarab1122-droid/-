@@ -326,6 +326,29 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { ok: true, url });
     } catch(e) { return sendJSON(res, { error: 'فشل رفع الصورة: ' + e.message }, 500); }
   }
+
+  // Save contracts (cost center)
+  if (pathname === '/api/contracts' && req.method === 'POST') {
+    try {
+      const { contracts } = await parseBody(req);
+      const data = await loadDB();
+      await db.collection('config').updateOne(
+        { _id: 'main' },
+        { $set: { contracts: contracts || [] } },
+        { upsert: true }
+      );
+      return sendJSON(res, { ok: true });
+    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
+  }
+
+  // Load contracts (cost center)
+  if (pathname === '/api/contracts' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({ _id: 'main' });
+      return sendJSON(res, { contracts: cfg?.contracts || [] });
+    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
+  }
+
   // Analyze bank transfer
   if (pathname === '/api/analyze-transfer' && req.method === 'POST') {
     if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
