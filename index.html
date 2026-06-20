@@ -1696,6 +1696,7 @@ function rCostCenter(){
               <div style="font-size:11px;color:rgba(255,255,255,.6)">${p.type==='date'?'📅 '+p.dueDate:'📊 '+p.progressPct+'% إنجاز'}</div>
               <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${p.status==='paid'?'rgba(52,211,153,.2)':'rgba(251,191,36,.2)'};color:${p.status==='paid'?'#34d399':'#fbbf24'};text-align:center">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</span>
               <button onclick="togglePayment('${c.id}',${i})" style="border:none;background:none;cursor:pointer;font-size:14px;color:${p.status==='paid'?'#34d399':'rgba(255,255,255,.4)'}">${p.status==='paid'?'✓':'○'}</button>
+              <button onclick="deletePayment('${c.id}',${i})" style="border:none;background:none;cursor:pointer;font-size:13px;color:rgba(255,80,80,.6)">✕</button>
             </div>`).join('')}
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-top:6px">
             <input type="number" id="pay-amt-${c.id}" placeholder="المبلغ ﷼" style="font-size:11px;padding:6px 8px">
@@ -2007,6 +2008,21 @@ ${c.payments?.length?`
   setTimeout(()=>win.print(),800);
 }
 
+
+
+function deletePayment(contractId, idx){
+  if(!confirm('حذف هذه الدفعة؟')) return;
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  // If paid, remove auto transfer
+  const p=c.payments[idx];
+  if(p.status==='paid'){
+    const ti=c.transfers.findIndex(t=>t.auto&&t.amount===p.amount);
+    if(ti!==-1) c.transfers.splice(ti,1);
+  }
+  c.payments.splice(idx,1);
+  saveContracts(cs);rCostCenter();
+}
 
 function toggleB2B(contractId){
   const cs=getContracts();
