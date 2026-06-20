@@ -325,13 +325,14 @@ const server = http.createServer(async (req, res) => {
       const url = await uploadToCloudinary(b64);
       return sendJSON(res, { ok: true, url });
     } catch(e) { return sendJSON(res, { error: 'فشل رفع الصورة: ' + e.message }, 500); }
+  }
   // Analyze bank transfer
   if (pathname === '/api/analyze-transfer' && req.method === 'POST') {
     if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
     try {
       const { b64, isPdf } = await parseBody(req);
       const { default: https } = await import('https');
-      const prompt = 'هذا إيصال حوالة بنكية. استخرج: المبلغ (total كرقم فقط بدون رموز), التاريخ (date بصيغة YYYY-MM-DD), رقم المرجع (invoiceNo), اسم البنك (supplier). اخرج JSON نقي فقط.';
+      const prompt = 'هذا إيصال حوالة بنكية أو تحويل مالي. استخرج فقط: المبلغ المحول (total كرقم)، تاريخ التحويل (date بصيغة YYYY-MM-DD)، رقم المرجع (invoiceNo)، اسم البنك (supplier). أخرج JSON نقي فقط.';
       const content = b64 ? (isPdf ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }] : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]) : [{ type: 'text', text: prompt }];
       const result = await new Promise((resolve, reject) => {
         const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 300, messages: [{ role: 'user', content }] });
@@ -342,8 +343,6 @@ const server = http.createServer(async (req, res) => {
       });
       return sendJSON(res, result);
     } catch (e) { return sendJSON(res, { error: e.message }, 500); }
-  }
-
   }
   if (pathname === '/api/analyze' && req.method === 'POST') {
     if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
