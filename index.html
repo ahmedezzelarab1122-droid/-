@@ -1854,6 +1854,13 @@ function confirmTransfer(contractId){
   if(!parsed||!parsed.total){alert('لا توجد بيانات للحفظ');return;}
   const cs = getContracts();
   const c = cs.find(c=>c.id===contractId); if(!c) return;
+  // Check duplicate transfer
+  if(parsed.invoiceNo){
+    const dupRef=(c.transfers||[]).find(t=>t.ref&&t.ref.trim().toLowerCase()===parsed.invoiceNo.toLowerCase());
+    if(dupRef){alert('⚠️ يوجد حوالة بنفس الرقم المرجعي\nالمرجع: '+parsed.invoiceNo+'\nالمبلغ: '+fmt(dupRef.amount)+' ﷼\nالتاريخ: '+dupRef.date);return;}
+  }
+  const dupAmt=(c.transfers||[]).find(t=>Math.abs((t.amount||0)-(parsed.total||0))<0.5&&t.date===(parsed.date||today()));
+  if(dupAmt){if(!confirm('⚠️ يوجد حوالة بنفس المبلغ والتاريخ ('+fmt(parsed.total)+' ﷼)\nهل تريد الإضافة على أي حال؟'))return;}
   c.transfers.push({
     amount: parsed.total,
     ref: parsed.invoiceNo||'',
@@ -2093,6 +2100,10 @@ function addContract(){
   const notes=document.getElementById('cc-notes').value.trim();
   if(!client||!project||!value){alert('⚠️ يرجى تعبئة اسم العميل والمشروع وقيمة العقد');return;}
   const cs=getContracts();
+  // Check duplicate contract
+  const norm=s=>(s||'').trim().toLowerCase();
+  const dup=cs.find(c=>norm(c.clientName)===norm(client)&&norm(c.project)===norm(project));
+  if(dup){alert('⚠️ يوجد عقد مسبق لهذا العميل في نفس المشروع\nالعميل: '+dup.clientName+'\nالمشروع: '+dup.project+'\nتاريخ: '+dup.date);return;}
   // Auto-add payments from AI contract analysis
   const payments = window._contractPayments||[];
   delete window._contractPayments;
@@ -2164,6 +2175,13 @@ function addTransfer(contractId){
   if(!amt){alert('⚠️ أدخل مبلغ الحوالة');return;}
   const cs=getContracts();
   const c=cs.find(c=>c.id===contractId);if(!c)return;
+  // Check duplicate transfer
+  if(ref){
+    const dupRef=(c.transfers||[]).find(t=>t.ref&&t.ref.trim().toLowerCase()===ref.toLowerCase());
+    if(dupRef){alert('⚠️ يوجد حوالة بنفس الرقم المرجعي\nالمرجع: '+ref+'\nالمبلغ: '+fmt(dupRef.amount)+' ﷼\nالتاريخ: '+dupRef.date);return;}
+  }
+  const dupAmt=(c.transfers||[]).find(t=>Math.abs((t.amount||0)-amt)<0.5&&t.date===date);
+  if(dupAmt){if(!confirm('⚠️ يوجد حوالة بنفس المبلغ والتاريخ ('+fmt(amt)+' ﷼ - '+date+')\nهل تريد الإضافة على أي حال؟'))return;}
   c.transfers.push({amount:amt,ref,date});
   saveContracts(cs);rCostCenter();
 }
