@@ -1714,15 +1714,20 @@ function rCostCenter(){
         <!-- الحوالات الواردة -->
         <div>
           <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">💰 الحوالات الواردة</div>
-          ${(c.transfers||[]).slice().reverse().map(t=>`
-            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px">
-              <div>
+          ${(c.transfers||[]).slice().reverse().map((t,ri)=>{
+            const realIdx = (c.transfers.length-1) - ri;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px">
+              <div style="flex:1">
                 <span style="color:rgba(255,255,255,.8)">${t.date}</span>
                 ${t.ref?`<span style="color:rgba(255,255,255,.5);margin-right:6px">${t.ref}</span>`:''}
                 ${t.bank?`<span style="background:rgba(112,181,255,.15);color:#70B5FF;font-size:10px;padding:1px 6px;border-radius:99px;margin-right:4px">${t.bank}</span>`:''}
               </div>
-              <span style="color:#34d399;font-weight:700">+${fmt(t.amount)} ﷼</span>
-            </div>`).join('')}
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:#34d399;font-weight:700">+${fmt(t.amount)} ﷼</span>
+                <button onclick="deleteTransfer('${c.id}',${realIdx})" style="border:none;background:none;color:rgba(255,80,80,.6);cursor:pointer;font-size:14px;padding:2px 4px" title="حذف الحوالة">✕</button>
+              </div>
+            </div>`;
+          }).join('')}
           <!-- AI Upload -->
           <div style="margin-top:10px">
             <div style="border:2px dashed rgba(52,211,153,.3);border-radius:10px;padding:10px;text-align:center;cursor:pointer;background:rgba(52,211,153,.05)" onclick="document.getElementById('tr-file-${c.id}').click()">
@@ -2126,6 +2131,16 @@ function togglePayment(contractId,idx){
     if(idx2!==-1) c.transfers.splice(idx2,1);
   }
   saveContracts(cs);rCostCenter();
+}
+
+
+function deleteTransfer(contractId, idx){
+  if(!confirm('حذف هذه الحوالة؟')) return;
+  const cs = getContracts();
+  const c = cs.find(c=>c.id===contractId); if(!c) return;
+  c.transfers.splice(idx, 1);
+  saveContracts(cs);
+  rCostCenter();
 }
 
 function addTransfer(contractId){
