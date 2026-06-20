@@ -1809,7 +1809,7 @@ async function pickTransferFile(contractId, input){
     try{
       const res = await api('/api/analyze','POST',{
         b64: _trB64[contractId],
-        text: 'هذا إيصال حوالة بنكية أو تحويل مالي. استخرج: المبلغ المحول (total)، التاريخ (date)، رقم المرجع أو رقم العملية (invoiceNo)، اسم البنك أو الجهة المحولة (supplier). الإخراج JSON فقط.'
+        text: 'هذا إيصال حوالة بنكية أو تحويل مالي أو شيك. المطلوب استخراج: 1) المبلغ الكلي المحول بالأرقام (total) 2) تاريخ التحويل (date) بصيغة YYYY-MM-DD 3) رقم المرجع أو رقم العملية (invoiceNo) 4) اسم البنك أو الجهة (supplier). الإخراج JSON نقي فقط: {"total":رقم,"date":"تاريخ","invoiceNo":"رقم","supplier":"البنك"}'
       });
       if(res.error) throw new Error(res.error);
       _trParsed[contractId] = res;
@@ -1891,18 +1891,14 @@ async function analyzeContract(input){
 لا تضع جدول دفعات — items=[]
 الإخراج JSON نقي فقط.`;
       } else {
-        // Regular: extract payment schedule
-        prompt = `هذا عقد مقاولات بجدول دفعات. استخرج:
+        // Regular: just contract info
+        prompt = `هذا عقد مقاولات. استخرج فقط:
 - اسم العميل أو الجهة المالكة (supplier)
 - قيمة العقد الإجمالية شاملة الضريبة بالأرقام (total)
 - تاريخ العقد (date بصيغة YYYY-MM-DD)
 - وصف الأعمال (desc)
-- جدول الدفعات في items: كل دفعة تحتوي على:
-  * desc = وصف الدفعة أو المرحلة
-  * total = مبلغ الدفعة شاملاً الضريبة
-  * unit = تاريخ الاستحقاق بصيغة YYYY-MM-DD إن وجد، وإلا اتركه فارغاً
-  * qty = نسبة الإنجاز المطلوبة % إن وجدت، وإلا 0
-الإخراج JSON نقي فقط بدون أي نص إضافي.`;
+items=[]
+الإخراج JSON نقي فقط.`;
       }
 
       const res = await api('/api/analyze','POST',{b64, text:prompt, isPdf});
