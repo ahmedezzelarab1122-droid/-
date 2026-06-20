@@ -1616,8 +1616,9 @@ function rCostCenter(){
             </div>
             <!-- Manual fallback -->
             <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr auto;gap:6px">
-              <input type="number" id="tr-amt-${c.id}" placeholder="أو أدخل المبلغ يدوياً ﷼" style="font-size:11px;padding:6px 8px">
+              <input type="number" id="tr-amt-${c.id}" placeholder="المبلغ ﷼" style="font-size:11px;padding:6px 8px">
               <input id="tr-ref-${c.id}" placeholder="رقم مرجعي" style="font-size:11px;padding:6px 8px">
+              <input type="date" id="tr-date-${c.id}" value="${today()}" style="font-size:11px;padding:6px 8px">
               <button onclick="addTransfer('${c.id}')" style="border:1px solid rgba(52,211,153,.3);border-radius:7px;background:rgba(52,211,153,.1);color:#34d399;cursor:pointer;font-size:12px;padding:0 12px">+</button>
             </div>
           </div>
@@ -1627,6 +1628,46 @@ function rCostCenter(){
         <button onclick="exportContractPDF('${c.id}')" style="width:100%;margin-top:12px;padding:10px;background:rgba(217,48,37,.15);color:#f87171;border:1px solid rgba(217,48,37,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 كشف حساب العميل</button>
       </div>`;
     }).join('')}
+
+    <!-- تقارير مركز التكلفة -->
+    ${contracts.length ? `
+    <div class="shdr" style="margin-top:4px">📊 تقارير مركز التكلفة</div>
+    ${contracts.map(c=>{
+      const totalReceived=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      const remaining=(c.value||0)-totalReceived;
+      // Get project expenses from DB entries
+      const projExpenses=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).reduce((a,e)=>a+(e.total||0),0);
+      const profit=(c.value||0)-projExpenses;
+      const profitPct=Math.round(profit/(c.value||1)*100);
+      return `
+      <div class="card" style="padding:13px 14px;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:800;color:#f5c842;margin-bottom:10px">${c.clientName} — ${c.project}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div style="background:rgba(245,200,66,.08);border-radius:8px;padding:8px">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">قيمة العقد</div>
+            <div style="font-size:15px;font-weight:800;color:#f5c842">${fmt(c.value)} ﷼</div>
+          </div>
+          <div style="background:rgba(52,211,153,.08);border-radius:8px;padding:8px">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">المحصّل من العميل</div>
+            <div style="font-size:15px;font-weight:800;color:#34d399">${fmt(totalReceived)} ﷼</div>
+          </div>
+          <div style="background:rgba(248,113,113,.08);border-radius:8px;padding:8px">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">إجمالي مصروفات المشروع</div>
+            <div style="font-size:15px;font-weight:800;color:#f87171">${fmt(projExpenses)} ﷼</div>
+          </div>
+          <div style="background:rgba(${profit>=0?'52,211,153':'248,113,113'},.08);border-radius:8px;padding:8px">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">الربح / الخسارة</div>
+            <div style="font-size:15px;font-weight:800;color:${profit>=0?'#34d399':'#f87171'}">${profit>=0?'+':''}${fmt(profit)} ﷼</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4)">${profitPct}% من قيمة العقد</div>
+          </div>
+        </div>
+        <div style="background:rgba(112,181,255,.08);border-radius:8px;padding:8px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:12px;color:rgba(255,255,255,.7)">المتبقي من العميل</div>
+          <div style="font-size:15px;font-weight:800;color:${remaining>0?'#70B5FF':'#34d399'}">${fmt(remaining)} ﷼</div>
+        </div>
+        <button onclick="exportCostReport('${c.id}')" style="width:100%;margin-top:10px;padding:9px;background:rgba(112,181,255,.12);color:#70B5FF;border:1px solid rgba(112,181,255,.25);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 تصدير تقرير مركز التكلفة</button>
+      </div>`;
+    }).join('')}` : ''}
   `;
 }
 
@@ -1764,6 +1805,86 @@ async function analyzeContract(input){
   reader.readAsDataURL(file);
 }
 
+
+function exportCostReport(contractId){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const totalReceived=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+  const remaining=(c.value||0)-totalReceived;
+  const projExpenses=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).reduce((a,e)=>a+(e.total||0),0);
+  const profit=(c.value||0)-projExpenses;
+  const paidPay=(c.payments||[]).filter(p=>p.status==='paid').reduce((a,p)=>a+(p.amount||0),0);
+  const pendingPay=(c.payments||[]).filter(p=>p.status==='pending').reduce((a,p)=>a+(p.amount||0),0);
+  const expenses=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).sort((a,b)=>a.date.localeCompare(b.date));
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>تقرير مركز التكلفة - ${c.clientName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}
+  h1{font-size:22px;font-weight:900;margin-bottom:4px}
+  h2{font-size:14px;font-weight:800;margin:16px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+  .box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}
+  .box-label{font-size:10px;color:#555;margin-bottom:3px;font-weight:600}
+  .box-value{font-size:18px;font-weight:900}
+  .profit-box{background:${profit>=0?'#dcfce7':'#fee2e2'};border:1.5px solid ${profit>=0?'#166534':'#D93025'};border-radius:6px;padding:12px;text-align:center;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px}
+  th{background:#000;color:#fff;padding:8px;text-align:right;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  td{padding:7px 8px;border:1px solid #ddd}
+  tr:nth-child(even) td{background:#f9f9f9;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .total-row td{background:#e5e7eb;font-weight:800;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  @media print{body{padding:10px}}
+</style></head><body>
+<h1>تقرير مركز التكلفة</h1>
+<div style="font-size:12px;color:#555;margin-bottom:14px">التقرير: ${now} | العميل: ${c.clientName} | المشروع: ${c.project}</div>
+
+<div class="grid">
+  <div class="box"><div class="box-label">قيمة العقد</div><div class="box-value">${fmt(c.value)} ﷼</div></div>
+  <div class="box"><div class="box-label">إجمالي المصروفات</div><div class="box-value" style="color:#D93025">${fmt(projExpenses)} ﷼</div></div>
+  <div class="box"><div class="box-label">المحصّل من العميل</div><div class="box-value" style="color:#1A7A3C">${fmt(totalReceived)} ﷼</div></div>
+  <div class="box"><div class="box-label">المتبقي من العميل</div><div class="box-value" style="color:#1A50A8">${fmt(remaining)} ﷼</div></div>
+  <div class="box"><div class="box-label">نسبة الإنجاز</div><div class="box-value">${c.progress||0}%</div></div>
+  <div class="box"><div class="box-label">دفعات معلقة</div><div class="box-value" style="color:#D97706">${fmt(pendingPay)} ﷼</div></div>
+</div>
+
+<div class="profit-box">
+  <div style="font-size:13px;font-weight:700;color:${profit>=0?'#166534':'#D93025'};margin-bottom:4px">${profit>=0?'✅ الربح المتوقع':'❌ الخسارة المتوقعة'}</div>
+  <div style="font-size:28px;font-weight:900;color:${profit>=0?'#166534':'#D93025'}">${profit>=0?'+':''}${fmt(profit)} ﷼</div>
+  <div style="font-size:11px;color:#555;margin-top:4px">${Math.round(profit/(c.value||1)*100)}% من قيمة العقد (قيمة العقد − إجمالي المصروفات)</div>
+</div>
+
+${expenses.length?`
+<h2>📄 مصروفات المشروع التفصيلية</h2>
+<table>
+  <tr><th>التاريخ</th><th>الوصف</th><th>المورد</th><th>النوع</th><th>المشرف</th><th>المبلغ</th></tr>
+  ${expenses.map(e=>`<tr><td>${e.date}</td><td>${e.desc}</td><td>${e.supplier||'—'}</td><td>${e.type==='tax'?'ضريبية':'نثرية'}</td><td>${DB.supervisors.find(s=>s.id==e.supId)?.name||'—'}</td><td style="font-weight:700;color:#D93025">${fmt(e.total)} ﷼</td></tr>`).join('')}
+  <tr class="total-row"><td colspan="5">إجمالي المصروفات</td><td>${fmt(projExpenses)} ﷼</td></tr>
+</table>`:''}
+
+${c.transfers?.length?`
+<h2>💰 الحوالات الواردة من العميل</h2>
+<table>
+  <tr><th>التاريخ</th><th>المرجع</th><th>البنك/الجهة</th><th>المبلغ</th></tr>
+  ${c.transfers.map(t=>`<tr><td>${t.date}</td><td>${t.ref||'—'}</td><td>${t.bank||'—'}</td><td style="font-weight:700;color:#1A7A3C">+${fmt(t.amount)} ﷼</td></tr>`).join('')}
+  <tr class="total-row"><td colspan="3">إجمالي المحصّل</td><td>${fmt(totalReceived)} ﷼</td></tr>
+</table>`:''}
+
+${c.payments?.length?`
+<h2>📋 جدول الدفعات</h2>
+<table>
+  <tr><th>المبلغ</th><th>الاستحقاق</th><th>الحالة</th></tr>
+  ${c.payments.map(p=>`<tr><td style="font-weight:700">${fmt(p.amount)} ﷼</td><td>${p.type==='date'?p.dueDate:p.progressPct+'% إنجاز'}</td><td style="color:${p.status==='paid'?'#1A7A3C':'#D97706'};font-weight:700">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</td></tr>`).join('')}
+</table>`:''}
+</body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),800);
+}
+
 function getContracts(){ return JSON.parse(localStorage.getItem('kayan_contracts')||'[]'); }
 function saveContracts(cs){ localStorage.setItem('kayan_contracts',JSON.stringify(cs)); }
 
@@ -1813,17 +1934,29 @@ function addPayment(contractId){
 function togglePayment(contractId,idx){
   const cs=getContracts();
   const c=cs.find(c=>c.id===contractId);if(!c)return;
-  c.payments[idx].status=c.payments[idx].status==='paid'?'pending':'paid';
+  const p=c.payments[idx];
+  const wasPaid = p.status==='paid';
+  p.status=wasPaid?'pending':'paid';
+  // If marking as paid: auto-add to transfers
+  if(!wasPaid){
+    c.transfers.push({amount:p.amount,ref:'دفعة مستحقة',date:today(),auto:true});
+    alert('✅ تم تسجيل الدفعة ('+fmt(p.amount)+' ﷼) كحوالة واردة');
+  } else {
+    // Remove auto-added transfer
+    const idx2=c.transfers.findIndex(t=>t.auto&&t.amount===p.amount);
+    if(idx2!==-1) c.transfers.splice(idx2,1);
+  }
   saveContracts(cs);rCostCenter();
 }
 
 function addTransfer(contractId){
   const amt=parseFloat(document.getElementById('tr-amt-'+contractId).value)||0;
   const ref=document.getElementById('tr-ref-'+contractId).value.trim();
+  const date=document.getElementById('tr-date-'+contractId)?.value||today();
   if(!amt){alert('⚠️ أدخل مبلغ الحوالة');return;}
   const cs=getContracts();
   const c=cs.find(c=>c.id===contractId);if(!c)return;
-  c.transfers.push({amount:amt,ref,date:today()});
+  c.transfers.push({amount:amt,ref,date});
   saveContracts(cs);rCostCenter();
 }
 
