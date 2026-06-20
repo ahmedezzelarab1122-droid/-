@@ -1454,7 +1454,99 @@ function rInventoryMgr(){
 
 
 // ── COST CENTER (مركز تكلفة المشروع) ──────────────────
+
+function rCostCenterOwner(){
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
+  const today_d = new Date();
+
+  // Alerts
+  const alerts = [];
+  contracts.forEach(c=>{
+    (c.payments||[]).forEach(p=>{
+      if(p.status==='pending'){
+        if(p.type==='date'&&p.dueDate){
+          const due=new Date(p.dueDate);
+          const diff=Math.ceil((due-today_d)/(1000*60*60*24));
+          if(diff<=7&&diff>=0) alerts.push({contract:c,payment:p,msg:'دفعة قادمة خلال '+diff+' يوم',color:'#fbbf24'});
+          if(diff<0) alerts.push({contract:c,payment:p,msg:'دفعة متأخرة منذ '+Math.abs(diff)+' يوم',color:'#f87171'});
+        }
+        if(p.type==='progress'&&c.progress>=(p.progressPct||0)){
+          alerts.push({contract:c,payment:p,msg:'تم بلوغ '+p.progressPct+'% من الإنجاز',color:'#34d399'});
+        }
+      }
+    });
+  });
+
+  // Overall summary
+  const totalContractValue = contracts.reduce((a,c)=>a+(c.value||0),0);
+  const totalReceived = contracts.reduce((a,c)=>a+(c.transfers||[]).reduce((b,t)=>b+(t.amount||0),0),0);
+  const totalExpenses = contracts.reduce((a,c)=>{
+    return a+DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).reduce((b,e)=>b+(e.total||0),0);
+  },0);
+  const totalProfit = totalContractValue - totalExpenses;
+  const totalRemaining = totalContractValue - totalReceived;
+
+  document.getElementById('mc').innerHTML = `
+    ${alerts.length?`<div style="margin-bottom:12px">${alerts.map(a=>`
+      <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:10px 14px;margin-bottom:6px;border-right:3px solid ${a.color}">
+        <div style="font-weight:700;font-size:13px;color:${a.color}">🔔 ${a.msg}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">${a.contract.clientName} · ${a.contract.project} · ${fmt(a.payment.amount)} ﷼</div>
+      </div>`).join('')}</div>`:''}
+
+    <div class="shdr">📊 الملخص الإجمالي</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="stat"><div class="sl">إجمالي العقود</div><div class="sv" style="color:#f5c842">${fmt(totalContractValue)} ﷼</div></div>
+      <div class="stat"><div class="sl">إجمالي المحصّل</div><div class="sv" style="color:#34d399">${fmt(totalReceived)} ﷼</div></div>
+      <div class="stat"><div class="sl">إجمالي المصروفات</div><div class="sv" style="color:#f87171">${fmt(totalExpenses)} ﷼</div></div>
+      <div class="stat"><div class="sl">صافي الربح</div><div class="sv" style="color:${totalProfit>=0?'#34d399':'#f87171'}">${fmt(totalProfit)} ﷼</div></div>
+    </div>
+
+    <div class="shdr">📋 تقارير العقود</div>
+    ${contracts.length===0?'<div class="empty">لا توجد عقود</div>':
+    contracts.map(c=>{
+      const recv=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      const rem=(c.value||0)-recv;
+      const exp=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).reduce((a,e)=>a+(e.total||0),0);
+      const profit=(c.value||0)-exp;
+      const pct=Math.min(100,Math.round(recv/(c.value||1)*100));
+      return `
+      <div class="card" style="padding:13px 14px;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:800;color:#f5c842;margin-bottom:8px">${c.clientName} — ${c.project}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+          <div style="background:rgba(245,200,66,.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">قيمة العقد</div>
+            <div style="font-size:13px;font-weight:800;color:#f5c842">${fmt(c.value)} ﷼</div>
+          </div>
+          <div style="background:rgba(52,211,153,.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">المحصّل</div>
+            <div style="font-size:13px;font-weight:800;color:#34d399">${fmt(recv)} ﷼</div>
+          </div>
+          <div style="background:rgba(248,113,113,.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">المصروفات</div>
+            <div style="font-size:13px;font-weight:800;color:#f87171">${fmt(exp)} ﷼</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div style="background:rgba(112,181,255,.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">المتبقي من العميل</div>
+            <div style="font-size:13px;font-weight:800;color:#70B5FF">${fmt(rem)} ﷼</div>
+          </div>
+          <div style="background:rgba(${profit>=0?'52,211,153':'248,113,113'},.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">${profit>=0?'الربح':'الخسارة'}</div>
+            <div style="font-size:13px;font-weight:800;color:${profit>=0?'#34d399':'#f87171'}">${profit>=0?'+':''}${fmt(profit)} ﷼</div>
+          </div>
+        </div>
+        <div class="pbar"><div class="pf" style="width:${pct}%;background:linear-gradient(90deg,#34d399,#f5c842)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;margin-bottom:8px"><span>إنجاز ${c.progress||0}%</span><span>محصّل ${pct}%</span></div>
+        <button onclick="exportCostReport('${c.id}')" style="width:100%;padding:8px;background:rgba(112,181,255,.1);color:#70B5FF;border:1px solid rgba(112,181,255,.2);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 تصدير تقرير PDF</button>
+      </div>`;
+    }).join('')}
+  `;
+}
+
 function rCostCenter(){
+  // Owner sees reports only
+  if(ROLE==='owner') return rCostCenterOwner();
   const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
   const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
 
@@ -1475,6 +1567,15 @@ function rCostCenter(){
         }
       }
     });
+    // B2B alert
+    if(c.b2b?.completed){
+      const remaining=(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      if(remaining>0){
+        const daysSince=Math.ceil((today_d-new Date(c.b2b.completedDate))/(1000*60*60*24));
+        const color=daysSince>30?'#f87171':daysSince>14?'#fbbf24':'#C4B5FD';
+        alerts.push({contract:c, payment:{amount:remaining}, msg:'B2B — اكتملت الأعمال منذ '+daysSince+' يوم — مستحقات غير مصروفة', color});
+      }
+    }
   });
 
   document.getElementById('mc').innerHTML = `
@@ -1563,6 +1664,24 @@ function rCostCenter(){
           <span style="font-size:12px;color:rgba(255,255,255,.7)">نسبة الإنجاز:</span>
           <input type="range" min="0" max="100" value="${c.progress||0}" oninput="updateProgress('${c.id}',this.value);document.getElementById('prog-${c.id}').textContent=this.value+'%'" style="flex:1">
           <span id="prog-${c.id}" style="font-size:13px;font-weight:700;color:#f5c842;min-width:35px">${c.progress||0}%</span>
+        </div>
+
+        <!-- Back to Back -->
+        <div style="margin-bottom:10px;padding:10px 12px;background:rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.08);border-radius:10px;border:1px solid rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${c.b2b?.completed?'8':'0'}px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:${c.b2b?.completed?'#34d399':'#C4B5FD'}">🔄 باك تو باك (B2B)</div>
+              ${c.b2b?.completed?`<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">اكتملت الأعمال: ${c.b2b.completedDate} — منذ <strong style="color:#fbbf24">${Math.ceil((new Date()-new Date(c.b2b.completedDate))/(1000*60*60*24))} يوم</strong></div>`:'<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">الدفع بعد اكتمال الأعمال</div>'}
+            </div>
+            <button onclick="toggleB2B('${c.id}')" style="border:1px solid rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.4);border-radius:8px;padding:5px 12px;background:rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.15);color:${c.b2b?.completed?'#34d399':'#C4B5FD'};cursor:pointer;font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif">
+              ${c.b2b?.completed?'✓ مكتمل':'تسجيل اكتمال'}
+            </button>
+          </div>
+          ${c.b2b?.completed?`
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:12px;color:rgba(255,255,255,.7)">المستحقات المتبقية للصرف:</div>
+            <div style="font-size:15px;font-weight:800;color:${(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0)>0?'#fbbf24':'#34d399'}">${fmt((c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0))} ﷼</div>
+          </div>`:''}
         </div>
 
         <!-- جدول الدفعات -->
@@ -1883,6 +2002,22 @@ ${c.payments?.length?`
   win.document.write(html);
   win.document.close();
   setTimeout(()=>win.print(),800);
+}
+
+
+function toggleB2B(contractId){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  if(c.b2b?.completed){
+    if(!confirm('إلغاء تسجيل اكتمال الأعمال؟'))return;
+    delete c.b2b;
+  } else {
+    const dateStr=today();
+    c.b2b={completed:true,completedDate:dateStr};
+    const remaining=(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+    if(remaining>0) alert('✅ تم تسجيل اكتمال الأعمال\nالمستحقات المتبقية: '+fmt(remaining)+' ﷼\nسيظهر تنبيه يومي حتى يتم الصرف');
+  }
+  saveContracts(cs);rCostCenter();
 }
 
 function getContracts(){ return JSON.parse(localStorage.getItem('kayan_contracts')||'[]'); }
