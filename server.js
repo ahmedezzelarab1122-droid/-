@@ -325,6 +325,25 @@ const server = http.createServer(async (req, res) => {
       const url = await uploadToCloudinary(b64);
       return sendJSON(res, { ok: true, url });
     } catch(e) { return sendJSON(res, { error: 'فشل رفع الصورة: ' + e.message }, 500); }
+  // Analyze bank transfer
+  if (pathname === '/api/analyze-transfer' && req.method === 'POST') {
+    if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
+    try {
+      const { b64, isPdf } = await parseBody(req);
+      const { default: https } = await import('https');
+      const prompt = 'هذا إيصال حوالة بنكية. استخرج: المبلغ (total كرقم فقط بدون رموز), التاريخ (date بصيغة YYYY-MM-DD), رقم المرجع (invoiceNo), اسم البنك (supplier). اخرج JSON نقي فقط.';
+      const content = b64 ? (isPdf ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }] : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]) : [{ type: 'text', text: prompt }];
+      const result = await new Promise((resolve, reject) => {
+        const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 300, messages: [{ role: 'user', content }] });
+        const r2 = https.request({ hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) } }, res2 => {
+          let data = ''; res2.on('data', d => data += d);
+          res2.on('end', () => { try { const json = JSON.parse(data); if (json.error) return reject(new Error(json.error.message)); const raw = json.content.map(x => x.text || '').join(''); const match = raw.match(/\{[\s\S]*\}/); if (!match) return reject(new Error('لم يُستخرج JSON')); const parsed = JSON.parse(match[0]); parsed.total = parseFloat(String(parsed.total || '0').replace(/[^0-9.]/g, '')) || 0; if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0]; resolve(parsed); } catch (e) { reject(e); } });
+        }); r2.on('error', reject); r2.write(body); r2.end();
+      });
+      return sendJSON(res, result);
+    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
+  }
+
   }
   if (pathname === '/api/analyze' && req.method === 'POST') {
     if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
