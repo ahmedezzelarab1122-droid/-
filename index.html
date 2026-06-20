@@ -1491,11 +1491,31 @@ function rCostCenter(){
 
     <div class="card">
       <div class="ctitle">➕ عقد جديد</div>
+      
+      <!-- AI Contract Reader -->
+      <div style="margin-bottom:14px">
+        <label class="lbl">📄 ارفع نسخة العقد (PDF أو صورة)</label>
+        <div class="drop" id="contract-drop" onclick="document.getElementById('contract-file').click()" style="cursor:pointer;padding:16px">
+          <div style="font-size:28px;margin-bottom:5px" id="contract-icon">📋</div>
+          <div id="contract-txt" style="font-size:12px;color:rgba(255,255,255,.6)">الذكاء الاصطناعي يستخرج بيانات العقد تلقائياً</div>
+        </div>
+        <input type="file" id="contract-file" accept="image/*,.pdf" style="display:none" onchange="analyzeContract(this)">
+        <div id="contract-ai-status" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">
+          ⏳ جاري قراءة العقد...
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div>
+        <span style="font-size:11px;color:rgba(255,255,255,.4)">أو أدخل يدوياً</span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div>
+      </div>
+
       <div class="fg"><label class="lbl">اسم العميل</label><input id="cc-client" placeholder="اسم العميل أو الشركة"></div>
       <div class="fg"><label class="lbl">المشروع</label><select id="cc-proj"><option value="">-- اختر المشروع --</option>${pOpts}</select></div>
       <div class="fg"><label class="lbl">قيمة العقد (﷼)</label><input id="cc-value" type="number" placeholder="0.00"></div>
       <div class="fg"><label class="lbl">تاريخ العقد</label><input id="cc-date" type="date" value="${today()}"></div>
-      <div class="fg"><label class="lbl">ملاحظات</label><input id="cc-notes" placeholder="وصف المشروع..."></div>
+      <div class="fg"><label class="lbl">ملاحظات</label><input id="cc-notes" placeholder="وصف المشروع أو شروط الدفع..."></div>
       <button class="btn bp" onclick="addContract()">✅ إضافة العقد</button>
     </div>
 
@@ -1678,6 +1698,72 @@ function cancelTransfer(contractId){
   document.getElementById('tr-txt-'+contractId).textContent='ارفع إيصال الحوالة — الذكاء يقرأها تلقائياً';
 }
 
+
+async function analyzeContract(input){
+  const file = input.files[0]; if(!file) return;
+  const isPdf = file.type==='application/pdf';
+  const status = document.getElementById('contract-ai-status');
+  const icon = document.getElementById('contract-icon');
+  const txt = document.getElementById('contract-txt');
+  status.style.display='block';
+  status.textContent='⏳ جاري قراءة العقد...';
+  icon.textContent='⏳';
+
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const b64 = ev.target.result.split(',')[1];
+    try{
+      const prompt = `هذا عقد مقاولات أو عقد أعمال. استخرج المعلومات التالية:
+- اسم العميل أو الجهة المالكة (supplier)
+- قيمة العقد الإجمالية بالأرقام (total)
+- تاريخ العقد (date بصيغة YYYY-MM-DD)
+- وصف الأعمال أو المشروع (desc)
+- جدول الدفعات إن وجد في items: كل دفعة تحتوي على (desc=وصف الدفعة, qty=نسبة% أو 0, unit=تاريخ الاستحقاق إن وجد, unitPrice=المبلغ, total=المبلغ)
+الإخراج JSON نقي فقط بدون أي نص إضافي.`;
+
+      const content = isPdf
+        ? [{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:prompt}]
+        : [{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:prompt}];
+
+      const res = await api('/api/analyze','POST',{b64, text:prompt, isPdf});
+      if(res.error) throw new Error(res.error);
+
+      // Fill form fields
+      if(res.supplier) document.getElementById('cc-client').value = res.supplier;
+      if(res.total && res.total>0) document.getElementById('cc-value').value = res.total;
+      if(res.date) document.getElementById('cc-date').value = res.date;
+      if(res.desc) document.getElementById('cc-notes').value = res.desc;
+
+      // Build payment schedule from items
+      let paymentInfo = '';
+      if(res.items && res.items.length>0){
+        paymentInfo = '\n\nجدول الدفعات المستخرج من العقد:\n';
+        res.items.forEach((it,i)=>{
+          paymentInfo += (i+1)+'. '+it.desc+': '+fmt(it.total||it.unitPrice)+' ﷼'+(it.unit&&it.unit.includes('-')?' — '+it.unit:'')+'\n';
+        });
+        document.getElementById('cc-notes').value = (res.desc||'')+paymentInfo;
+        // Store payments for auto-add
+        window._contractPayments = res.items.map(it=>({
+          amount: it.total||it.unitPrice||0,
+          type: (it.unit&&it.unit.match(/\d{4}-\d{2}-\d{2}/))?'date':'progress',
+          dueDate: it.unit&&it.unit.match(/\d{4}-\d{2}-\d{2}/)?it.unit:null,
+          progressPct: it.qty>0?it.qty:null,
+          status: 'pending',
+          desc: it.desc
+        })).filter(p=>p.amount>0);
+      }
+
+      status.innerHTML = `<span style="color:#34d399">✅ تم استخراج بيانات العقد${res.items?.length?' و'+res.items.length+' دفعة':''} — راجع البيانات وأضف العقد</span>`;
+      icon.textContent='✅';
+      txt.textContent = res.supplier||'تم قراءة العقد';
+    }catch(e){
+      status.innerHTML = '<span style="color:#f87171">❌ '+e.message+' — أدخل البيانات يدوياً</span>';
+      icon.textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
 function getContracts(){ return JSON.parse(localStorage.getItem('kayan_contracts')||'[]'); }
 function saveContracts(cs){ localStorage.setItem('kayan_contracts',JSON.stringify(cs)); }
 
@@ -1689,8 +1775,13 @@ function addContract(){
   const notes=document.getElementById('cc-notes').value.trim();
   if(!client||!project||!value){alert('⚠️ يرجى تعبئة اسم العميل والمشروع وقيمة العقد');return;}
   const cs=getContracts();
-  cs.push({id:'c-'+Date.now(),clientName:client,project,value,date,notes,progress:0,payments:[],transfers:[]});
-  saveContracts(cs);rCostCenter();
+  // Auto-add payments from AI contract analysis
+  const payments = window._contractPayments||[];
+  delete window._contractPayments;
+  cs.push({id:'c-'+Date.now(),clientName:client,project,value,date,notes,progress:0,payments,transfers:[]});
+  saveContracts(cs);
+  if(payments.length) alert('✅ تم إضافة العقد مع '+payments.length+' دفعة من جدول الدفعات');
+  rCostCenter();
 }
 
 function deleteContract(id){
