@@ -1797,18 +1797,21 @@ function rCostCenter(){
 
 // ── AI TRANSFER READER ──
 const _trParsed = {};
+const _trIsPdf = {};
 const _trB64 = {};
 
 async function pickTransferFile(contractId, input){
   const file = input.files[0]; if(!file) return;
+  const isPdf = file.type === 'application/pdf';
+  _trIsPdf = _trIsPdf||{};
+  _trIsPdf[contractId] = isPdf;
   const reader = new FileReader();
   reader.onload = async ev => {
     _trB64[contractId] = ev.target.result.split(',')[1];
     document.getElementById('tr-icon-'+contractId).textContent = '⏳';
     document.getElementById('tr-txt-'+contractId).textContent = 'جاري قراءة الإيصال...';
     try{
-      const res = await api('/api/analyze-transfer','POST',{b64: _trB64[contractId]
-      });
+      const res = await api('/api/analyze-transfer','POST',{b64: _trB64[contractId], isPdf});
       if(res.error) throw new Error(res.error);
       _trParsed[contractId] = res;
       let html = '';
