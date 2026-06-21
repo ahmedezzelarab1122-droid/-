@@ -4715,6 +4715,122 @@ function setReturnMode(mode){
   if(bb){bb.style.border=mode==='bulk'?'2px solid rgba(248,113,113,.4)':'1px solid rgba(255,255,255,.15)';bb.style.background=mode==='bulk'?'rgba(248,113,113,.12)':'transparent';bb.style.color=mode==='bulk'?'#f87171':'rgba(255,255,255,.6)';}
 }
 
+// ── Shared helpers for bulk parsing ──
+const _fixNum = v => parseFloat(String(v||'0').replace(/,/g,'').replace(/[^0-9.]/g,''))||0;
+const _fixDate = d => {
+  if(!d) return today();
+  const s = String(d);
+  const m = s.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);
+  if(m){const y=m[3].length===2?'20'+m[3]:m[3];return y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');}
+  return s.slice(0,10)||today();
+};
+const _fixPay = v => {
+  const p=String(v||'').toLowerCase();
+  if(p.includes('آجل')||p.includes('credit')||p.includes('defer')) return 'deferred';
+  if(p.includes('تحويل')||p.includes('transfer')||p.includes('bank')) return 'transfer';
+  return 'cash';
+};
+const _parseList = res => {
+  let list=[];
+  if(res.invoices&&Array.isArray(res.invoices)) list=res.invoices;
+  else if(res.data&&Array.isArray(res.data)) list=res.data;
+  else if(res.rows&&Array.isArray(res.rows)) list=res.rows;
+  else if(res.items&&Array.isArray(res.items)) list=res.items;
+  else if(Array.isArray(res)) list=res;
+  else if(typeof res==='object'&&(res.total||res.client||res.invoiceNo||res.subtotal)) list=[res];
+  if(list.length===1&&Array.isArray(list[0])) list=list[0];
+  return list.map(inv=>{
+    const sub=_fixNum(inv.subtotal||inv.net||0);
+    const rate=_fixNum(inv.taxRate||inv.tax_rate||15)||15;
+    const vat=_fixNum(inv.taxAmt||inv.tax_amount||0)||(sub*rate/100);
+    const tot=_fixNum(inv.total||inv.grand_total||0)||(sub+vat);
+    return{
+      invoiceNo:String(inv.invoiceNo||inv.invoice_no||inv.ref||'').trim(),
+      date:_fixDate(inv.date||inv.invoice_date||''),
+      client:String(inv.client||inv.customer||inv.clientName||inv['العميل']||'—').trim(),
+      subtotal:sub||tot-vat, taxRate:rate, taxAmt:vat, total:tot||sub+vat,
+      payMethod:_fixPay(inv.payMethod||inv.pay_method||''),
+      notes:String(inv.notes||inv.description||inv.desc||'').trim()
+    };
+  }).filter(inv=>inv.total>0||inv.subtotal>0);
+};
+
+let _salesMode='single', _bulkParsed=[], _bulkRetParsed2=[];
+
+function setSalesMode(mode,btn){
+  _salesMode=mode;
+  const sd=document.getElementById('sales-single-mode');
+  const bd=document.getElementById('sales-bulk-mode');
+  if(sd)sd.style.display=mode==='single'?'block':'none';
+  if(bd)bd.style.display=mode==='bulk'?'block':'none';
+  const sB=document.getElementById('mode-single');
+  const bB=document.getElementById('mode-bulk');
+  if(sB){sB.style.border=mode==='single'?'2px solid rgba(245,200,66,.4)':'1px solid rgba(255,255,255,.15)';sB.style.background=mode==='single'?'rgba(245,200,66,.15)':'transparent';sB.style.color=mode==='single'?'#f5c842':'rgba(255,255,255,.6)';}
+  if(bB){bB.style.border=mode==='bulk'?'2px solid rgba(112,181,255,.4)':'1px solid rgba(255,255,255,.15)';bB.style.background=mode==='bulk'?'rgba(112,181,255,.15)':'transparent';bB.style.color=mode==='bulk'?'#70B5FF':'rgba(255,255,255,.6)';}
+}
+
+async function pickBulkFile(input){
+  const file=input.files[0];if(!file)return;
+  const isPdf=file.type==='application/pdf';
+  const stEl=document.getElementById('bulk-status');
+  const icon=document.getElementById('bulk-icon');
+  const txt=document.getElementById('bulk-txt');
+  stEl.style.display='block';
+  stEl.innerHTML='<div style="padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري تحليل التقرير...</div>';
+  icon.textContent='⏳';txt.textContent=file.name;_bulkParsed=[];
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const b64=ev.target.result.split(',')[1];
+    const prompt='أنت محاسب خبير. هذه وثيقة تحتوي على بيانات فواتير مبيعات (جدول Excel أو PDF). مهمتك: استخرج كل صف أو فاتورة كعنصر منفصل. لكل فاتورة: invoiceNo (رقم الفاتورة)، date (التاريخ YYYY-MM-DD)، client (اسم العميل)، subtotal (المبلغ قبل الضريبة رقم بدون فواصل)، taxRate (نسبة الضريبة رقم افتراضي 15)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، payMethod (cash أو transfer أو deferred)، notes (ملاحظة). تجاهل صفوف الإجمالي. الأرقام 1,500=1500. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","client":"","subtotal":0,"taxRate":15,"taxAmt":0,"total":0,"payMethod":"cash","notes":""}]}';
+    try{
+      const res=await api('/api/analyze','POST',{b64,isPdf,text:prompt});
+      if(res.error)throw new Error(res.error);
+      _bulkParsed=_parseList(res);
+      if(!_bulkParsed.length)throw new Error('لم يتم استخراج أي فاتورة — تأكد من وضوح التقرير');
+      const gTotal=_bulkParsed.reduce((a,i)=>a+(i.total||0),0);
+      const preview=document.getElementById('bulk-preview');
+      preview.style.display='block';
+      preview.innerHTML='<div style="font-size:12px;font-weight:700;color:#70B5FF;margin-bottom:8px">✅ تم استخراج '+_bulkParsed.length+' فاتورة</div>'
+        +'<div style="max-height:260px;overflow-y:auto">'
+        +_bulkParsed.map(inv=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+          +'<div><div style="font-size:12px;font-weight:600">'+inv.client+'</div><div style="font-size:10px;color:rgba(255,255,255,.4)">'+(inv.invoiceNo||'—')+' · '+inv.date+'</div></div>'
+          +'<div style="color:#34d399;font-weight:700;font-size:13px">'+fmt(inv.total)+' ﷼</div></div>').join('')
+        +'</div><div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:13px;border-top:1px solid rgba(255,255,255,.1);margin-top:6px">'
+        +'<span>الإجمالي</span><span style="color:#34d399">'+fmt(gTotal)+' ﷼</span></div>';
+      document.getElementById('bulk-save-btn').style.display='block';
+      stEl.innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">✅ راجع وأكد الحفظ</div>';
+      icon.textContent='✅';
+    }catch(e){
+      stEl.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.12);border-radius:8px;font-size:12px;color:#f87171">❌ '+e.message+'</div>';
+      icon.textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveBulkInvoices(){
+  if(!_bulkParsed.length){alert('لا توجد فواتير للحفظ');return;}
+  const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const existing=new Set(sales.map(s=>(s.invoiceNo||'').toLowerCase().trim()).filter(Boolean));
+  let added=0,skipped=0;
+  const project=document.getElementById('s-proj')?.value||'';
+  _bulkParsed.forEach(inv=>{
+    const key=(inv.invoiceNo||'').toLowerCase().trim();
+    if(key&&existing.has(key)){skipped++;return;}
+    sales.push({id:'s-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),...inv,project,createdAt:new Date().toISOString()});
+    if(key)existing.add(key);added++;
+  });
+  localStorage.setItem('kayan_sales',JSON.stringify(sales));
+  api('/api/sales','POST',{sales}).catch(()=>{});
+  _bulkParsed=[];
+  ['bulk-preview','bulk-save-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('bulk-icon').textContent='📊';
+  document.getElementById('bulk-txt').textContent='ارفع تقرير Excel أو PDF مجمع';
+  document.getElementById('bulk-status').innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">✅ تم حفظ '+added+' فاتورة'+(skipped?' · تخطي '+skipped+' مكررة':'')+'</div>';
+  alert('✅ تم حفظ '+added+' فاتورة'+(skipped?' (تخطي '+skipped+' مكررة)':''));
+  setTimeout(()=>rSales(),1500);
+}
+
 function calcRetVat(){
   const sub=parseFloat(document.getElementById('ret-sub')?.value)||0;
   const rate=parseFloat(document.getElementById('ret-rate')?.value)||0;
@@ -4795,28 +4911,52 @@ async function analyzeBulkReturns(input){
   reader.onload=async ev=>{
     const b64=ev.target.result.split(',')[1];
     try{
-      const prompt='هذا تقرير مرتجعات مبيعات. استخرج كل مرتجع كعنصر منفصل. لكل مرتجع: invoiceNo (رقم المرتجع)، date (YYYY-MM-DD)، client (اسم العميل)، origInvoiceNo (رقم الفاتورة الأصلية)، subtotal (المبلغ بدون ضريبة)، taxRate (نسبة الضريبة)، taxAmt (مبلغ الضريبة)، total (الإجمالي)، reason (السبب). أخرج: {"invoices":[...]}';
+      const prompt = `أنت محاسب خبير. هذه وثيقة تحتوي على بيانات مرتجعات مبيعات (قد تكون جدول Excel أو PDF أو صورة تقرير).
+
+مهمتك: استخرج كل صف/مرتجع كعنصر منفصل في المصفوفة.
+
+لكل مرتجع استخرج هذه الحقول:
+- invoiceNo: رقم إشعار المرتجع (string)
+- date: التاريخ بصيغة YYYY-MM-DD
+- client: اسم العميل أو الشركة (string)
+- origInvoiceNo: رقم الفاتورة الأصلية المرتجعة (string، اتركه فارغاً إذا لم تجد)
+- subtotal: المبلغ قبل الضريبة كرقم (number)
+- taxRate: نسبة الضريبة كرقم (number، افتراضي 15)
+- taxAmt: مبلغ الضريبة كرقم (number)
+- total: إجمالي المرتجع كرقم (number)
+- reason: سبب الإرجاع (string، اتركه فارغاً إذا لم تجد)
+
+قواعد مهمة:
+1. تجاهل صفوف الإجمالي والمجاميع
+2. الأرقام بالفواصل مثل 1,500 = 1500
+3. إذا لم تجد subtotal احسبه = total - taxAmt
+
+أخرج JSON نقي فقط:
+{"invoices":[{"invoiceNo":"","date":"","client":"","origInvoiceNo":"","subtotal":0,"taxRate":15,"taxAmt":0,"total":0,"reason":""}]}\`;
       const res=await api('/api/analyze','POST',{b64,isPdf,text:prompt});
       if(res.error)throw new Error(res.error);
       let invoices=res.invoices||res.items||[];
       if(!invoices.length&&(res.total||res.client))invoices=[res];
-      const fix=v=>parseFloat(String(v||'0').replace(/[^0-9.]/g,''))||0;
+      const fixR=v=>parseFloat(String(v||'0').replace(/,/g,'').replace(/[^0-9.]/g,''))||0;
+      const fixDateR=d=>{if(!d)return today();const m=String(d).match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);if(m){const y=m[3].length===2?'20'+m[3]:m[3];return y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');}return String(d).slice(0,10)||today();};
       _bulkRetParsed=invoices.map(inv=>{
-        const sub=fix(inv.subtotal);const rate=fix(inv.taxRate)||15;
-        const vat=fix(inv.taxAmt)||(sub*rate/100);
-        return{invoiceNo:inv.invoiceNo||'',origInvoiceNo:inv.origInvoiceNo||'',date:inv.date||today(),client:inv.client||inv.customer||'—',subtotal:sub,taxRate:rate,taxAmt:vat,total:fix(inv.total)||(sub+vat),reason:inv.reason||''};
-      });
+        const sub=fixR(inv.subtotal||inv.net||0);const rate=fixR(inv.taxRate||inv.tax_rate||15)||15;
+        const vat=fixR(inv.taxAmt||inv.tax_amount||0)||(sub*rate/100);
+        const tot=fixR(inv.total||inv.grand_total||0)||(sub+vat);
+        return{invoiceNo:String(inv.invoiceNo||inv.invoice_no||inv.ref||'').trim(),origInvoiceNo:String(inv.origInvoiceNo||inv.original_invoice||'').trim(),date:fixDateR(inv.date||inv.invoice_date||''),client:String(inv.client||inv.customer||inv.العميل||'—').trim(),subtotal:sub||tot-vat,taxRate:rate,taxAmt:vat,total:tot||sub+vat,reason:String(inv.reason||inv.سبب||'').trim()};
+      }).filter(r=>r.total>0||r.subtotal>0);
       const preview=document.getElementById('ret-bulk-preview');
       preview.style.display='block';
-      preview.innerHTML=`<div style="font-size:11px;color:#f87171;margin-bottom:6px;font-weight:700">↩️ تم استخراج ${_bulkRetParsed.length} مرتجع</div>`
-        +_bulkRetParsed.map(r=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px"><div><div style="font-weight:600">${r.client}</div><div style="color:rgba(255,255,255,.4)">${r.invoiceNo} · ${r.date}</div></div><div style="color:#f87171;font-weight:700">-${fmt(r.total)} ﷼</div></div>`).join('')
-        +`<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:12px;font-weight:700"><span>الإجمالي</span><span style="color:#f87171">-${fmt(_bulkRetParsed.reduce((a,r)=>a+(r.total||0),0))} ﷼</span></div>`;
+      const retTotal2=_bulkRetParsed.reduce((a,r)=>a+(r.total||0),0);
+      preview.innerHTML='<div style="font-size:11px;color:#f87171;margin-bottom:6px;font-weight:700">↩️ تم استخراج '+_bulkRetParsed.length+' مرتجع</div>'
+        +_bulkRetParsed.map(r=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px"><div><div style="font-weight:600">'+r.client+'</div><div style="color:rgba(255,255,255,.4)">'+r.invoiceNo+' · '+r.date+'</div></div><div style="color:#f87171;font-weight:700">-'+fmt(r.total)+' ﷼</div></div>').join('')
+        +'<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:12px;font-weight:700"><span>الإجمالي</span><span style="color:#f87171">-'+fmt(retTotal2)+' ﷼</span></div>';
       document.getElementById('ret-bulk-save').style.display='block';
       document.getElementById('ret-bulk-status').innerHTML='<div style="font-size:11px;color:#34d399;padding:6px 10px;background:rgba(52,211,153,.08);border-radius:6px">✅ راجع المرتجعات وأكد</div>';
       document.getElementById('ret-bulk-icon').textContent='✅';
       document.getElementById('ret-bulk-txt').textContent=file.name;
     }catch(e){
-      document.getElementById('ret-bulk-status').innerHTML=`<div style="font-size:11px;color:#f87171;padding:6px 10px;background:rgba(248,113,113,.08);border-radius:6px">❌ ${e.message}</div>`;
+      document.getElementById('ret-bulk-status').innerHTML='<div style="font-size:11px;color:#f87171;padding:6px 10px;background:rgba(248,113,113,.08);border-radius:6px">❌ '+e.message+'</div>';
       document.getElementById('ret-bulk-icon').textContent='❌';
     }
   };
@@ -4855,350 +4995,26 @@ function printSalesReturn(id){
   const returns=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
   const r=returns.find(r=>r.id===id);if(!r)return;
   const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
-  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>مرتجع ${r.invoiceNo}</title>
-<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:30px;font-size:13px}.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #D93025}.ret-badge{background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:4px;font-weight:700;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#991b1b;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:8px;border:1px solid #ddd}.total-row td{background:#fee2e2;font-weight:800}</style></head><body>
-<div class="header"><div><div style="font-size:18px;font-weight:900">شركة كيان وبناء للمقاولات</div><div style="font-size:11px;color:#555;margin-top:3px">إشعار مرتجع مبيعات</div></div><div style="text-align:left"><span class="ret-badge">↩️ مرتجع</span><div style="font-size:14px;font-weight:700;margin-top:4px">${r.invoiceNo}</div></div></div>
-<table style="margin-bottom:16px"><tr><td style="font-weight:700">اسم العميل</td><td>${r.client}</td><td style="font-weight:700">التاريخ</td><td>${r.date}</td></tr>${r.origInvoiceNo?`<tr><td style="font-weight:700">رقم الفاتورة الأصلية</td><td>${r.origInvoiceNo}</td><td></td><td></td></tr>`:''} ${r.reason?`<tr><td style="font-weight:700">سبب المرتجع</td><td colspan="3">${r.reason}</td></tr>`:''}</table>
-<table><tr><th>البيان</th><th>المبلغ</th></tr><tr><td>المبلغ قبل الضريبة</td><td>${fmt(r.subtotal)} ﷼</td></tr><tr><td>ضريبة القيمة المضافة (${r.taxRate}%)</td><td>${fmt(r.taxAmt)} ﷼</td></tr><tr class="total-row"><td>إجمالي المرتجع</td><td style="color:#D93025">-${fmt(r.total)} ﷼</td></tr></table>
-<div style="margin-top:20px;padding:12px;border:1px dashed #ccc;border-radius:6px;font-size:11px;color:#555">هذا الإشعار يُلغي الفاتورة الأصلية جزئياً أو كلياً حسب المبلغ المذكور أعلاه.</div>
-</body></html>`;
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>مرتجع '+r.invoiceNo+'</title>'
+    +'<style>@import url(\'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap\');'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'Tajawal\',sans-serif;direction:rtl;color:#000;padding:30px;font-size:13px}'
+    +'.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #D93025}'
+    +'.ret-badge{background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:4px;font-weight:700;font-size:13px}'
+    +'table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#991b1b;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:8px;border:1px solid #ddd}.total-row td{background:#fee2e2;font-weight:800}</style></head><body>'
+    +'<div class="header"><div><div style="font-size:18px;font-weight:900">شركة كيان وبناء للمقاولات</div>'
+    +'<div style="font-size:11px;color:#555;margin-top:3px">إشعار مرتجع مبيعات</div></div>'
+    +'<div style="text-align:left"><span class="ret-badge">↩️ مرتجع</span><div style="font-size:14px;font-weight:700;margin-top:4px">'+r.invoiceNo+'</div></div></div>'
+    +'<table style="margin-bottom:16px">'
+    +'<tr><td style="font-weight:700">اسم العميل</td><td>'+r.client+'</td><td style="font-weight:700">التاريخ</td><td>'+r.date+'</td></tr>'
+    +(r.origInvoiceNo?'<tr><td style="font-weight:700">رقم الفاتورة الأصلية</td><td>'+r.origInvoiceNo+'</td><td></td><td></td></tr>':'')
+    +(r.reason?'<tr><td style="font-weight:700">سبب المرتجع</td><td colspan="3">'+r.reason+'</td></tr>':'')
+    +'</table>'
+    +'<table><tr><th>البيان</th><th>المبلغ</th></tr>'
+    +'<tr><td>المبلغ قبل الضريبة</td><td>'+fmt(r.subtotal)+' ﷼</td></tr>'
+    +'<tr><td>ضريبة القيمة المضافة ('+r.taxRate+'%)</td><td>'+fmt(r.taxAmt)+' ﷼</td></tr>'
+    +'<tr class="total-row"><td>إجمالي المرتجع</td><td style="color:#D93025">-'+fmt(r.total)+' ﷼</td></tr></table>'
+    +'<div style="margin-top:20px;padding:12px;border:1px dashed #ccc;border-radius:6px;font-size:11px;color:#555">هذا الإشعار يُلغي الفاتورة الأصلية جزئياً أو كلياً حسب المبلغ المذكور أعلاه.</div>'
+    +'</body></html>';
   const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
 }
-
-async function pickSalesFile(input){
-  const file = input.files[0]; if(!file) return;
-  const isPdf = file.type==='application/pdf';
-  const status = document.getElementById('sales-ai-status');
-  const icon = document.getElementById('sales-icon');
-  const txt = document.getElementById('sales-txt');
-  status.style.display='block';
-  icon.textContent='⏳';
-  const reader = new FileReader();
-  reader.onload = async ev => {
-    salesB64 = ev.target.result.split(',')[1];
-    try{
-      const res = await api('/api/analyze','POST',{
-        b64: salesB64, isPdf,
-        text: 'هذه فاتورة مبيعات. استخرج: اسم العميل (supplier)، رقم الفاتورة (invoiceNo)، التاريخ (date بصيغة YYYY-MM-DD)، المبلغ قبل الضريبة (subtotal)، نسبة الضريبة (taxRate)، مبلغ الضريبة (taxAmt)، الإجمالي (total)، البنود (items). JSON نقي فقط.'
-      });
-      if(res.error) throw new Error(res.error);
-      salesParsed = res;
-      // Fill form
-      if(res.supplier) document.getElementById('s-client').value = res.supplier;
-      if(res.invoiceNo) document.getElementById('s-inv-no').value = res.invoiceNo;
-      if(res.date) document.getElementById('s-date').value = res.date;
-      if(res.subtotal) document.getElementById('s-subtotal').value = res.subtotal;
-      if(res.taxRate) document.getElementById('s-taxrate').value = res.taxRate;
-      calcSalesVat();
-      status.innerHTML = '<span style="color:#34d399">✅ تم استخراج البيانات — راجع وأكد</span>';
-      icon.textContent='✅';
-      txt.textContent = file.name;
-    }catch(e){
-      status.innerHTML = '<span style="color:#f87171">❌ '+e.message+'</span>';
-      icon.textContent='❌';
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-function saveSalesInvoice(){
-  const invoiceNo = document.getElementById('s-inv-no').value.trim();
-  const date = document.getElementById('s-date').value;
-  const client = document.getElementById('s-client').value.trim();
-  const project = document.getElementById('s-proj').value;
-  const subtotal = parseFloat(document.getElementById('s-subtotal').value)||0;
-  const taxRate = parseFloat(document.getElementById('s-taxrate').value)||0;
-  const payMethod = document.getElementById('s-paymethod').value;
-  const notes = document.getElementById('s-notes').value.trim();
-  const err = document.getElementById('s-err');
-
-  if(!client||!subtotal){err.style.display='block';err.textContent='⚠️ يرجى تعبئة اسم العميل والمبلغ';return;}
-
-  const taxAmt = subtotal * taxRate/100;
-  const total = subtotal + taxAmt;
-
-  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
-
-  // Dup check
-  if(invoiceNo){
-    const dup = sales.find(s=>s.invoiceNo&&s.invoiceNo.trim().toLowerCase()===invoiceNo.toLowerCase());
-    if(dup){err.style.display='block';err.textContent='⚠️ رقم الفاتورة '+invoiceNo+' مسجل مسبقاً';return;}
-  }
-
-  const inv = {
-    id:'s-'+Date.now(), invoiceNo: invoiceNo||'S-'+Date.now(),
-    date, client, project, subtotal, taxRate, taxAmt, total,
-    payMethod, notes, b64: salesB64||null,
-    createdAt: new Date().toISOString()
-  };
-
-  sales.push(inv);
-  localStorage.setItem('kayan_sales', JSON.stringify(sales));
-  // Sync to server
-  api('/api/sales','POST',{sales}).catch(()=>{});
-
-  err.style.display='none';
-  salesB64=null; salesParsed=null;
-  alert('✅ تم حفظ فاتورة المبيعات — '+fmt(total)+' ﷼');
-  rSales();
-}
-
-function deleteSalesInvoice(id){
-  if(!confirm('حذف هذه الفاتورة؟')) return;
-  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]').filter(s=>s.id!==id);
-  localStorage.setItem('kayan_sales', JSON.stringify(sales));
-  api('/api/sales','POST',{sales}).catch(()=>{});
-  rSales();
-}
-
-function printSaleInvoice(id){
-  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
-  const s = sales.find(s=>s.id===id); if(!s) return;
-  const payLabel = {cash:'كاش',transfer:'تحويل بنكي',deferred:'آجل'};
-  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>فاتورة مبيعات ${s.invoiceNo}</title>
-<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:30px;font-size:13px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #000}.company{font-size:20px;font-weight:900}.inv-title{font-size:24px;font-weight:900;color:#b8860b}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}.info-box{background:#f9f9f9;border:1px solid #ddd;border-radius:6px;padding:12px}.info-label{font-size:10px;color:#666;margin-bottom:3px;font-weight:600}.info-value{font-size:14px;font-weight:700}.totals{margin-top:16px;border:1.5px solid #000;border-radius:6px;overflow:hidden}.total-row{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #ddd}.total-row:last-child{border-bottom:none;background:#000;color:#fff;font-weight:800;font-size:15px}.label{color:#555}.grand{color:#fff!important}@media print{body{padding:15px}}</style></head><body>
-<div class="header">
-  <div><div class="company">شركة كيان وبناء للمقاولات</div><div style="font-size:11px;color:#666;margin-top:4px">فاتورة ضريبية</div></div>
-  <div style="text-align:left"><div class="inv-title">فاتورة مبيعات</div><div style="font-size:13px;font-weight:700;color:#333">${s.invoiceNo}</div></div>
-</div>
-<div class="info-grid">
-  <div class="info-box"><div class="info-label">اسم العميل</div><div class="info-value">${s.client}</div></div>
-  <div class="info-box"><div class="info-label">تاريخ الفاتورة</div><div class="info-value">${s.date}</div></div>
-  <div class="info-box"><div class="info-label">طريقة الدفع</div><div class="info-value">${payLabel[s.payMethod]||''}</div></div>
-  ${s.project?`<div class="info-box"><div class="info-label">المشروع</div><div class="info-value">${s.project}</div></div>`:''}
-</div>
-${s.notes?`<div style="padding:10px 14px;background:#f5f5f5;border-radius:6px;margin-bottom:16px;font-size:13px"><strong>الوصف:</strong> ${s.notes}</div>`:''}
-<div class="totals">
-  <div class="total-row"><span class="label">المبلغ قبل الضريبة</span><span>${fmt(s.subtotal)} ﷼</span></div>
-  <div class="total-row"><span class="label">ضريبة القيمة المضافة (${s.taxRate}%)</span><span>${fmt(s.taxAmt)} ﷼</span></div>
-  <div class="total-row"><span class="grand">الإجمالي</span><span>${fmt(s.total)} ﷼</span></div>
-</div>
-</body></html>`;
-  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
-}
-
-function exportSalesPDF(){
-  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
-  const salesReturns = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
-  if(!sales.length){alert('لا توجد فواتير');return;}
-  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
-  const total = sales.reduce((a,s)=>a+(s.total||0),0);
-  const vat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
-  const net = sales.reduce((a,s)=>a+(s.subtotal||0),0);
-  const totalRet = salesReturns.reduce((a,r)=>a+(r.total||0),0);
-  const cash = sales.filter(s=>s.payMethod==='cash').reduce((a,s)=>a+(s.total||0),0);
-  const trans = sales.filter(s=>s.payMethod==='transfer').reduce((a,s)=>a+(s.total||0),0);
-  const def = sales.filter(s=>s.payMethod==='deferred').reduce((a,s)=>a+(s.total||0),0);
-  const payLabel = {cash:'كاش',transfer:'تحويل',deferred:'آجل'};
-  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المبيعات</title>
-<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}h1{font-size:20px;font-weight:900;margin-bottom:4px}h2{font-size:14px;font-weight:800;margin:16px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:3px;font-weight:600}.bv{font-size:17px;font-weight:900}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th{background:#000;color:#fff;padding:8px;text-align:right;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:7px 8px;border:1px solid #ddd}tr:nth-child(even) td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body>
-<h1>تقرير فواتير المبيعات</h1>
-<div style="font-size:12px;color:#555;margin-bottom:14px">شركة كيان وبناء للمقاولات · ${now}</div>
-<div class="sum">
-  <div class="box"><div class="bl">إجمالي المبيعات</div><div class="bv" style="color:#166534">${fmt(total)} ﷼</div></div>
-  <div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">${fmt(net)} ﷼</div></div>
-  <div class="box"><div class="bl">VAT المحصّلة</div><div class="bv" style="color:#1A50A8">${fmt(vat)} ﷼</div></div>
-  <div class="box"><div class="bl">كاش</div><div class="bv">${fmt(cash)} ﷼</div></div>
-  <div class="box"><div class="bl">تحويل</div><div class="bv">${fmt(trans)} ﷼</div></div>
-  <div class="box"><div class="bl">آجل</div><div class="bv" style="color:#D97706">${fmt(def)} ﷼</div></div>
-</div>
-<h2>تفاصيل الفواتير</h2>
-<table><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th><th>المشروع</th><th>طريقة الدفع</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>
-${sales.sort((a,b)=>a.date.localeCompare(b.date)).map(s=>`<tr><td>${s.invoiceNo}</td><td>${s.date}</td><td>${s.client}</td><td>${s.project||'—'}</td><td>${payLabel[s.payMethod]||'—'}</td><td>${fmt(s.subtotal)} ﷼</td><td>${fmt(s.taxAmt)} ﷼</td><td style="font-weight:700;color:#166534">${fmt(s.total)} ﷼</td></tr>`).join('')}
-<tr class="tr"><td colspan="5">إجمالي المبيعات</td><td>${fmt(net)} ﷼</td><td>${fmt(vat)} ﷼</td><td>${fmt(total)} ﷼</td></tr>
-</table>
-${salesReturns.length?`<h2 style="margin:16px 0 8px;font-size:14px;font-weight:800;color:#D93025;border-bottom:2px solid #D93025;padding-bottom:4px">↩️ مرتجعات المبيعات</h2>
-<table><tr><th>رقم المرتجع</th><th>التاريخ</th><th>العميل</th><th>فاتورة أصلية</th><th>السبب</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>
-${salesReturns.map(r=>`<tr><td>${r.invoiceNo}</td><td>${r.date}</td><td>${r.client}</td><td>${r.origInvoiceNo||'—'}</td><td>${r.reason||'—'}</td><td>${fmt(r.subtotal)} ﷼</td><td>${fmt(r.taxAmt)} ﷼</td><td style="font-weight:700;color:#D93025">-${fmt(r.total)} ﷼</td></tr>`).join('')}
-<tr class="tr"><td colspan="5">إجمالي المرتجعات</td><td></td><td></td><td style="color:#D93025">-${fmt(totalRet)} ﷼</td></tr>
-<tr class="tr"><td colspan="5">صافي المبيعات بعد المرتجعات</td><td></td><td></td><td style="color:#166534">${fmt(total-totalRet)} ﷼</td></tr>
-</table>`:''}
-</body></html>`;
-  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
-}
-
-// ── TRIAL BALANCE ────────────────────────────────
-function rTrialBalance(){
-  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
-  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
-
-  // ── إيرادات ──
-  const salesTotal = sales.reduce((a,s)=>a+(s.total||0),0);
-  const salesNet = sales.reduce((a,s)=>a+(s.subtotal||0),0);
-  const salesVat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
-  const salesCash = sales.filter(s=>s.payMethod==='cash').reduce((a,s)=>a+(s.total||0),0);
-  const salesTransfer = sales.filter(s=>s.payMethod==='transfer').reduce((a,s)=>a+(s.total||0),0);
-  const salesDeferred = sales.filter(s=>s.payMethod==='deferred').reduce((a,s)=>a+(s.total||0),0);
-  const contractReceipts = contracts.reduce((a,c)=>a+(c.transfers||[]).reduce((b,t)=>b+(t.amount||0),0),0);
-
-  // ── مصروفات ──
-  const purchases = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
-  const purchasesNet = purchases.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
-  const purchasesVat = purchases.reduce((a,e)=>a+(e.taxAmt||0),0);
-  const purchasesTotal = purchases.reduce((a,e)=>a+(e.total||0),0);
-  const laborCost = DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
-  const returnTotal = DB.entries.filter(e=>e.type==='return').reduce((a,e)=>a+(e.total||0),0);
-
-  // ── VAT ──
-  const vatCollected = salesVat - salesRetVat;
-  const vatPaid = purchasesVat;
-  const vatDue = vatCollected - vatPaid;
-
-  // ── صافي ──
-  const totalRevenue = salesNet + contractReceipts;
-  const totalExpenses = purchasesTotal + laborCost - returnTotal;
-  const netProfit = totalRevenue - totalExpenses;
-
-  // ── Quarter filter ──
-  const now = new Date();
-  const qMonths = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
-  const currentQ = Math.floor(now.getMonth()/3);
-
-  document.getElementById('mc').innerHTML = `
-    <div style="margin-bottom:14px">
-      <div style="font-size:15px;font-weight:800;color:#f5c842;margin-bottom:4px">⚖️ ميزان المراجعة</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.5)">شركة كيان وبناء للمقاولات</div>
-    </div>
-
-    <!-- فلتر الربع -->
-    <div class="card" style="padding:10px 14px;margin-bottom:12px">
-      <div class="ctitle" style="margin-bottom:8px">📅 الفترة المحاسبية</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label class="lbl" style="font-size:11px">من تاريخ</label><input type="date" id="tb-from" onchange="refreshTrialBalance()"></div>
-        <div><label class="lbl" style="font-size:11px">إلى تاريخ</label><input type="date" id="tb-to" onchange="refreshTrialBalance()"></div>
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${[1,2,3,4].map(q=>`<button onclick="setTBQuarter(${q},this)" style="padding:5px 12px;border:1px solid rgba(245,200,66,.3);border-radius:99px;background:${currentQ===q-1?'rgba(245,200,66,.2)':'transparent'};color:${currentQ===q-1?'#f5c842':'rgba(255,255,255,.6)'};cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">الربع ${q}</button>`).join('')}
-        <button onclick="setTBYear(this)" style="padding:5px 12px;border:1px solid rgba(112,181,255,.3);border-radius:99px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">السنة كاملة</button>
-      </div>
-    </div>
-
-    <!-- الإيرادات -->
-    <div class="card" style="margin-bottom:10px;border-right:3px solid #34d399!important">
-      <div class="ctitle" style="color:#34d399">📈 الإيرادات (دائن)</div>
-      ${tbRow('مبيعات — صافي بدون ضريبة', salesNet, '#34d399')}
-      ${tbRow('حوالات واردة من عملاء (عقود)', contractReceipts, '#34d399')}
-      ${tbRow('مرتجعات مبيعات (خصم)', -returnTotal, returnTotal>0?'#f87171':'#34d399')}
-      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
-        <strong style="color:#34d399">إجمالي الإيرادات</strong>
-        <strong style="color:#34d399;font-size:15px">${fmt(totalRevenue)} ﷼</strong>
-      </div>
-    </div>
-
-    <!-- المصروفات -->
-    <div class="card" style="margin-bottom:10px;border-right:3px solid #f87171!important">
-      <div class="ctitle" style="color:#f87171">📉 المصروفات (مدين)</div>
-      ${tbRow('مشتريات — صافي بدون ضريبة', purchasesNet, '#f87171')}
-      ${tbRow('ضريبة مدخلات (VAT مشتريات)', purchasesVat, '#f87171')}
-      ${tbRow('تكلفة العمالة الخارجية', laborCost, '#f87171')}
-      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
-        <strong style="color:#f87171">إجمالي المصروفات</strong>
-        <strong style="color:#f87171;font-size:15px">${fmt(totalExpenses)} ﷼</strong>
-      </div>
-    </div>
-
-    <!-- VAT -->
-    <div class="card" style="margin-bottom:10px;border-right:3px solid #70B5FF!important">
-      <div class="ctitle" style="color:#70B5FF">🧾 حساب ضريبة القيمة المضافة</div>
-      ${tbRow('VAT محصّلة من المبيعات', vatCollected, '#70B5FF')}
-      ${tbRow('VAT مدفوعة على المشتريات', vatPaid, '#f87171')}
-      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
-        <strong style="color:${vatDue>=0?'#f87171':'#34d399'}">${vatDue>=0?'VAT مستحقة للهيئة':'VAT مسترجعة'}</strong>
-        <strong style="color:${vatDue>=0?'#f87171':'#34d399'};font-size:15px">${fmt(Math.abs(vatDue))} ﷼</strong>
-      </div>
-    </div>
-
-    <!-- صافي الربح -->
-    <div style="background:${netProfit>=0?'rgba(52,211,153,.12)':'rgba(248,113,113,.12)'};border:1.5px solid ${netProfit>=0?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)'};border-radius:14px;padding:16px;text-align:center;margin-bottom:12px">
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:6px">${netProfit>=0?'✅ صافي الربح':'❌ صافي الخسارة'}</div>
-      <div style="font-size:32px;font-weight:900;color:${netProfit>=0?'#34d399':'#f87171'}">${netProfit>=0?'+':''}${fmt(netProfit)} ﷼</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:6px">= الإيرادات (${fmt(totalRevenue)}) − المصروفات (${fmt(totalExpenses)})</div>
-    </div>
-
-    <button onclick="exportTrialBalancePDF()" style="width:100%;padding:12px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير ميزان المراجعة PDF</button>
-  `;
-}
-
-function tbRow(label, value, color){
-  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
-    <span style="color:rgba(255,255,255,.8)">${label}</span>
-    <span style="font-weight:700;color:${color}">${fmt(Math.abs(value))} ﷼</span>
-  </div>`;
-}
-
-function setTBQuarter(q, btn){
-  const year = new Date().getFullYear();
-  const starts = ['01-01','04-01','07-01','10-01'];
-  const ends = ['03-31','06-30','09-30','12-31'];
-  document.getElementById('tb-from').value = year+'-'+starts[q-1];
-  document.getElementById('tb-to').value = year+'-'+ends[q-1];
-  document.querySelectorAll('[onclick^="setTBQuarter"]').forEach(b=>{b.style.background='transparent';b.style.color='rgba(255,255,255,.6)';});
-  btn.style.background='rgba(245,200,66,.2)';btn.style.color='#f5c842';
-}
-
-function setTBYear(btn){
-  const year = new Date().getFullYear();
-  document.getElementById('tb-from').value = year+'-01-01';
-  document.getElementById('tb-to').value = year+'-12-31';
-}
-
-function refreshTrialBalance(){ rTrialBalance(); }
-
-function exportTrialBalancePDF(){
-  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
-  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
-  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
-  const salesNet = sales.reduce((a,s)=>a+(s.subtotal||0),0);
-  const salesVat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
-  const salesTotal = sales.reduce((a,s)=>a+(s.total||0),0);
-  const contractReceipts = contracts.reduce((a,c)=>a+(c.transfers||[]).reduce((b,t)=>b+(t.amount||0),0),0);
-  const purchases = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
-  const purchasesNet = purchases.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
-  const purchasesVat = purchases.reduce((a,e)=>a+(e.taxAmt||0),0);
-  const purchasesTotal = purchases.reduce((a,e)=>a+(e.total||0),0);
-  const laborCost = DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
-  const returnTotal = DB.entries.filter(e=>e.type==='return').reduce((a,e)=>a+(e.total||0),0);
-  const vatDue = salesVat - purchasesVat;
-  const totalRevenue = salesNet + contractReceipts - returnTotal;
-  const totalExpenses = purchasesTotal + laborCost;
-  const netProfit = totalRevenue - totalExpenses;
-
-  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>ميزان المراجعة</title>
-<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}h1{font-size:20px;font-weight:900}h2{font-size:14px;font-weight:800;margin:16px 0 8px;padding:6px 10px;border-radius:4px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:8px;border:1px solid #ddd}.dr{color:#D93025;font-weight:700}.cr{color:#166534;font-weight:700}.total-row td{background:#f0f0f0;font-weight:800}.profit{padding:14px;border-radius:6px;text-align:center;margin-top:14px}.profit-val{font-size:26px;font-weight:900}</style></head><body>
-<h1>ميزان المراجعة</h1>
-<div style="font-size:12px;color:#555;margin-bottom:16px">شركة كيان وبناء للمقاولات · ${now}</div>
-<h2 style="background:#dcfce7;color:#166534">📈 الإيرادات (دائن)</h2>
-<table><tr><th>البيان</th><th>المبلغ</th></tr>
-<tr><td>مبيعات — صافي</td><td class="cr">${fmt(salesNet)} ﷼</td></tr>
-<tr><td>حوالات واردة من عملاء</td><td class="cr">${fmt(contractReceipts)} ﷼</td></tr>
-${returnTotal>0?`<tr><td>مرتجعات (خصم)</td><td class="dr">(${fmt(returnTotal)}) ﷼</td></tr>`:''}
-<tr class="total-row"><td>إجمالي الإيرادات</td><td class="cr">${fmt(totalRevenue)} ﷼</td></tr></table>
-<h2 style="background:#fee2e2;color:#991b1b">📉 المصروفات (مدين)</h2>
-<table><tr><th>البيان</th><th>المبلغ</th></tr>
-<tr><td>مشتريات — صافي</td><td class="dr">${fmt(purchasesNet)} ﷼</td></tr>
-<tr><td>ضريبة مدخلات VAT</td><td class="dr">${fmt(purchasesVat)} ﷼</td></tr>
-<tr><td>تكلفة العمالة</td><td class="dr">${fmt(laborCost)} ﷼</td></tr>
-<tr class="total-row"><td>إجمالي المصروفات</td><td class="dr">${fmt(totalExpenses)} ﷼</td></tr></table>
-<h2 style="background:#dbeafe;color:#1e40af">🧾 حساب VAT</h2>
-<table><tr><th>البيان</th><th>المبلغ</th></tr>
-<tr><td>VAT محصّلة (مبيعات)</td><td class="cr">${fmt(salesVat)} ﷼</td></tr>
-<tr><td>VAT مدفوعة (مشتريات)</td><td class="dr">${fmt(purchasesVat)} ﷼</td></tr>
-<tr class="total-row"><td>${vatDue>=0?'VAT مستحقة للهيئة':'VAT مسترجعة'}</td><td class="${vatDue>=0?'dr':'cr'}">${fmt(Math.abs(vatDue))} ﷼</td></tr></table>
-<div class="profit" style="background:${netProfit>=0?'#dcfce7':'#fee2e2'};border:2px solid ${netProfit>=0?'#166534':'#991b1b'}">
-  <div style="font-size:14px;font-weight:700;color:${netProfit>=0?'#166534':'#991b1b'};margin-bottom:6px">${netProfit>=0?'✅ صافي الربح':'❌ صافي الخسارة'}</div>
-  <div class="profit-val" style="color:${netProfit>=0?'#166534':'#991b1b'}">${netProfit>=0?'+':''}${fmt(netProfit)} ﷼</div>
-</div>
-</body></html>`;
-  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
-}
-
-// SERVICE WORKER
-if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
-
-// START
-initTheme();
-document.getElementById('top-date').textContent=new Date().toLocaleDateString('ar-SA',{day:'numeric',month:'long',year:'numeric'});
-start();
-</script>
-</body>
-</html>
