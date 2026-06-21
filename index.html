@@ -748,6 +748,13 @@ async function start(){
       localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));
     }
   }catch(e){}
+  // Load sales from server
+  try{
+    const sr=await api('/api/sales');
+    if(sr&&sr.sales&&sr.sales.length>0){
+      localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));
+    }
+  }catch(e){}
   const ok=await restoreSession().catch(()=>false);
   if(ok&&CU&&ROLE){showApp();}
   else{document.getElementById('lview').style.display='flex';}
@@ -830,6 +837,7 @@ function showApp(){
     { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
     { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
     { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
+    { label:'المبيعات', items:[['sales','🧾','فواتير المبيعات'],['trial-balance','⚖️','ميزان المراجعة']] },
   ] : ROLE==='owner' ? [
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
     { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
@@ -896,17 +904,17 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'sales':rSales,'trial-balance':rTrialBalance};
   map[id]?.();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'sales':rSales,'trial-balance':rTrialBalance};
   map[id]?.();
 }
 
@@ -4439,6 +4447,447 @@ ${compList.map(w=>`<tr><td>${w.name}</td><td class="green">${w.days} يوم</td>
   win.document.write(html);
   win.document.close();
   setTimeout(()=>win.print(),800);
+}
+
+
+// ── SALES INVOICES ──────────────────────────────
+let salesB64 = null;
+let salesParsed = null;
+
+function rSales(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+  const totalSales = sales.reduce((a,s)=>a+(s.total||0),0);
+  const totalVat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const totalNet = sales.reduce((a,s)=>a+(s.subtotal||0),0);
+
+  document.getElementById('mc').innerHTML = `
+    <div class="sg" style="margin-bottom:12px">
+      <div class="stat"><div class="sl">إجمالي المبيعات</div><div class="sv" style="color:#34d399">${fmt(totalSales)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبة VAT المحصّلة</div><div class="sv" style="color:#70B5FF">${fmt(totalVat)} ﷼</div></div>
+      <div class="stat"><div class="sl">صافي المبيعات</div><div class="sv" style="color:#f5c842">${fmt(totalNet)} ﷼</div></div>
+      <div class="stat"><div class="sl">عدد الفواتير</div><div class="sv">${sales.length}</div></div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">➕ فاتورة مبيعات جديدة</div>
+      <div class="fg">
+        <label class="lbl">📄 ارفع صورة الفاتورة (اختياري)</label>
+        <div class="drop" id="sales-drop" onclick="document.getElementById('sales-file').click()" style="cursor:pointer;padding:14px">
+          <div style="font-size:26px;margin-bottom:4px" id="sales-icon">📷</div>
+          <div id="sales-txt" style="font-size:12px;color:rgba(255,255,255,.5)">الذكاء يقرأ الفاتورة تلقائياً</div>
+        </div>
+        <input type="file" id="sales-file" accept="image/*,.pdf" style="display:none" onchange="pickSalesFile(this)">
+      </div>
+      <div id="sales-ai-status" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري القراءة...</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+        <span style="font-size:10px;color:rgba(255,255,255,.3)">أو أدخل يدوياً</span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+      </div>
+      <div class="fg2">
+        <div><label class="lbl">رقم الفاتورة</label><input id="s-inv-no" placeholder="INV-001"></div>
+        <div><label class="lbl">التاريخ</label><input type="date" id="s-date" value="${today()}"></div>
+      </div>
+      <div class="fg"><label class="lbl">اسم العميل</label><input id="s-client" placeholder="اسم العميل أو الشركة"></div>
+      <div class="fg"><label class="lbl">المشروع (اختياري)</label><select id="s-proj"><option value="">-- بدون مشروع --</option>${pOpts}</select></div>
+      <div class="fg2">
+        <div><label class="lbl">المبلغ قبل الضريبة</label><input type="number" id="s-subtotal" placeholder="0.00" oninput="calcSalesVat()"></div>
+        <div><label class="lbl">نسبة VAT %</label><input type="number" id="s-taxrate" placeholder="15" value="15" oninput="calcSalesVat()"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(52,211,153,.08);border-radius:8px;margin-bottom:10px;font-size:13px">
+        <span>ضريبة VAT: <strong id="s-vatamt" style="color:#70B5FF">0.00 ﷼</strong></span>
+        <span>الإجمالي: <strong id="s-total" style="color:#34d399">0.00 ﷼</strong></span>
+      </div>
+      <div class="fg"><label class="lbl">طريقة الدفع</label>
+        <select id="s-paymethod">
+          <option value="cash">💵 كاش</option>
+          <option value="transfer">🏦 تحويل بنكي</option>
+          <option value="deferred">⏳ آجل</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">ملاحظات</label><input id="s-notes" placeholder="وصف البضاعة أو الخدمة..."></div>
+      <div class="err" id="s-err" style="display:none"></div>
+      <button class="btn bp" onclick="saveSalesInvoice()">💾 حفظ فاتورة المبيعات</button>
+    </div>
+
+    ${sales.length===0 ? '<div class="empty">لا توجد فواتير مبيعات بعد</div>' : `
+    <div class="shdr">📋 فواتير المبيعات</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button onclick="filterSales('all',this)" class="ftab on" id="sf-all">الكل (${sales.length})</button>
+      <button onclick="filterSales('cash',this)" class="ftab">كاش</button>
+      <button onclick="filterSales('transfer',this)" class="ftab">تحويل</button>
+      <button onclick="filterSales('deferred',this)" class="ftab">آجل</button>
+    </div>
+    <div id="sales-list">
+      ${renderSalesList(sales)}
+    </div>
+    <button onclick="exportSalesPDF()" style="width:100%;margin-top:10px;padding:12px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير المبيعات PDF</button>
+    `}
+  `;
+}
+
+function calcSalesVat(){
+  const sub = parseFloat(document.getElementById('s-subtotal')?.value)||0;
+  const rate = parseFloat(document.getElementById('s-taxrate')?.value)||0;
+  const vat = sub * rate/100;
+  const total = sub + vat;
+  const ve = document.getElementById('s-vatamt');
+  const te = document.getElementById('s-total');
+  if(ve) ve.textContent = fmt(vat)+' ﷼';
+  if(te) te.textContent = fmt(total)+' ﷼';
+}
+
+function renderSalesList(sales, filter='all'){
+  const filtered = filter==='all' ? sales : sales.filter(s=>s.payMethod===filter);
+  if(!filtered.length) return '<div class="empty">لا توجد نتائج</div>';
+  const payLabel = {cash:'💵 كاش', transfer:'🏦 تحويل', deferred:'⏳ آجل'};
+  const payColor = {cash:'#34d399', transfer:'#70B5FF', deferred:'#fbbf24'};
+  return filtered.slice().reverse().map(s=>`
+    <div class="card" style="padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${s.client||'—'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.5)">${s.invoiceNo||'—'} · ${s.date}${s.project?' · '+s.project:''}</div>
+          ${s.notes?`<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">${s.notes}</div>`:''}
+        </div>
+        <div style="text-align:left;flex-shrink:0">
+          <div style="font-size:15px;font-weight:800;color:#34d399">${fmt(s.total)} ﷼</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">VAT: ${fmt(s.taxAmt)} ﷼</div>
+          <span style="font-size:10px;color:${payColor[s.payMethod]||'#fff'}">${payLabel[s.payMethod]||''}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button onclick="printSaleInvoice('${s.id}')" style="flex:1;padding:6px;background:rgba(112,181,255,.1);color:#70B5FF;border:1px solid rgba(112,181,255,.2);border-radius:7px;cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">🖨️ طباعة</button>
+        <button onclick="deleteSalesInvoice('${s.id}')" style="padding:6px 10px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.2);border-radius:7px;cursor:pointer;font-size:11px">✕ حذف</button>
+      </div>
+    </div>`).join('');
+}
+
+function filterSales(type, btn){
+  document.querySelectorAll('[id^="sf-"],.ftab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const el = document.getElementById('sales-list');
+  if(el) el.innerHTML = renderSalesList(sales, type);
+}
+
+async function pickSalesFile(input){
+  const file = input.files[0]; if(!file) return;
+  const isPdf = file.type==='application/pdf';
+  const status = document.getElementById('sales-ai-status');
+  const icon = document.getElementById('sales-icon');
+  const txt = document.getElementById('sales-txt');
+  status.style.display='block';
+  icon.textContent='⏳';
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    salesB64 = ev.target.result.split(',')[1];
+    try{
+      const res = await api('/api/analyze','POST',{
+        b64: salesB64, isPdf,
+        text: 'هذه فاتورة مبيعات. استخرج: اسم العميل (supplier)، رقم الفاتورة (invoiceNo)، التاريخ (date بصيغة YYYY-MM-DD)، المبلغ قبل الضريبة (subtotal)، نسبة الضريبة (taxRate)، مبلغ الضريبة (taxAmt)، الإجمالي (total)، البنود (items). JSON نقي فقط.'
+      });
+      if(res.error) throw new Error(res.error);
+      salesParsed = res;
+      // Fill form
+      if(res.supplier) document.getElementById('s-client').value = res.supplier;
+      if(res.invoiceNo) document.getElementById('s-inv-no').value = res.invoiceNo;
+      if(res.date) document.getElementById('s-date').value = res.date;
+      if(res.subtotal) document.getElementById('s-subtotal').value = res.subtotal;
+      if(res.taxRate) document.getElementById('s-taxrate').value = res.taxRate;
+      calcSalesVat();
+      status.innerHTML = '<span style="color:#34d399">✅ تم استخراج البيانات — راجع وأكد</span>';
+      icon.textContent='✅';
+      txt.textContent = file.name;
+    }catch(e){
+      status.innerHTML = '<span style="color:#f87171">❌ '+e.message+'</span>';
+      icon.textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveSalesInvoice(){
+  const invoiceNo = document.getElementById('s-inv-no').value.trim();
+  const date = document.getElementById('s-date').value;
+  const client = document.getElementById('s-client').value.trim();
+  const project = document.getElementById('s-proj').value;
+  const subtotal = parseFloat(document.getElementById('s-subtotal').value)||0;
+  const taxRate = parseFloat(document.getElementById('s-taxrate').value)||0;
+  const payMethod = document.getElementById('s-paymethod').value;
+  const notes = document.getElementById('s-notes').value.trim();
+  const err = document.getElementById('s-err');
+
+  if(!client||!subtotal){err.style.display='block';err.textContent='⚠️ يرجى تعبئة اسم العميل والمبلغ';return;}
+
+  const taxAmt = subtotal * taxRate/100;
+  const total = subtotal + taxAmt;
+
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+
+  // Dup check
+  if(invoiceNo){
+    const dup = sales.find(s=>s.invoiceNo&&s.invoiceNo.trim().toLowerCase()===invoiceNo.toLowerCase());
+    if(dup){err.style.display='block';err.textContent='⚠️ رقم الفاتورة '+invoiceNo+' مسجل مسبقاً';return;}
+  }
+
+  const inv = {
+    id:'s-'+Date.now(), invoiceNo: invoiceNo||'S-'+Date.now(),
+    date, client, project, subtotal, taxRate, taxAmt, total,
+    payMethod, notes, b64: salesB64||null,
+    createdAt: new Date().toISOString()
+  };
+
+  sales.push(inv);
+  localStorage.setItem('kayan_sales', JSON.stringify(sales));
+  // Sync to server
+  api('/api/sales','POST',{sales}).catch(()=>{});
+
+  err.style.display='none';
+  salesB64=null; salesParsed=null;
+  alert('✅ تم حفظ فاتورة المبيعات — '+fmt(total)+' ﷼');
+  rSales();
+}
+
+function deleteSalesInvoice(id){
+  if(!confirm('حذف هذه الفاتورة؟')) return;
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]').filter(s=>s.id!==id);
+  localStorage.setItem('kayan_sales', JSON.stringify(sales));
+  api('/api/sales','POST',{sales}).catch(()=>{});
+  rSales();
+}
+
+function printSaleInvoice(id){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const s = sales.find(s=>s.id===id); if(!s) return;
+  const payLabel = {cash:'كاش',transfer:'تحويل بنكي',deferred:'آجل'};
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>فاتورة مبيعات ${s.invoiceNo}</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:30px;font-size:13px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #000}.company{font-size:20px;font-weight:900}.inv-title{font-size:24px;font-weight:900;color:#b8860b}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}.info-box{background:#f9f9f9;border:1px solid #ddd;border-radius:6px;padding:12px}.info-label{font-size:10px;color:#666;margin-bottom:3px;font-weight:600}.info-value{font-size:14px;font-weight:700}.totals{margin-top:16px;border:1.5px solid #000;border-radius:6px;overflow:hidden}.total-row{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #ddd}.total-row:last-child{border-bottom:none;background:#000;color:#fff;font-weight:800;font-size:15px}.label{color:#555}.grand{color:#fff!important}@media print{body{padding:15px}}</style></head><body>
+<div class="header">
+  <div><div class="company">شركة كيان وبناء للمقاولات</div><div style="font-size:11px;color:#666;margin-top:4px">فاتورة ضريبية</div></div>
+  <div style="text-align:left"><div class="inv-title">فاتورة مبيعات</div><div style="font-size:13px;font-weight:700;color:#333">${s.invoiceNo}</div></div>
+</div>
+<div class="info-grid">
+  <div class="info-box"><div class="info-label">اسم العميل</div><div class="info-value">${s.client}</div></div>
+  <div class="info-box"><div class="info-label">تاريخ الفاتورة</div><div class="info-value">${s.date}</div></div>
+  <div class="info-box"><div class="info-label">طريقة الدفع</div><div class="info-value">${payLabel[s.payMethod]||''}</div></div>
+  ${s.project?`<div class="info-box"><div class="info-label">المشروع</div><div class="info-value">${s.project}</div></div>`:''}
+</div>
+${s.notes?`<div style="padding:10px 14px;background:#f5f5f5;border-radius:6px;margin-bottom:16px;font-size:13px"><strong>الوصف:</strong> ${s.notes}</div>`:''}
+<div class="totals">
+  <div class="total-row"><span class="label">المبلغ قبل الضريبة</span><span>${fmt(s.subtotal)} ﷼</span></div>
+  <div class="total-row"><span class="label">ضريبة القيمة المضافة (${s.taxRate}%)</span><span>${fmt(s.taxAmt)} ﷼</span></div>
+  <div class="total-row"><span class="grand">الإجمالي</span><span>${fmt(s.total)} ﷼</span></div>
+</div>
+</body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
+}
+
+function exportSalesPDF(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  if(!sales.length){alert('لا توجد فواتير');return;}
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const total = sales.reduce((a,s)=>a+(s.total||0),0);
+  const vat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const net = sales.reduce((a,s)=>a+(s.subtotal||0),0);
+  const cash = sales.filter(s=>s.payMethod==='cash').reduce((a,s)=>a+(s.total||0),0);
+  const trans = sales.filter(s=>s.payMethod==='transfer').reduce((a,s)=>a+(s.total||0),0);
+  const def = sales.filter(s=>s.payMethod==='deferred').reduce((a,s)=>a+(s.total||0),0);
+  const payLabel = {cash:'كاش',transfer:'تحويل',deferred:'آجل'};
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المبيعات</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}h1{font-size:20px;font-weight:900;margin-bottom:4px}h2{font-size:14px;font-weight:800;margin:16px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:3px;font-weight:600}.bv{font-size:17px;font-weight:900}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th{background:#000;color:#fff;padding:8px;text-align:right;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:7px 8px;border:1px solid #ddd}tr:nth-child(even) td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body>
+<h1>تقرير فواتير المبيعات</h1>
+<div style="font-size:12px;color:#555;margin-bottom:14px">شركة كيان وبناء للمقاولات · ${now}</div>
+<div class="sum">
+  <div class="box"><div class="bl">إجمالي المبيعات</div><div class="bv" style="color:#166534">${fmt(total)} ﷼</div></div>
+  <div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">${fmt(net)} ﷼</div></div>
+  <div class="box"><div class="bl">VAT المحصّلة</div><div class="bv" style="color:#1A50A8">${fmt(vat)} ﷼</div></div>
+  <div class="box"><div class="bl">كاش</div><div class="bv">${fmt(cash)} ﷼</div></div>
+  <div class="box"><div class="bl">تحويل</div><div class="bv">${fmt(trans)} ﷼</div></div>
+  <div class="box"><div class="bl">آجل</div><div class="bv" style="color:#D97706">${fmt(def)} ﷼</div></div>
+</div>
+<h2>تفاصيل الفواتير</h2>
+<table><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th><th>المشروع</th><th>طريقة الدفع</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>
+${sales.sort((a,b)=>a.date.localeCompare(b.date)).map(s=>`<tr><td>${s.invoiceNo}</td><td>${s.date}</td><td>${s.client}</td><td>${s.project||'—'}</td><td>${payLabel[s.payMethod]||'—'}</td><td>${fmt(s.subtotal)} ﷼</td><td>${fmt(s.taxAmt)} ﷼</td><td style="font-weight:700;color:#166534">${fmt(s.total)} ﷼</td></tr>`).join('')}
+<tr class="tr"><td colspan="5">الإجمالي</td><td>${fmt(net)} ﷼</td><td>${fmt(vat)} ﷼</td><td>${fmt(total)} ﷼</td></tr>
+</table></body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
+}
+
+// ── TRIAL BALANCE ────────────────────────────────
+function rTrialBalance(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
+
+  // ── إيرادات ──
+  const salesTotal = sales.reduce((a,s)=>a+(s.total||0),0);
+  const salesNet = sales.reduce((a,s)=>a+(s.subtotal||0),0);
+  const salesVat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const salesCash = sales.filter(s=>s.payMethod==='cash').reduce((a,s)=>a+(s.total||0),0);
+  const salesTransfer = sales.filter(s=>s.payMethod==='transfer').reduce((a,s)=>a+(s.total||0),0);
+  const salesDeferred = sales.filter(s=>s.payMethod==='deferred').reduce((a,s)=>a+(s.total||0),0);
+  const contractReceipts = contracts.reduce((a,c)=>a+(c.transfers||[]).reduce((b,t)=>b+(t.amount||0),0),0);
+
+  // ── مصروفات ──
+  const purchases = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
+  const purchasesNet = purchases.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
+  const purchasesVat = purchases.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const purchasesTotal = purchases.reduce((a,e)=>a+(e.total||0),0);
+  const laborCost = DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const returnTotal = DB.entries.filter(e=>e.type==='return').reduce((a,e)=>a+(e.total||0),0);
+
+  // ── VAT ──
+  const vatCollected = salesVat;
+  const vatPaid = purchasesVat;
+  const vatDue = vatCollected - vatPaid;
+
+  // ── صافي ──
+  const totalRevenue = salesNet + contractReceipts;
+  const totalExpenses = purchasesTotal + laborCost - returnTotal;
+  const netProfit = totalRevenue - totalExpenses;
+
+  // ── Quarter filter ──
+  const now = new Date();
+  const qMonths = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
+  const currentQ = Math.floor(now.getMonth()/3);
+
+  document.getElementById('mc').innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="font-size:15px;font-weight:800;color:#f5c842;margin-bottom:4px">⚖️ ميزان المراجعة</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5)">شركة كيان وبناء للمقاولات</div>
+    </div>
+
+    <!-- فلتر الربع -->
+    <div class="card" style="padding:10px 14px;margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:8px">📅 الفترة المحاسبية</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label class="lbl" style="font-size:11px">من تاريخ</label><input type="date" id="tb-from" onchange="refreshTrialBalance()"></div>
+        <div><label class="lbl" style="font-size:11px">إلى تاريخ</label><input type="date" id="tb-to" onchange="refreshTrialBalance()"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${[1,2,3,4].map(q=>`<button onclick="setTBQuarter(${q},this)" style="padding:5px 12px;border:1px solid rgba(245,200,66,.3);border-radius:99px;background:${currentQ===q-1?'rgba(245,200,66,.2)':'transparent'};color:${currentQ===q-1?'#f5c842':'rgba(255,255,255,.6)'};cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">الربع ${q}</button>`).join('')}
+        <button onclick="setTBYear(this)" style="padding:5px 12px;border:1px solid rgba(112,181,255,.3);border-radius:99px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">السنة كاملة</button>
+      </div>
+    </div>
+
+    <!-- الإيرادات -->
+    <div class="card" style="margin-bottom:10px;border-right:3px solid #34d399!important">
+      <div class="ctitle" style="color:#34d399">📈 الإيرادات (دائن)</div>
+      ${tbRow('مبيعات — صافي بدون ضريبة', salesNet, '#34d399')}
+      ${tbRow('حوالات واردة من عملاء (عقود)', contractReceipts, '#34d399')}
+      ${tbRow('مرتجعات مبيعات (خصم)', -returnTotal, returnTotal>0?'#f87171':'#34d399')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
+        <strong style="color:#34d399">إجمالي الإيرادات</strong>
+        <strong style="color:#34d399;font-size:15px">${fmt(totalRevenue)} ﷼</strong>
+      </div>
+    </div>
+
+    <!-- المصروفات -->
+    <div class="card" style="margin-bottom:10px;border-right:3px solid #f87171!important">
+      <div class="ctitle" style="color:#f87171">📉 المصروفات (مدين)</div>
+      ${tbRow('مشتريات — صافي بدون ضريبة', purchasesNet, '#f87171')}
+      ${tbRow('ضريبة مدخلات (VAT مشتريات)', purchasesVat, '#f87171')}
+      ${tbRow('تكلفة العمالة الخارجية', laborCost, '#f87171')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
+        <strong style="color:#f87171">إجمالي المصروفات</strong>
+        <strong style="color:#f87171;font-size:15px">${fmt(totalExpenses)} ﷼</strong>
+      </div>
+    </div>
+
+    <!-- VAT -->
+    <div class="card" style="margin-bottom:10px;border-right:3px solid #70B5FF!important">
+      <div class="ctitle" style="color:#70B5FF">🧾 حساب ضريبة القيمة المضافة</div>
+      ${tbRow('VAT محصّلة من المبيعات', vatCollected, '#70B5FF')}
+      ${tbRow('VAT مدفوعة على المشتريات', vatPaid, '#f87171')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
+        <strong style="color:${vatDue>=0?'#f87171':'#34d399'}">${vatDue>=0?'VAT مستحقة للهيئة':'VAT مسترجعة'}</strong>
+        <strong style="color:${vatDue>=0?'#f87171':'#34d399'};font-size:15px">${fmt(Math.abs(vatDue))} ﷼</strong>
+      </div>
+    </div>
+
+    <!-- صافي الربح -->
+    <div style="background:${netProfit>=0?'rgba(52,211,153,.12)':'rgba(248,113,113,.12)'};border:1.5px solid ${netProfit>=0?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)'};border-radius:14px;padding:16px;text-align:center;margin-bottom:12px">
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:6px">${netProfit>=0?'✅ صافي الربح':'❌ صافي الخسارة'}</div>
+      <div style="font-size:32px;font-weight:900;color:${netProfit>=0?'#34d399':'#f87171'}">${netProfit>=0?'+':''}${fmt(netProfit)} ﷼</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:6px">= الإيرادات (${fmt(totalRevenue)}) − المصروفات (${fmt(totalExpenses)})</div>
+    </div>
+
+    <button onclick="exportTrialBalancePDF()" style="width:100%;padding:12px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير ميزان المراجعة PDF</button>
+  `;
+}
+
+function tbRow(label, value, color){
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
+    <span style="color:rgba(255,255,255,.8)">${label}</span>
+    <span style="font-weight:700;color:${color}">${fmt(Math.abs(value))} ﷼</span>
+  </div>`;
+}
+
+function setTBQuarter(q, btn){
+  const year = new Date().getFullYear();
+  const starts = ['01-01','04-01','07-01','10-01'];
+  const ends = ['03-31','06-30','09-30','12-31'];
+  document.getElementById('tb-from').value = year+'-'+starts[q-1];
+  document.getElementById('tb-to').value = year+'-'+ends[q-1];
+  document.querySelectorAll('[onclick^="setTBQuarter"]').forEach(b=>{b.style.background='transparent';b.style.color='rgba(255,255,255,.6)';});
+  btn.style.background='rgba(245,200,66,.2)';btn.style.color='#f5c842';
+}
+
+function setTBYear(btn){
+  const year = new Date().getFullYear();
+  document.getElementById('tb-from').value = year+'-01-01';
+  document.getElementById('tb-to').value = year+'-12-31';
+}
+
+function refreshTrialBalance(){ rTrialBalance(); }
+
+function exportTrialBalancePDF(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const salesNet = sales.reduce((a,s)=>a+(s.subtotal||0),0);
+  const salesVat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const salesTotal = sales.reduce((a,s)=>a+(s.total||0),0);
+  const contractReceipts = contracts.reduce((a,c)=>a+(c.transfers||[]).reduce((b,t)=>b+(t.amount||0),0),0);
+  const purchases = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
+  const purchasesNet = purchases.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
+  const purchasesVat = purchases.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const purchasesTotal = purchases.reduce((a,e)=>a+(e.total||0),0);
+  const laborCost = DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const returnTotal = DB.entries.filter(e=>e.type==='return').reduce((a,e)=>a+(e.total||0),0);
+  const vatDue = salesVat - purchasesVat;
+  const totalRevenue = salesNet + contractReceipts - returnTotal;
+  const totalExpenses = purchasesTotal + laborCost;
+  const netProfit = totalRevenue - totalExpenses;
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>ميزان المراجعة</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}h1{font-size:20px;font-weight:900}h2{font-size:14px;font-weight:800;margin:16px 0 8px;padding:6px 10px;border-radius:4px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:8px;border:1px solid #ddd}.dr{color:#D93025;font-weight:700}.cr{color:#166534;font-weight:700}.total-row td{background:#f0f0f0;font-weight:800}.profit{padding:14px;border-radius:6px;text-align:center;margin-top:14px}.profit-val{font-size:26px;font-weight:900}</style></head><body>
+<h1>ميزان المراجعة</h1>
+<div style="font-size:12px;color:#555;margin-bottom:16px">شركة كيان وبناء للمقاولات · ${now}</div>
+<h2 style="background:#dcfce7;color:#166534">📈 الإيرادات (دائن)</h2>
+<table><tr><th>البيان</th><th>المبلغ</th></tr>
+<tr><td>مبيعات — صافي</td><td class="cr">${fmt(salesNet)} ﷼</td></tr>
+<tr><td>حوالات واردة من عملاء</td><td class="cr">${fmt(contractReceipts)} ﷼</td></tr>
+${returnTotal>0?`<tr><td>مرتجعات (خصم)</td><td class="dr">(${fmt(returnTotal)}) ﷼</td></tr>`:''}
+<tr class="total-row"><td>إجمالي الإيرادات</td><td class="cr">${fmt(totalRevenue)} ﷼</td></tr></table>
+<h2 style="background:#fee2e2;color:#991b1b">📉 المصروفات (مدين)</h2>
+<table><tr><th>البيان</th><th>المبلغ</th></tr>
+<tr><td>مشتريات — صافي</td><td class="dr">${fmt(purchasesNet)} ﷼</td></tr>
+<tr><td>ضريبة مدخلات VAT</td><td class="dr">${fmt(purchasesVat)} ﷼</td></tr>
+<tr><td>تكلفة العمالة</td><td class="dr">${fmt(laborCost)} ﷼</td></tr>
+<tr class="total-row"><td>إجمالي المصروفات</td><td class="dr">${fmt(totalExpenses)} ﷼</td></tr></table>
+<h2 style="background:#dbeafe;color:#1e40af">🧾 حساب VAT</h2>
+<table><tr><th>البيان</th><th>المبلغ</th></tr>
+<tr><td>VAT محصّلة (مبيعات)</td><td class="cr">${fmt(salesVat)} ﷼</td></tr>
+<tr><td>VAT مدفوعة (مشتريات)</td><td class="dr">${fmt(purchasesVat)} ﷼</td></tr>
+<tr class="total-row"><td>${vatDue>=0?'VAT مستحقة للهيئة':'VAT مسترجعة'}</td><td class="${vatDue>=0?'dr':'cr'}">${fmt(Math.abs(vatDue))} ﷼</td></tr></table>
+<div class="profit" style="background:${netProfit>=0?'#dcfce7':'#fee2e2'};border:2px solid ${netProfit>=0?'#166534':'#991b1b'}">
+  <div style="font-size:14px;font-weight:700;color:${netProfit>=0?'#166534':'#991b1b'};margin-bottom:6px">${netProfit>=0?'✅ صافي الربح':'❌ صافي الخسارة'}</div>
+  <div class="profit-val" style="color:${netProfit>=0?'#166534':'#991b1b'}">${netProfit>=0?'+':''}${fmt(netProfit)} ﷼</div>
+</div>
+</body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
 }
 
 // SERVICE WORKER
