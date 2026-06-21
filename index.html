@@ -5207,8 +5207,15 @@ function _renderTrialBalance(){
     if(!val)return'';
     return'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="color:rgba(255,255,255,.85)">'+label+(sub?' <small style="color:rgba(255,255,255,.4)">'+sub+'</small>':'')+'</span><strong style="color:'+color+'">'+fmt(Math.abs(val))+' \u0631\u064a\u0627\u0644</strong></div>';
   }
-  var qBtns='';
-  [0,1,2,3].forEach(function(q){var qd=getQuarterDates(q,year);var a=_tbFrom===qd.from&&_tbTo===qd.to;qBtns+='<button onclick="setTBQ('+q+')" style="padding:7px 4px;border:1px solid rgba(245,200,66,'+(a?'.4':'.15')+');border-radius:8px;background:rgba(245,200,66,'+(a?'.15':'.04')+');color:'+(a?'#f5c842':'rgba(255,255,255,.6)')+';cursor:pointer;font-size:10px;font-family:Tajawal,sans-serif;font-weight:'+(a?700:400)+'>Q'+(q+1)+'</button>';});
+  // Build period dropdown
+  var periods=[['q0','Q1 — يناير إلى مارس'],['q1','Q2 — أبريل إلى يونيو'],['q2','Q3 — يوليو إلى سبتمبر'],['q3','Q4 — أكتوبر إلى ديسمبر'],['year','📆 السنة كاملة '+year],['custom','✏️ تاريخ مخصص']];
+  var selVal='custom';
+  if(_tbFrom===year+'-01-01'&&_tbTo===year+'-03-31')selVal='q0';
+  else if(_tbFrom===year+'-04-01'&&_tbTo===year+'-06-30')selVal='q1';
+  else if(_tbFrom===year+'-07-01'&&_tbTo===year+'-09-30')selVal='q2';
+  else if(_tbFrom===year+'-10-01'&&_tbTo===year+'-12-31')selVal='q3';
+  else if(_tbFrom===year+'-01-01'&&_tbTo===year+'-12-31')selVal='year';
+  var qBtns='<select onchange="onTBSelect(this.value)" style="width:100%;padding:9px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);font-family:Tajawal,sans-serif;font-size:13px">'+periods.map(function(p){return'<option value="'+p[0]+'"'+(selVal===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')+'</select>';
   var qD=[0,1,2,3].map(function(q){
     var qd=getQuarterDates(q,year);
     var qs=filterByDate(sales,qd.from,qd.to),qp=filterByDate(DB.entries.filter(function(e){return(e.type==='petty'||e.type==='tax')&&!e.rejected;}),qd.from,qd.to);
@@ -5246,6 +5253,20 @@ function _renderTrialBalance(){
     +'<div style="display:flex;gap:8px;margin-top:10px"><button onclick="exportVatReturn()" style="flex:1;padding:11px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">VAT</button></div>';
 }
 function setTBQ(q){var year=new Date().getFullYear();var qd=getQuarterDates(q,year);_tbFrom=qd.from;_tbTo=qd.to;_renderTrialBalance();}
+function onTBSelect(val){
+  var year=new Date().getFullYear();
+  if(val==='year'){_tbFrom=year+'-01-01';_tbTo=year+'-12-31';_renderTrialBalance();}
+  else if(val==='q0'){_tbFrom=year+'-01-01';_tbTo=year+'-03-31';_renderTrialBalance();}
+  else if(val==='q1'){_tbFrom=year+'-04-01';_tbTo=year+'-06-30';_renderTrialBalance();}
+  else if(val==='q2'){_tbFrom=year+'-07-01';_tbTo=year+'-09-30';_renderTrialBalance();}
+  else if(val==='q3'){_tbFrom=year+'-10-01';_tbTo=year+'-12-31';_renderTrialBalance();}
+  else if(val==='custom'){
+    // Show date inputs
+    var f=document.getElementById('tb-from');
+    var t=document.getElementById('tb-to');
+    if(f)f.closest('div').style.display='grid';
+  }
+}
 function setTBYear(){var year=new Date().getFullYear();_tbFrom=year+'-01-01';_tbTo=year+'-12-31';_renderTrialBalance();}
 function exportVatReturn(){
   var sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
