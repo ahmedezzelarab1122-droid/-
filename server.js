@@ -349,6 +349,28 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { return sendJSON(res, { error: e.message }, 500); }
   }
 
+
+  // Save sales invoices
+  if (pathname === '/api/sales' && req.method === 'POST') {
+    try {
+      const { sales } = await parseBody(req);
+      await db.collection('config').updateOne(
+        { _id: 'main' },
+        { $set: { sales: sales || [] } },
+        { upsert: true }
+      );
+      return sendJSON(res, { ok: true });
+    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
+  }
+
+  // Load sales invoices
+  if (pathname === '/api/sales' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({ _id: 'main' });
+      return sendJSON(res, { sales: cfg?.sales || [] });
+    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
+  }
+
   // Analyze bank transfer
   if (pathname === '/api/analyze-transfer' && req.method === 'POST') {
     if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
