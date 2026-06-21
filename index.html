@@ -795,13 +795,20 @@ async function start(){
 }
 
 
-function selRole(r){
+async function selRole(r){
   SR=r;
   document.querySelectorAll('.rb').forEach(b=>b.classList.remove('sel'));
   const idMap={supervisor:'sup',manager:'mgr',owner:'owner'};
   document.getElementById('rb-'+idMap[r]).classList.add('sel');
   const g=document.getElementById('sup-grp');
   if(r==='supervisor'){
+    // Load supervisors if DB not loaded yet
+    if(!DB.supervisors||DB.supervisors.length===0){
+      try{
+        const d=await api('/api/db');
+        if(d&&d.supervisors) DB=d;
+      }catch(e){}
+    }
     document.getElementById('sup-sel').innerHTML='<option value="">اختر...</option>'+DB.supervisors.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
     g.style.display='block';
   }else g.style.display='none';
