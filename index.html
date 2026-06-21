@@ -720,6 +720,8 @@ async function restoreSession(){
       if(res&&res.ok){
         CU={id:res.supId||0,name:res.name,budget:res.budget||0};
         ROLE=res.role;
+        // Reload DB with fresh data
+        try{ const d=await api('/api/db'); if(d&&d.supervisors) DB=d; }catch(e){}
         return true;
       }
     }catch(e){
@@ -832,7 +834,7 @@ async function doLogin(){
     err.style.display='none';
     CU={id:res.supId||0,name:res.name,budget:res.budget||0};
     ROLE=res.role;
-    localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId}));
+    localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId,name:CU.name,budget:CU.budget}));
     // Reload DB after login to ensure fresh data
     try{ const d=await api('/api/db'); if(d&&d.supervisors) DB=d; }catch(e){}
     showApp();
