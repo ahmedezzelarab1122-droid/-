@@ -712,29 +712,22 @@ async function restoreSession(){
     if(!s)return false;
     const sess=JSON.parse(s);
     if(!sess||!sess.ROLE)return false;
-    // Try server login
-    try{
-      const body={role:sess.ROLE,password:sess.pw};
-      if(sess.supId)body.supId=parseInt(sess.supId);
-      const res=await api('/api/login','POST',body);
-      if(res&&res.ok){
-        CU={id:res.supId||0,name:res.name,budget:res.budget||0};
-        ROLE=res.role;
-        // Reload DB with fresh data
-        try{ const d=await api('/api/db'); if(d&&d.supervisors) DB=d; }catch(e){}
-        return true;
+    // Restore from saved session immediately (no server wait)
+    CU={id:sess.supId||0, name:sess.name||'', budget:sess.budget||0};
+    ROLE=sess.ROLE;
+    // Then reload DB in background
+    api('/api/db').then(d=>{
+      if(d&&d.supervisors){
+        DB=d;
+        // Refresh current view
+        try{
+          if(ROLE==='manager') rDash();
+          else if(ROLE==='owner') rOwnerDash();
+          else rHome();
+        }catch(e){}
       }
-    }catch(e){
-      // Server unavailable - restore from local session
-      console.log('Server unavailable, using local session');
-    }
-    // Use saved session data without server verification
-    if(sess.ROLE&&sess.name){
-      CU={id:sess.supId||0,name:sess.name,budget:sess.budget||0};
-      ROLE=sess.ROLE;
-      return true;
-    }
-    return false;
+    }).catch(()=>{});
+    return true;
   }catch(e){localStorage.removeItem('ks');return false;}
 }
 
