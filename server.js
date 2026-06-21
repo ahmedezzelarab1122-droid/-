@@ -33,10 +33,12 @@ async function connectMongo() {
   } catch (e) { console.error('❌ MongoDB error:', e.message); }
 }
 async function loadDB() {
-  if (!db) return getFallback();
+  if (!db) { console.error('❌ loadDB: db is null - MongoDB not connected'); return getFallback(); }
   try {
     const cfg = await db.collection('config').findOne({ _id: 'main' });
+    if(!cfg) { console.error('❌ loadDB: no config doc found in MongoDB'); }
     const entries = await db.collection('entries').find({}).toArray();
+    console.log('✅ loadDB:', cfg?.supervisors?.length||0, 'sups,', entries.length, 'entries');
     return {
       supervisors: cfg.supervisors || [],
       projects: cfg.projects || [],
@@ -202,6 +204,19 @@ const server = http.createServer(async (req, res) => {
     }
     return sendJSON(res, { ok: false, error: 'بيانات خاطئة' }, 400);
   }
+  // Debug status endpoint
+  if (pathname === '/api/status' && req.method === 'GET') {
+    const cfg = db ? await db.collection('config').findOne({ _id: 'main' }).catch(()=>null) : null;
+    const entryCount = db ? await db.collection('entries').countDocuments().catch(()=>-1) : -1;
+    return sendJSON(res, {
+      mongo: !!db,
+      hasCfg: !!cfg,
+      supervisors: cfg?.supervisors?.length || 0,
+      entries: entryCount,
+      mongoUri: process.env.MONGO_URI ? 'env' : 'hardcoded'
+    });
+  }
+
   if (pathname === '/api/db' && req.method === 'GET') {
     const data = await loadDB();
     const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [] };
