@@ -737,15 +737,12 @@ async function restoreSession(){
 
 // LOGIN
 async function start(){
-  // Show login immediately — don't wait for server
   document.getElementById('lview').style.display='flex';
-
-  // Reset all budgets to 0 on first load
-  if(!localStorage.getItem('budgets_reset_v2')){
-    await api('reset-budgets','POST',{}).catch(()=>{});
-    localStorage.setItem('budgets_reset_v2','1');
+  // Load DB with retry (Render cold start can take 30s)
+  for(let i=0;i<3;i++){
+    try{const r=await api('/api/db');if(r&&r.supervisors){DB=r;break;}}
+    catch(e){if(i<2)await new Promise(r=>setTimeout(r,2000));}
   }
-  try{DB=await api('/api/db');}catch(e){}
   // Load contracts from server (sync across browsers)
   try{
     const cr=await api('/api/contracts');
@@ -4547,6 +4544,101 @@ function rSales(){
     </div>
     `}
   `;
+}
+
+
+async function pickSalesFile(input){
+  const file=input.files[0];if(!file)return;
+  const isPdf=file.type==='application/pdf';
+  const status=document.getElementById('sales-ai-status');
+  const icon=document.getElementById('sales-icon');
+  const txt=document.getElementById('sales-txt');
+  if(status)status.style.display='block';
+  if(icon)icon.textContent='⧗';
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const b64=ev.target.result.split(',')[1];
+    try{
+      const res=await api('/api/analyze','POST',{b64,isPdf,text:'invoice: extract supplier, invoiceNo, date(YYYY-MM-DD), subtotal, taxRate, taxAmt, total. JSON only.'});
+      if(res.error)throw new Error(res.error);
+      if(res.supplier)document.getElementById('s-client').value=res.supplier;
+      if(res.invoiceNo)document.getElementById('s-inv-no').value=res.invoiceNo;
+      if(res.date)document.getElementById('s-date').value=res.date;
+      if(res.subtotal)document.getElementById('s-subtotal').value=res.subtotal;
+      if(res.taxRate)document.getElementById('s-taxrate').value=res.taxRate;
+      calcSalesVat();
+      if(status)status.innerHTML='<span style="color:#34d399">✅ تم استخراج البيانات</span>';
+      if(icon)icon.textContent='✅';if(txt)txt.textContent=file.name;
+    }catch(e){
+      if(status)status.innerHTML='<span style="color:#f87171">❌ '+e.message+'</span>';
+      if(icon)icon.textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveSalesInvoice(){
+  const invoiceNo=(document.getElementById('s-inv-no')?.value||'').trim();
+  const date=document.getElementById('s-date')?.value||today();
+  const client=(document.getElementById('s-client')?.value||'').trim();
+  const project=document.getElementById('s-proj')?.value||'';
+  const subtotal=parseFloat(document.getElementById('s-subtotal')?.value)||0;
+  const taxRate=parseFloat(document.getElementById('s-taxrate')?.value)||0;
+  const payMethod=document.getElementById('s-paymethod')?.value||'cash';
+  const notes=(document.getElementById('s-notes')?.value||'').trim();
+  const err=document.getElementById('s-err');
+  if(!client||!subtotal){if(err){err.style.display='block';err.textContent='⚠️ أدخل اسم العميل والمبلغ';}return;}
+  const taxAmt=subtotal*taxRate/100;
+  const total=subtotal+taxAmt;
+  const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  if(invoiceNo){const dup=sales.find(s=>s.invoiceNo&&s.invoiceNo.toLowerCase()===invoiceNo.toLowerCase());if(dup){if(err){err.style.display='block';err.textContent='⚠️ رقم الفاتورة مسجل مسبقاً';}return;}}
+  sales.push({id:'s-'+Date.now(),invoiceNo:invoiceNo||'S-'+Date.now(),date,client,project,subtotal,taxRate,taxAmt,total,payMethod,notes,createdAt:new Date().toISOString()});
+  localStorage.setItem('kayan_sales',JSON.stringify(sales));
+  api('/api/sales','POST',{sales}).catch(()=>{});
+  if(err)err.style.display='none';
+  alert('✅ تم حفظ فاتورة المبيعات — '+fmt(total)+' ريال');
+  rSales();
+}
+
+function deleteSalesInvoice(id){
+  if(!confirm('حذف هذه الفاتورة؟'))return;
+  const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]').filter(s=>s.id!==id);
+  localStorage.setItem('kayan_sales',JSON.stringify(sales));
+  api('/api/sales','POST',{sales}).catch(()=>{});
+  rSales();
+}
+
+function printSaleInvoice(id){
+  const s=JSON.parse(localStorage.getItem('kayan_sales')||'[]').find(s=>s.id===id);if(!s)return;
+  const w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>'+s.invoiceNo+'</title><style>body{font-family:Tajawal,sans-serif;direction:rtl;padding:30px;font-size:13px;color:#000}table{width:100%;border-collapse:collapse;margin-top:12px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:8px;border:1px solid #ddd}.tot td{background:#e5e7eb;font-weight:800}</style></head><body>'
+    +'<h3 style="margin-bottom:4px">شركة كيان وبناء للمقاولات — فاتورة مبيعات</h3>'
+    +'<p style="color:#555;margin-bottom:14px">'+s.invoiceNo+' | '+s.date+'</p>'
+    +'<table style="margin-bottom:12px"><tr><td><b>العميل</b></td><td>'+s.client+'</td></tr>'+(s.project?'<tr><td><b>المشروع</b></td><td>'+s.project+'</td></tr>':'')+'</table>'
+    +(s.notes?'<p style="padding:8px;background:#f5f5f5;margin-bottom:12px">'+s.notes+'</p>':'')
+    +'<table><tr><th>البيان</th><th>المبلغ</th></tr>'
+    +'<tr><td>صافي</td><td>'+fmt(s.subtotal)+' ريال</td></tr>'
+    +'<tr><td>VAT '+s.taxRate+'%</td><td>'+fmt(s.taxAmt)+' ريال</td></tr>'
+    +'<tr class="tot"><td>الإجمالي</td><td style="color:#166534;font-size:16px">'+fmt(s.total)+' ريال</td></tr>'
+    +'</table></body></html>');
+  w.document.close();setTimeout(()=>w.print(),600);
+}
+
+function exportSalesPDF(){
+  const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  if(!sales.length){alert('لا توجد فواتير');return;}
+  const total=sales.reduce((a,s)=>a+(s.total||0),0);
+  const vat=sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>Sales</title><style>body{font-family:Tajawal,sans-serif;direction:rtl;padding:24px;font-size:12px;color:#000}table{width:100%;border-collapse:collapse}th{background:#000;color:#fff;padding:7px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:6px;border:1px solid #ddd}</style></head><body>'
+    +'<h2>تقرير فواتير المبيعات — '+now+'</h2>'
+    +'<p style="margin:8px 0">إجمالي: '+fmt(total)+' | VAT: '+fmt(vat)+'</p>'
+    +'<table><tr><th>تاريخ</th><th>عميل</th><th>VAT</th><th>إجمالي</th></tr>'
+    +sales.sort((a,b)=>a.date.localeCompare(b.date)).map(s=>'<tr><td>'+s.date+'</td><td>'+s.client+'</td><td>'+fmt(s.taxAmt)+'</td><td style="font-weight:700">'+fmt(s.total)+'</td></tr>').join('')
+    +'<tr style="background:#e5e7eb;font-weight:800"><td colspan="2">الإجمالي</td><td>'+fmt(vat)+'</td><td>'+fmt(total)+'</td></tr>'
+    +'</table></body></html>');
+  w.document.close();setTimeout(()=>w.print(),600);
 }
 
 function calcSalesVat(){
