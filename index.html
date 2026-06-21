@@ -1430,6 +1430,8 @@ function rInventoryMgr(){
     if(!bySup[it.supId]) bySup[it.supId]={supId:it.supId,items:[]};
     bySup[it.supId].items.push(it);
   });
+  const allReceives = DB.entries.filter(e=>e.type==='inventory_receive');
+  const allUses = DB.entries.filter(e=>e.type==='inventory_use');
 
   document.getElementById('mc').innerHTML = `
     <div class="ctitle">📦 مخزون المشرفين والعهدات</div>
@@ -1441,26 +1443,121 @@ function rInventoryMgr(){
       <div class="card" style="margin-bottom:10px">
         <div style="font-weight:800;color:#f5c842;font-size:14px;margin-bottom:12px">👷 ${supName}</div>
         ${projects.map(proj=>`
-          <div style="margin-bottom:10px">
+          <div style="margin-bottom:12px">
             <div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:6px">🏗️ ${proj}</div>
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;font-size:10px;font-weight:700;color:rgba(255,255,255,.4);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:4px">
-              <span>الصنف</span><span style="text-align:center">مستلم</span><span style="text-align:center">مستخدم</span><span style="text-align:center">عهدة</span>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;font-size:10px;font-weight:700;color:rgba(255,255,255,.4);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:4px">
+              <span>الصنف</span><span style="text-align:center">مستلم</span><span style="text-align:center">مستخدم</span><span style="text-align:center">عهدة</span><span></span>
             </div>
             ${sup.items.filter(it=>it.project===proj).map(it=>`
-              <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+              <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:center">
                 <div style="font-size:12px;font-weight:600">${it.name}</div>
                 <div style="text-align:center;font-size:12px;color:#70B5FF">${it.received} ${it.unit}</div>
                 <div style="text-align:center;font-size:12px;color:#f87171">${it.used} ${it.unit}</div>
                 <div style="text-align:center;font-size:12px;font-weight:700;color:${it.remaining<0?'#f87171':it.remaining===0?'rgba(255,255,255,.3)':'#34d399'}">${it.remaining} ${it.unit}</div>
+                <div style="display:flex;gap:4px;flex-shrink:0">
+                  <button onclick="editInventoryItem(${sup.supId},\'${proj}\',\'${it.name}\')" style="border:1px solid rgba(245,200,66,.3);border-radius:6px;padding:3px 7px;background:rgba(245,200,66,.1);color:#f5c842;cursor:pointer;font-size:11px">✏️</button>
+                  <button onclick="deleteInventoryItem(${sup.supId},\'${proj}\',\'${it.name}\')" style="border:1px solid rgba(255,80,80,.3);border-radius:6px;padding:3px 7px;background:rgba(255,80,80,.1);color:#f87171;cursor:pointer;font-size:11px">✕</button>
+                </div>
               </div>`).join('')}
           </div>`).join('')}
+        <details style="margin-top:6px">
+          <summary style="font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;padding:4px 0;list-style:none">▼ سجل الحركات التفصيلي</summary>
+          <div style="margin-top:8px">
+            ${[...allReceives,...allUses].filter(e=>e.supId==sup.supId).sort((a,b)=>b.id-a.id).map(e=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:11px">
+                <div>
+                  <span style="color:${e.type==='inventory_receive'?'#34d399':'#f87171'}">${e.type==='inventory_receive'?'📥 استلام':'📤 استخدام'}</span>
+                  <span style="color:rgba(255,255,255,.5);margin-right:6px">${e.project} · ${e.date}</span>
+                  <span style="color:rgba(255,255,255,.7)">${(e.inventoryItems||[]).map(it=>it.name+' ('+it.qty+' '+it.unit+')').join('، ')}</span>
+                </div>
+                <button onclick="deleteInvEntry(${e.id})" style="border:none;background:none;color:rgba(255,80,80,.5);cursor:pointer;font-size:13px;flex-shrink:0;margin-right:4px">✕</button>
+              </div>`).join('')||'<div style="color:rgba(255,255,255,.3);font-size:11px;padding:6px 0">لا توجد سجلات</div>'}
+          </div>
+        </details>
       </div>`;
     }).join('')}
+    <div id="inv-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;align-items:center;justify-content:center;padding:20px">
+      <div style="background:rgba(15,10,40,.97);border:1px solid rgba(245,200,66,.2);border-radius:16px;padding:20px;width:100%;max-width:360px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:#f5c842">✏️ تعديل المادة</div>
+        <div id="inv-edit-content"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button onclick="saveInvEdit()" style="flex:1;padding:10px;background:rgba(245,200,66,.2);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:8px;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:700">💾 حفظ</button>
+          <button onclick="document.getElementById('inv-edit-modal').style.display='none'" style="padding:10px 16px;background:transparent;color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15);border-radius:8px;cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء</button>
+        </div>
+      </div>
+    </div>
   `;
 }
 
+let _invEditData = null;
 
-// ── COST CENTER (مركز تكلفة المشروع) ──────────────────
+function editInventoryItem(supId, proj, itemName){
+  const allItems = getInventory(supId, proj);
+  const it = allItems.find(i=>i.name===itemName);
+  if(!it) return;
+  _invEditData = {supId, proj, itemName};
+  document.getElementById('inv-edit-content').innerHTML = `
+    <div class="fg"><label class="lbl">اسم المادة</label><input id="inv-edit-name" value="${it.name}" style="color:#fff;background:rgba(255,255,255,.08)"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div><label class="lbl" style="font-size:11px">إجمالي المستلم</label><input type="number" id="inv-edit-received" value="${it.received}" min="0" oninput="updateInvRemaining()"></div>
+      <div><label class="lbl" style="font-size:11px">إجمالي المستخدم</label><input type="number" id="inv-edit-used" value="${it.used}" min="0" oninput="updateInvRemaining()"></div>
+    </div>
+    <div class="fg"><label class="lbl">الوحدة</label><input id="inv-edit-unit" value="${it.unit||'وحدة'}" oninput="updateInvRemaining()"></div>
+    <div style="padding:8px 12px;background:rgba(52,211,153,.08);border-radius:8px;font-size:12px;display:flex;justify-content:space-between">
+      <span>المتبقي بعد التعديل:</span>
+      <strong id="inv-edit-remaining" style="color:#34d399">${it.received-it.used} ${it.unit}</strong>
+    </div>
+  `;
+  document.getElementById('inv-edit-modal').style.display='flex';
+}
+
+function updateInvRemaining(){
+  const r=parseFloat(document.getElementById('inv-edit-received')?.value)||0;
+  const u=parseFloat(document.getElementById('inv-edit-used')?.value)||0;
+  const unit=document.getElementById('inv-edit-unit')?.value||'';
+  const rem=document.getElementById('inv-edit-remaining');
+  if(rem){rem.textContent=(r-u)+' '+unit;rem.style.color=r-u<0?'#f87171':'#34d399';}
+}
+
+async function saveInvEdit(){
+  if(!_invEditData) return;
+  const {supId, proj, itemName} = _invEditData;
+  const newName = document.getElementById('inv-edit-name').value.trim()||itemName;
+  const newReceived = parseFloat(document.getElementById('inv-edit-received').value)||0;
+  const newUsed = parseFloat(document.getElementById('inv-edit-used').value)||0;
+  const newUnit = document.getElementById('inv-edit-unit').value.trim()||'وحدة';
+  const current = getInventory(supId, proj).find(i=>i.name===itemName);
+  if(!current){document.getElementById('inv-edit-modal').style.display='none';return;}
+  const receivedDiff = newReceived - current.received;
+  const usedDiff = newUsed - current.used;
+  const supName = DB.supervisors.find(s=>s.id==supId)?.name||'';
+  if(Math.abs(receivedDiff)>0.01){
+    await api('/api/entries','POST',{supId,supName,project:proj,type:'inventory_receive',desc:'تعديل: '+newName,date:today(),total:0,inventoryItems:[{name:newName,qty:receivedDiff,unit:newUnit}]});
+  }
+  if(Math.abs(usedDiff)>0.01){
+    await api('/api/entries','POST',{supId,supName,project:proj,type:'inventory_use',desc:'تعديل: '+newName,date:today(),total:0,inventoryItems:[{name:newName,qty:usedDiff,unit:newUnit}]});
+  }
+  DB=await api('/api/db');
+  document.getElementById('inv-edit-modal').style.display='none';
+  _invEditData=null;
+  rInventoryMgr();
+}
+
+async function deleteInventoryItem(supId, proj, itemName){
+  if(!confirm('حذف كل سجلات "'+itemName+'" من مخزون هذا المشرف في المشروع؟'))return;
+  const toDelete=DB.entries.filter(e=>(e.type==='inventory_receive'||e.type==='inventory_use')&&e.supId==supId&&e.project===proj&&(e.inventoryItems||[]).some(it=>it.name===itemName));
+  for(const e of toDelete) await api('/api/entries/'+e.id,'DELETE');
+  DB=await api('/api/db');
+  rInventoryMgr();
+}
+
+async function deleteInvEntry(id){
+  if(!confirm('حذف هذا السجل؟'))return;
+  await api('/api/entries/'+id,'DELETE');
+  DB=await api('/api/db');
+  rInventoryMgr();
+}
+
 
 function rCostCenterOwner(){
   const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
