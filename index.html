@@ -733,49 +733,77 @@ async function restoreSession(){
 
 // LOGIN
 async function start(){
-  // 1. Try to restore session immediately (no server needed)
-  const sess = localStorage.getItem('ks');
-  if(sess){
+  // Restore session immediately if exists
+  const _ks=localStorage.getItem('ks');
+  if(_ks){
     try{
-      const sd = JSON.parse(sess);
-      if(sd&&sd.ROLE&&sd.name){
-        CU={id:sd.supId||0, name:sd.name||'', budget:sd.budget||0};
-        ROLE=sd.ROLE;
-        // Show app immediately
+      const _sd=JSON.parse(_ks);
+      if(_sd&&_sd.ROLE&&_sd.name){
+        CU={id:_sd.supId||0,name:_sd.name,budget:_sd.budget||0};
+        ROLE=_sd.ROLE;
         document.getElementById('lview').style.display='none';
         showApp();
-        // Load fresh data in background
-        api('/api/db').then(d=>{
-          if(d&&d.supervisors){
-            DB=d;
-            try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else rHome();}catch(e){}
-          }
-        }).catch(()=>{});
-        // Load localStorage data
+        api('/api/db').then(d=>{if(d&&d.supervisors){DB=d;try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else rHome();}catch(e){}}}).catch(()=>{});
         api('/api/contracts').then(cr=>{if(cr&&cr.contracts&&cr.contracts.length>0)localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));}).catch(()=>{});
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
-        api('/api/sales-returns').then(srr=>{if(srr&&srr.returns&&srr.returns.length>0)localStorage.setItem('kayan_sales_returns',JSON.stringify(srr.returns));}).catch(()=>{});
         return;
       }
-    }catch(e){ localStorage.removeItem('ks'); }
+    }catch(e){localStorage.removeItem('ks');}
   }
-
-  // 2. No session — show login and load DB
+  // No session — show login
   document.getElementById('lview').style.display='flex';
-  const lerr = document.getElementById('lerr');
-  if(lerr){ lerr.style.display='block'; lerr.style.color='#f5c842'; lerr.textContent='⏳ جاري الاتصال...'; }
 
+  // Show loading indicator on login screen
+  const lerr = document.getElementById('lerr');
+  if(lerr){ lerr.style.display='block'; lerr.style.color='#f5c842'; lerr.textContent='⏳ جاري الاتصال بالسيرفر...'; }
+
+  // Load DB with retries (Render cold start = up to 50s)
+  let loaded = false;
   for(let i=0; i<6; i++){
     try{
       const r = await api('/api/db');
-      if(r && r.supervisors){ DB=r; break; }
+      if(r && r.supervisors){ DB=r; loaded=true; break; }
     }catch(e){}
     if(i<5){
-      if(lerr) lerr.textContent='⏳ جاري الاتصال... ('+(i+1)+'/6)';
+      if(lerr) lerr.textContent = '⏳ جاري الاتصال... ('+(i+1)+'/6) قد يستغرق 30 ثانية في أول تشغيل';
       await new Promise(r=>setTimeout(r,8000));
     }
   }
-  if(lerr) lerr.style.display='none';
+
+  if(!loaded){
+    if(lerr){ lerr.style.color='#f87171'; lerr.textContent='⚠️ تعذر الاتصال بالسيرفر — تأكد أن ahmed-ezz.onrender.com يعمل'; }
+    return;
+  }
+
+  if(lerr){ lerr.style.display='none'; }
+
+  // Load contracts, sales, sales returns from server
+  try{
+    const cr=await api('/api/contracts');
+    if(cr&&cr.contracts&&cr.contracts.length>0){
+      localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));
+    }
+  }catch(e){}
+  try{
+    const sr=await api('/api/sales');
+    if(sr&&sr.sales&&sr.sales.length>0){
+      localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));
+    }
+  }catch(e){}
+  try{
+    const srr=await api('/api/sales-returns');
+    if(srr&&srr.returns&&srr.returns.length>0){
+      localStorage.setItem('kayan_sales_returns',JSON.stringify(srr.returns));
+    }
+  }catch(e){}
+
+  // Try to restore session
+  const ok=await restoreSession().catch(()=>false);
+  if(ok&&CU&&ROLE){
+    document.getElementById('lview').style.display='none';
+    showApp();
+  }
+  // lview already visible — user can log in manually
 }
 
 
