@@ -4917,28 +4917,7 @@ async function analyzeBulkReturns(input){
   reader.onload=async ev=>{
     const b64=ev.target.result.split(',')[1];
     try{
-      const prompt = `أنت محاسب خبير. هذه وثيقة تحتوي على بيانات مرتجعات مبيعات (قد تكون جدول Excel أو PDF أو صورة تقرير).
-
-مهمتك: استخرج كل صف/مرتجع كعنصر منفصل في المصفوفة.
-
-لكل مرتجع استخرج هذه الحقول:
-- invoiceNo: رقم إشعار المرتجع (string)
-- date: التاريخ بصيغة YYYY-MM-DD
-- client: اسم العميل أو الشركة (string)
-- origInvoiceNo: رقم الفاتورة الأصلية المرتجعة (string، اتركه فارغاً إذا لم تجد)
-- subtotal: المبلغ قبل الضريبة كرقم (number)
-- taxRate: نسبة الضريبة كرقم (number، افتراضي 15)
-- taxAmt: مبلغ الضريبة كرقم (number)
-- total: إجمالي المرتجع كرقم (number)
-- reason: سبب الإرجاع (string، اتركه فارغاً إذا لم تجد)
-
-قواعد مهمة:
-1. تجاهل صفوف الإجمالي والمجاميع
-2. الأرقام بالفواصل مثل 1,500 = 1500
-3. إذا لم تجد subtotal احسبه = total - taxAmt
-
-أخرج JSON نقي فقط:
-{"invoices":[{"invoiceNo":"","date":"","client":"","origInvoiceNo":"","subtotal":0,"taxRate":15,"taxAmt":0,"total":0,"reason":""}]}\`;
+      const prompt = 'أنت محاسب خبير. هذه وثيقة تحتوي على بيانات مرتجعات مبيعات (Excel أو PDF). مهمتك: استخرج كل صف أو مرتجع كعنصر منفصل. لكل مرتجع: invoiceNo (رقم المرتجع)، date (YYYY-MM-DD)، client (اسم العميل)، origInvoiceNo (رقم الفاتورة الأصلية)، subtotal (المبلغ قبل الضريبة رقم)، taxRate (نسبة الضريبة رقم افتراضي 15)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، reason (سبب). تجاهل صفوف الإجمالي. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","client":"","origInvoiceNo":"","subtotal":0,"taxRate":15,"taxAmt":0,"total":0,"reason":""}]}';
       const res=await api('/api/analyze','POST',{b64,isPdf,text:prompt});
       if(res.error)throw new Error(res.error);
       let invoices=res.invoices||res.items||[];
@@ -5024,3 +5003,6 @@ function printSalesReturn(id){
     +'</body></html>';
   const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
 }
+</script>
+</body>
+</html>
