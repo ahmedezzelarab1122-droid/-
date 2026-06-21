@@ -91,7 +91,7 @@ ${text ? 'نص إضافي: ' + text : ''}`;
       : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
     : [{ type: 'text', text: prompt }];
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 1500, messages: [{ role: 'user', content }] });
+    const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 4000, messages: [{ role: 'user', content }] });
     const req = https.request({
       hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
@@ -103,8 +103,9 @@ ${text ? 'نص إضافي: ' + text : ''}`;
           const json = JSON.parse(data);
           if (json.error) return reject(new Error(json.error.message));
           const raw = json.content.map(x => x.text || '').join('');
-          const match = raw.match(/\{[\s\S]*\}/);
-          if (!match) return reject(new Error('لم يُستخرج JSON'));
+          // Match either {} object or [] array or {"invoices":[...]}
+          const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+          if (!match) return reject(new Error('لم يُستخرج JSON: ' + raw.slice(0,200)));
           let parsed = JSON.parse(match[0]);
           const fixNum = v => { if (typeof v === 'string') { v = v.replace(/,/g, '.').replace(/[^0-9.]/g, ''); } return parseFloat(v) || 0; };
           parsed.subtotal = fixNum(parsed.subtotal);
