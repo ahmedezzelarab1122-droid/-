@@ -649,10 +649,12 @@ let DB={supervisors:[],projects:[],entries:[]};
 let CU=null,ROLE=null,SR=null;
 let imgB64=null,imgSrc=null,parsed=null,fType='all';
 
+const SERVER='https://ahmed-ezz.onrender.com';
 async function api(p,m='GET',b=null){
   const o={method:m,headers:{'Content-Type':'application/json'}};
   if(b)o.body=JSON.stringify(b);
-  const r=await fetch(p,o);
+  const url=p.startsWith('http')?p:SERVER+p;
+  const r=await fetch(url,o);
   return r.json();
 }
 const fmt=n=>{const v=Number(n||0);return v.toLocaleString('en-US',{minimumFractionDigits:v%1===0?0:2,maximumFractionDigits:2});};
