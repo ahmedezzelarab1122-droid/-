@@ -1,551 +1,5204 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
-const PORT = process.env.PORT || 10000;
-const CLOUDINARY_CLOUD = process.env.CLOUDINARY_CLOUD || 'dqgjqmwpy';
-const CLOUDINARY_KEY = process.env.CLOUDINARY_KEY || '458945749658771';
-const CLOUDINARY_SECRET = process.env.CLOUDINARY_SECRET || 'kmhpQlDaDsfxi04i5L7MZvvQCGl';
-const API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ahmedezzelarab1122_db_user:D6hxMuamTPmqKkUO@cluster0.ukmtckx.mongodb.net/kayan_expenses?appName=Cluster0';
-const { MongoClient } = require('mongodb');
-let mongoClient = null;
-let db = null;
-async function connectMongo() {
-  try {
-    mongoClient = new MongoClient(MONGO_URI);
-    await mongoClient.connect();
-    db = mongoClient.db('kayan_expenses');
-    console.log('✅ MongoDB connected');
-    const cfg = await db.collection('config').findOne({ _id: 'main' });
-    if (!cfg) {
-      await db.collection('config').insertOne({
-        _id: 'main',
-        supervisors: [{ id: 1, name: 'المشرف', budget: 10000, password: '1234' }],
-        projects: ['المشروع الأول'],
-        managerPassword: 'admin123',
-        nextId: 1,
-        laborRates: { company: 100, external: 150 },
-        companyWorkers: [],
-        ownerPassword: 'owner123'
-      });
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#b8860b">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/favicon.ico">
+<title>مصروفات كيان</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+if(window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap');
+
+:root{
+  --gold:#f5c842;--gold2:rgba(245,200,66,.15);
+  --primary:#f5c842;
+  --r:#f87171;--b:#70B5FF;
+  --g:#34d399;
+  --sh:0 4px 20px rgba(0,0,0,.4);
+  --sh2:0 8px 40px rgba(0,0,0,.5);
+  --sh3:0 16px 60px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{
+  height:100%;font-family:'Tajawal',sans-serif;direction:rtl;
+  color:#FFFFFF;font-size:14px;-webkit-font-smoothing:antialiased;
+}
+
+body{
+  height:100%;font-family:'Tajawal',sans-serif;direction:rtl;
+  color:#FFFFFF;font-size:14px;-webkit-font-smoothing:antialiased;
+  background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+  background-attachment:fixed;
+  min-height:100vh;
+}
+
+@keyframes sp{to{transform:rotate(360deg)}}
+@keyframes rise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{opacity:0;transform:scale(.95)}100%{opacity:1;transform:scale(1)}}
+
+/* DARK TOGGLE = same look */
+[data-theme=dark] body{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);background-attachment:fixed;}
+
+/* ══ TOPBAR ══ */
+.topbar{
+  background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  padding:.6rem 1rem;display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:200;
+
+  backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+  padding:11px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:200;
+  
+  box-shadow:0 2px 20px rgba(0,0,0,.4);
+}
+
+.tabs{display:none!important}
+
+/* ══ BOTTOM NAV ══ */
+.bottom-nav{
+  position:fixed;top:0;right:-280px;width:260px;z-index:500;height:100vh;
+  background:rgba(15,10,40,0.97);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-left:1px solid rgba(245,200,66,.15);
+  border-radius:0;
+  display:flex!important;flex-direction:column;
+  padding:0;
+  transition:right .3s ease;
+  box-shadow:-4px 0 30px rgba(0,0,0,.5);
+  overflow-y:auto;display:flex;flex-direction:column;
+}
+.bottom-nav.open{right:0}
+.nav-overlay{position:fixed;inset:0;z-index:499;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);display:none;opacity:0;transition:opacity .25s;}
+.nav-overlay.open{display:block;opacity:1}
+.bottom-nav-item{
+  display:flex;flex-direction:row;align-items:center;
+  padding:12px 16px;gap:12px;
+  cursor:pointer;border:none;background:transparent;
+  font-family:'Tajawal',sans-serif;
+  transition:background .15s;
+  border-right:3px solid transparent;
+  width:100%;text-align:right;
+  color:rgba(255,255,255,.7);
+}
+.bottom-nav-item:hover{background:rgba(255,255,255,.07)}
+.bottom-nav-item:active{transform:scale(.97)}
+.bnav-icon{
+  width:38px;height:38px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.12);
+}
+.bnav-icon span{font-size:20px;line-height:1}
+.bottom-nav-item.active{
+  background:rgba(245,200,66,.12);
+  border-left:3px solid #f5c842;
+}
+.bottom-nav-item.active .bnav-icon{
+  background:rgba(245,200,66,.2);
+  border-color:rgba(245,200,66,.4);
+  box-shadow:0 0 10px rgba(245,200,66,.15);
+}
+.bottom-nav-item>span:last-child{font-size:13px;font-weight:500;color:rgba(255,255,255,.75)}
+.bottom-nav-item.active>span:last-child{color:#FFFFFF;font-weight:700}
+.menu-btn{border:1px solid rgba(245,200,66,.3);border-radius:9px;padding:6px 12px;background:rgba(245,200,66,.1);cursor:pointer;font-size:18px;color:#f5c842;transition:.15s;font-weight:700;}
+.menu-btn:active{transform:scale(.93)}
+
+/* ══ FAB ══ */
+.fab{
+  display:none!important;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:300;
+  width:52px;height:52px;border-radius:16px;
+  background:linear-gradient(145deg,#e8b830,#f5c842);
+  color:#001820;border:none;cursor:pointer;
+  box-shadow:var(--shg),0 2px 10px rgba(0,0,0,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:900;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
+}
+.fab:active{transform:translateX(-50%) scale(.87)}
+
+/* ══ MAIN ══ */
+#mc{padding:12px 14px;max-width:640px;margin:0 auto;padding-bottom:30px}
+
+/* ══ HERO ══ */
+.hero-card{
+  background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(245,200,66,.25);
+  border-radius:22px;padding:22px 20px;margin-bottom:13px;
+  box-shadow:var(--sh2),0 0 0 1px rgba(245,200,66,.08);
+  animation:pop .35s ease;position:relative;overflow:hidden;
+}
+.hero-card::before{
+  content:'';position:absolute;
+  width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle,rgba(245,200,66,.15) 0%,transparent 70%);
+  top:-70px;right:-50px;pointer-events:none;
+}
+
+/* ══ CARDS — زجاج مصنفر ══ */
+.card{
+  background:transparent;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:none;
+  border-radius:18px;padding:15px;margin-bottom:10px;
+  box-shadow:var(--sh);
+  animation:rise .28s ease;
+  color:#FFFFFF;
+}
+.ctitle{
+  font-size:11px;font-weight:700;color:rgba(255,255,255,.75);
+  margin-bottom:12px;letter-spacing:.5px;text-transform:uppercase;
+  display:flex;align-items:center;gap:7px;
+  padding-bottom:10px;
+}
+.ctitle::before{
+  content:'';width:3px;height:12px;
+  background:linear-gradient(180deg,#e8b830,#f5c842);
+  border-radius:2px;flex-shrink:0;
+}
+
+/* ══ STATS ══ */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px}
+.stat{
+  background:transparent;
+  border:none;
+  border-top:2px solid #f5c842;
+  border-radius:14px;padding:13px 12px;
+  color:#FFFFFF;position:relative;
+}
+.stat::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--g1),var(--g2),transparent);
+}
+.sl{font-size:11px;color:rgba(255,255,255,.5);margin-bottom:4px;font-weight:500;line-height:1.3}
+.sv{font-size:20px;font-weight:800;color:#FFFFFF;letter-spacing:-.3px}
+
+/* ══ INPUTS ══ */
+label.lbl{font-size:12px;font-weight:700;color:rgba(255,255,255,.75);display:block;margin-bottom:5px}
+input,select,textarea{
+  width:100%;padding:12px 14px;
+  border-radius:11px;
+  font-size:14px;font-family:'Tajawal',sans-serif;
+  color:#FFFFFF!important;
+  background:rgba(255,255,255,.08)!important;
+  outline:none;direction:rtl;
+  transition:border-color .18s,box-shadow .18s,background .18s;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:#f5c842;
+  background:rgba(255,255,255,.13)!important;
+  box-shadow:0 0 0 3px rgba(245,200,66,.15);
+}
+input::placeholder,textarea::placeholder{color:rgba(255,255,255,.35)!important}
+select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%23f5c842' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:left 12px center;
+  padding-left:32px;-webkit-appearance:none;appearance:none;
+}
+select option{background:#001820!important;color:#FFFFFF!important}
+textarea{resize:none;min-height:70px}
+.fg{margin-bottom:12px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+input[type="checkbox"]{width:22px!important;height:22px!important;accent-color:#f5c842!important;cursor:pointer;flex-shrink:0}
+
+/* ══ BUTTONS ══ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:13px 20px;border-radius:12px;
+  font-size:14px;font-weight:700;cursor:pointer;
+  border:1.5px solid rgba(255,255,255,.2);
+  border-top:1.5px solid rgba(255,255,255,.3);
+  font-family:'Tajawal',sans-serif;width:100%;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s;
+  letter-spacing:.2px;
+  box-shadow:0 4px 16px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);
+}
+.btn:active{transform:scale(.95)}
+.bp{background:linear-gradient(135deg,rgba(245,200,66,.35),rgba(245,200,66,.25));color:#FFFFFF;border:1.5px solid rgba(245,200,66,.45);border-top:1.5px solid rgba(0,200,232,.7);box-shadow:0 4px 20px rgba(245,200,66,.2),inset 0 1px 0 rgba(255,255,255,.2)}
+.bp:hover{box-shadow:0 6px 28px rgba(245,200,66,.4)}
+.bs{background:transparent;color:#FFFFFF;border:1px solid var(--w30);backdrop-filter:blur(10px)}
+.bd{background:rgba(255,100,100,.12);color:var(--rd);width:auto;border:1px solid rgba(255,112,112,.25)}
+.bx{background:linear-gradient(135deg,#1A9950,#2ABF65);color:#fff;box-shadow:0 3px 14px rgba(42,191,101,.3)}
+.brow{display:flex;gap:8px;margin-top:11px}
+.brow .btn{flex:1}
+
+/* ══ MISC ══ */
+.txr{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 0}
+.txr:last-child{border-bottom:none}
+.av{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0}
+.sc{background:transparent;border:none;border-radius:14px;padding:12px 14px;margin-bottom:9px}
+.shdr{
+  font-size:11px;font-weight:700;color:rgba(255,255,255,.5);
+  margin-bottom:9px;margin-top:4px;letter-spacing:.6px;text-transform:uppercase;
+  display:flex;align-items:center;gap:6px;
+}
+.shdr::before{content:'';width:18px;height:1.5px;background:linear-gradient(90deg,var(--g1),transparent);border-radius:1px}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:11px 0}
+.srow:last-child{border-bottom:none}
+.xb{border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:17px;padding:5px;border-radius:8px;transition:.15s}
+.xb:hover{color:var(--rd);background:rgba(255,100,100,.12)}
+.ftabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.ftab{padding:7px 14px;border-radius:99px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);backdrop-filter:blur(10px);font-family:'Tajawal',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;color:rgba(255,255,255,.75);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.ftab.on{background:rgba(245,200,66,.2);color:#1a1200;border:1px solid rgba(245,200,66,.45);font-weight:700;box-shadow:0 2px 10px rgba(245,200,66,.2),inset 0 1px 0 rgba(255,255,255,.2)}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
+.bpt{background:rgba(61,214,140,.12);color:var(--gr)}
+.btx{background:rgba(112,181,255,.12);color:var(--bl)}
+.bot{background:transparent;color:rgba(255,255,255,.75)}
+.bcs{background:rgba(245,200,66,.15);color:#f5c842}
+.btr{background:rgba(167,139,250,.18);color:#C4B5FD}
+.blabor{background:rgba(61,214,140,.12);color:var(--gr)}
+.btransfer{background:rgba(112,181,255,.12);color:var(--bl)}
+.ar{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.ar input{flex:1;min-width:80px}
+.ar .btn{width:auto;padding:10px 14px}
+.empty{text-align:center;padding:3rem 1rem;color:rgba(255,255,255,.5);font-size:14px}
+.sep{height:0;margin:8px 0}
+.chip{background:transparent;border:none;border-radius:10px;padding:9px 12px;margin-bottom:7px}
+.ok{background:rgba(61,214,140,.12);border-radius:11px;padding:12px 14px;font-size:13px;color:var(--gr);display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:600;border:1px solid rgba(61,214,140,.25)}
+.err{background:rgba(255,100,100,.12);border-radius:11px;padding:12px 14px;font-size:13px;color:var(--rd);margin-bottom:10px;display:none;font-weight:600;border:1px solid rgba(255,112,112,.25)}
+.spin{width:30px;height:30px;border:3px solid rgba(255,255,255,.15);border-top-color:#f5c842;border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 13px}
+.ldg{text-align:center;padding:3rem;display:none}
+.drop{border:2px dashed rgba(245,200,66,.3);border-radius:16px;padding:26px 16px;text-align:center;cursor:pointer;background:rgba(245,200,66,.06);backdrop-filter:blur(10px);margin-bottom:12px;transition:.2s}
+.drop:hover{background:rgba(245,200,66,.12);border-color:#f5c842}
+.iprev{width:100%;border-radius:14px;max-height:175px;object-fit:cover;margin-bottom:12px;display:none;border:2px solid rgba(245,200,66,.35)}
+.warn{background:rgba(255,100,100,.12);color:var(--rd);border-radius:12px;padding:11px 14px;font-size:12px;font-weight:700;margin-bottom:12px;border-right:3px solid var(--rd)}
+.pbar{height:5px;background:transparent;border-radius:99px;overflow:hidden}
+.pf{height:100%;border-radius:99px;transition:width .5s ease}
+.fr{display:flex;justify-content:space-between;align-items:center;padding:11px 0;font-size:13px;color:#FFFFFF}
+.fr:last-child{border-bottom:none}
+.tbox{background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);backdrop-filter:blur(16px);border:1px solid rgba(245,200,66,.25);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:11px;box-shadow:var(--sh2)}
+
+/* ══ LOGIN ══ */
+.lw{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);}
+.lc{
+  background:rgba(15,10,40,0.85);
+  backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+  border:1px solid rgba(245,200,66,.2);
+  border-radius:22px;padding:2.4rem 2rem;width:100%;max-width:380px;
+  box-shadow:var(--sh3),0 0 60px rgba(245,200,66,.08);
+  animation:pop .4s ease;position:relative;z-index:1;color:#FFFFFF;
+}
+.lc::before{
+  content:'';position:absolute;width:250px;height:250px;border-radius:50%;
+  background:radial-gradient(circle,rgba(245,200,66,.12) 0%,transparent 70%);
+  top:-80px;right:-60px;pointer-events:none;
+}
+.rg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px}
+.rb{
+  padding:14px 8px;border-radius:14px;
+  cursor:pointer;text-align:center;background:transparent;
+  font-family:'Tajawal',sans-serif;transition:.18s;backdrop-filter:blur(10px);
+}
+.rb:hover,.rb.sel{
+  border-color:#f5c842;background:var(--ga);
+  transform:translateY(-2px);box-shadow:var(--shg);
+}
+.rb svg{display:block;margin:0 auto 6px}
+.rb span{font-size:11px;font-weight:700;color:rgba(255,255,255,.75)}
+.rb.sel span{color:#f5c842}
+
+#swrap>div{
+  border-radius:22px 22px 0 0!important;
+  background:rgba(0,20,35,.85)!important;
+  backdrop-filter:blur(30px)!important;
+  
+}
+
+/* ══ FORCE GLASS EVERYWHERE ══ */
+
+/* Base: everything in mc is glass */
+#mc,#mc * {
+  --local-bg: rgba(255,255,255,.10);
+}
+
+/* All block containers get glass */
+
+
+/* Stat cards get cyan top border */
+#mc .stat {
+  border-top:2px solid #f5c842 !important;
+}
+
+
+
+/* ALL text white */
+#mc,#mc *:not(canvas) {
+  color:#FFFFFF !important;
+}
+
+/* Colored exceptions - must come AFTER the white rule */
+#mc .bpt { background:rgba(61,214,140,.15)!important; color:#3DD68C!important }
+#mc .btx { background:rgba(112,181,255,.15)!important; color:#70B5FF!important }
+#mc .blabor { background:rgba(61,214,140,.15)!important; color:#3DD68C!important }
+#mc .btransfer { background:rgba(112,181,255,.15)!important; color:#70B5FF!important }
+#mc .bot { background:rgba(255,255,255,.10)!important; color:rgba(255,255,255,.7)!important }
+#mc .bcs { background:rgba(245,200,66,.15)!important; color:#f5c842!important }
+
+/* Red */
+#mc [style*="color:#D93025"],#mc [style*="color:#C42B1C"],
+#mc [style*="color:#FF7070"],#mc [style*="color:var(--rd"],
+#mc [style*="color:var(--r)"],#mc [style*="color:var(--red"] {
+  color:#FF8080 !important
+}
+/* Green */
+#mc [style*="color:#1A7A3C"],#mc [style*="color:#1A6B38"],
+#mc [style*="color:#3DD68C"],#mc [style*="color:var(--gr"],
+#mc [style*="color:var(--green"] {
+  color:#3DD68C !important
+}
+/* Blue */
+#mc [style*="color:#1A50A8"],#mc [style*="color:#70B5FF"],
+#mc [style*="color:var(--bl"],#mc [style*="color:var(--blue"] {
+  color:#70B5FF !important
+}
+/* Cyan */
+#mc [style*="color:#f5c842"],#mc [style*="color:var(--g1"] {
+  color:#f5c842 !important
+}
+
+/* Table headers */
+#mc [style*="background:#3D"],
+#mc [style*="background:transparent"] {
+  background:rgba(0,0,0,.45) !important;
+  
+}
+
+/* Total rows */
+#mc [style*="background:transparent"],
+#mc [style*="background:transparent"],
+#mc [style*="background:var(--gold"] {
+  background:rgba(245,200,66,.1) !important;
+}
+
+/* Alternating rows */
+#mc [style*="background:transparent"],
+#mc [style*="background:transparent"],
+#mc [style*="background:transparent"] {
+  background:transparent !important;
+}
+
+/* Inputs */
+#mc input:not([type=checkbox]),
+#mc select,
+#mc textarea {
+  background:rgba(255,255,255,.08)!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  color:#FFFFFF!important;
+}
+
+/* Buttons in mc keep their styles */
+#mc .btn { color:inherit!important }
+#mc .bp { color:#1a1200!important }
+#mc button[style*="background:rgba(255,100,100,.12)"] {
+  background:rgba(255,112,112,.15)!important;
+  border:1px solid rgba(255,112,112,.25)!important;
+  color:#FF8080!important;
+}
+
+/* Progress bars */
+.pbar { background:rgba(255,255,255,.10)!important }
+
+/* Hero card */
+.hero-card,.hero-card * { color:#FFFFFF!important }
+
+/* Scan panel */
+#swrap * { color:#FFFFFF!important }
+#swrap input,#swrap select,#swrap textarea {
+  background:rgba(255,255,255,.08)!important;
+  border-color:rgba(255,255,255,.18)!important;
+  color:#FFFFFF!important;
+}
+
+
+
+/* ══ UNIVERSAL GLASS FOR ALL ELEMENTS ══ */
+
+/* All buttons inside mc and swrap */
+#mc button, #swrap button, .lc button {
+  border: 1.5px solid rgba(255,255,255,.2) !important;
+  border-top: 1.5px solid rgba(255,255,255,.3) !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.1) !important;
+  transition: transform .15s, box-shadow .15s !important;
+}
+#mc button:active, #swrap button:active { transform: scale(.96) !important; }
+
+/* Supervisor/inline cards - glass border */
+#mc > [style*="backdrop-filter"],
+#mc > [style*="border-radius:16px"],
+#mc > [style*="border-radius:18px"],
+#mc > [style*="border-radius:22px"] {
+  border: 1.5px solid rgba(255,255,255,.15) !important;
+  border-top: 1.5px solid rgba(255,255,255,.25) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+/* Table header rows */
+#mc [style*="background:rgba(0,0,0,.4"],
+#mc [style*="background:rgba(0,0,0,.5"] {
+  border: 1px solid rgba(255,255,255,.1) !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+/* Warning/alert boxes */
+#mc [style*="background:rgba(255,100,100"],
+#mc [style*="background:rgba(255,112,112"] {
+  border: 1px solid rgba(255,100,100,.35) !important;
+  border-right: 3px solid #FF8080 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05) !important;
+}
+
+/* Info/cyan boxes */
+#mc [style*="background:rgba(0,200,232"] {
+  border: 1px solid rgba(245,200,66,.25) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+
+/* Green boxes */
+#mc [style*="background:rgba(61,214,140"],
+.ok {
+  border: 1px solid rgba(61,214,140,.3) !important;
+}
+
+/* All selects - glass */
+select {
+  backdrop-filter: blur(10px) !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.2) !important;
+}
+
+/* Bottom nav items - glass active */
+.bottom-nav-item.active .bnav-icon {
+  box-shadow: 0 2px 10px rgba(245,200,66,.2), inset 0 1px 0 rgba(255,255,255,.15) !important;
+}
+
+/* FAB glass */
+.fab {
+  box-shadow: 0 4px 20px rgba(245,200,66,.25), inset 0 1px 0 rgba(255,255,255,.2) !important;
+}
+
+/* Login card glass */
+.lc {
+  border: 1.5px solid rgba(255,255,255,.15) !important;
+  border-top: 1.5px solid rgba(255,255,255,.25) !important;
+  box-shadow: 0 16px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.1) !important;
+}
+
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="lview" class="lw" style="display:none">
+  <div class="lc">
+    <div style="text-align:center;margin-bottom:22px">
+      <img src="data:image/png;base64,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" style="width:120px;height:120px;object-fit:contain;margin-bottom:10px;background:transparent;border-radius:12px;padding:8px">
+      <div style="font-size:17px;font-weight:700;color:rgba(255,255,255,.9)">مصروفات كيان</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:3px">شركة كيان وبناء للمقاولات</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+      <button class="rb" id="rb-sup" onclick="selRole('supervisor')">
+        <div style="font-size:32px;margin-bottom:6px">👷</div>
+        <span>مشرف</span>
+      </button>
+      <button class="rb" id="rb-mgr" onclick="selRole('manager')">
+        <div style="font-size:32px;margin-bottom:6px">⚙️</div>
+        <span>مدير</span>
+      </button>
+      <button class="rb" id="rb-owner" onclick="selRole('owner')">
+        <div style="font-size:32px;margin-bottom:6px">👑</div>
+        <span>المالك</span>
+      </button>
+    </div>
+    <div class="fg" id="sup-grp" style="display:none">
+      <label class="lbl">اختر اسمك</label>
+      <select id="sup-sel"></select>
+    </div>
+    <div class="fg">
+      <label class="lbl">كلمة المرور</label>
+      <input type="password" id="pw-inp" placeholder="أدخل كلمة المرور" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="err" id="lerr"></div>
+    <button class="btn bp" onclick="doLogin()">دخول</button>
+  </div>
+</div>
+
+<!-- DRAWER OVERLAY -->
+<div class="bottom-nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+
+<!-- APP -->
+<div id="aview" style="display:none">
+  <div class="topbar">
+    <button class="menu-btn" onclick="openNav()">☰</button>
+    <span id="tbname" style="font-size:14px;font-weight:700;color:#FFFFFF;flex:1;text-align:right"></span>
+    <div style="display:flex;align-items:center;gap:8px">
+      
+      <span style="font-size:11px;color:rgba(255,255,255,.3)" id="top-date"></span>
+      <button id="ibtn" onclick="installApp()" style="display:none;border:1px solid rgba(245,200,66,.3);border-radius:9px;padding:5px 10px;background:rgba(245,200,66,.1);font-size:11px;color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:600">تثبيت</button>
+      <button id="fab-topbar" onclick="openScan()" style="display:none;border:none;border-radius:10px;width:34px;height:34px;background:linear-gradient(135deg,#e8b830,#f5c842);cursor:pointer;font-size:18px;color:#1a1200;align-items:center;justify-content:center;font-weight:900">➕</button>
+      <button onclick="doLogout()" style="border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 10px;background:rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:600">خروج</button>
+    </div>
+  </div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="mc"></div>
+  
+  <!-- FAB -->
+  <button class="fab" id="fab-btn" onclick="openScan()" style="display:none">
+    ➕
+  </button>
+  
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav" id="bottom-nav" style="display:none">
+  <div style="padding:1.2rem 1rem;border-bottom:1px solid rgba(245,200,66,.1);display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <div style="background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.2);border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:16px">📊</div>
+    <div>
+      <div style="font-size:13px;font-weight:800;color:#f5c842">مصروفات كيان</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4)">شركة كيان وبناء</div>
+    </div>
+  </div>
+</nav>
+</div>
+
+<!-- SCAN PANEL -->
+<div id="swrap" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:200;display:none;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeScan()">
+  <div style="background:transparent;border-radius:16px 16px 0 0;width:100%;max-width:560px;padding:16px 15px 28px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px">
+      <div style="font-size:14px;font-weight:700">رفع فاتورة / مصروف</div>
+      <button onclick="closeScan()" style="border:none;background:transparent;border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:16px;color:rgba(255,255,255,.85)">✕</button>
+    </div>
+    <div id="ss1">
+      <label class="drop" for="sfile" id="sdrop">
+        <svg width="34" height="34" fill="none" stroke="rgba(245,200,66,.5)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 7px;display:block"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <p style="font-size:13px;color:rgba(255,255,255,.85)">اضغط لرفع صورة أو PDF للفاتورة</p>
+        <small style="font-size:11px;color:rgba(255,255,255,.75)">صورة أو PDF من الكاميرا أو الواتساب</small>
+      </label>
+      <input type="file" id="sfile" accept="image/*,.pdf" style="display:none" onchange="pickFile(this)">
+      <img id="sprev" class="iprev">
+      <div class="fg"><label class="lbl">أو الصق نص الرسالة</label><textarea id="stxt" placeholder="مثال: أكل عمال 450 ريال&#10;فاتورة حديد 2300 ريال INV-005"></textarea></div>
+      <div class="fg2">
+        <div><label class="lbl">المشرف</label><select id="ssup"></select></div>
+        <div><label class="lbl">المشروع</label><select id="sproj"></select></div>
+      </div>
+      <div class="err" id="serr"></div>
+      <button class="btn bp" onclick="runAI()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        تحليل بالذكاء الاصطناعي
+      </button>
+    </div>
+    <div class="ldg" id="sldg"><div class="spin"></div><p id="ltxt" style="color:rgba(255,255,255,.85);font-size:13px">جاري التحليل...</p></div>
+    <div id="ss2" style="display:none">
+      <div class="ok"><svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم استخراج البيانات — راجع وأكد</div>
+      <img id="sprev2" class="iprev">
+      <div class="card" style="margin-bottom:9px"><div id="rfields"></div></div>
+      <div class="card" style="margin-bottom:9px;padding:11px 13px">
+        <div class="ctitle" style="margin-bottom:8px">نوع الفاتورة</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button id="type-petty" onclick="setInvoiceType('petty')" style="padding:10px;border:2px solid var(--n3);border-radius:8px;background:transparent;cursor:pointer;font-family:inherit;font-size:13px;transition:.15s">
+            <div style="font-size:20px;margin-bottom:4px">🧾</div>
+            <div style="font-weight:600;color:rgba(255,255,255,.85)">نثرية</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.75)">بدون ضريبة</div>
+          </button>
+          <button id="type-tax" onclick="setInvoiceType('tax')" style="padding:10px;border:2px solid var(--n3);border-radius:8px;background:transparent;cursor:pointer;font-family:inherit;font-size:13px;transition:.15s">
+            <div style="font-size:20px;margin-bottom:4px">📋</div>
+            <div style="font-weight:600;color:rgba(255,255,255,.85)">ضريبية</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.75)">تحتوي على VAT</div>
+          </button>
+        </div>
+      </div>
+      <div id="icard" style="display:none" class="card"><div class="ctitle">البنود</div><div id="ilist"></div></div>
+      <div class="fg2">
+        <div><label class="lbl">المشرف</label><select id="csup"></select></div>
+        <div><label class="lbl">المشروع</label><select id="cproj"></select></div>
+      </div>
+      <div class="brow">
+        <button class="btn bp" onclick="saveEntry()"><svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>حفظ</button>
+        <button class="btn bs" onclick="resetScan()">إلغاء</button>
+      </div>
+    </div>
+    <div id="sdone" style="display:none;text-align:center;padding:1.5rem 0">
+      <div style="width:52px;height:52px;background:rgba(245,200,66,.1);border-radius:50%;margin:0 auto 11px;display:flex;align-items:center;justify-content:center">
+        <svg width="26" height="26" fill="none" stroke="var(--gold)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">تم الحفظ بنجاح</div>
+      <div id="dsum" style="font-size:12px;color:rgba(255,255,255,.85);margin-bottom:14px"></div>
+      <div class="brow">
+        <button class="btn bp" onclick="resetScan()">رفع فاتورة أخرى</button>
+        <button class="btn bs" onclick="closeScan()">إغلاق</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS=['#b8860b','#1d4ed8','#9333ea','#0a7c5c','#dc2626','#0891b2'];
+let DB={supervisors:[],projects:[],entries:[]};
+let CU=null,ROLE=null,SR=null;
+let imgB64=null,imgSrc=null,parsed=null,fType='all';
+
+async function api(p,m='GET',b=null){
+  const o={method:m,headers:{'Content-Type':'application/json'}};
+  if(b)o.body=JSON.stringify(b);
+  const r=await fetch(p,o);
+  return r.json();
+}
+const fmt=n=>{const v=Number(n||0);return v.toLocaleString('en-US',{minimumFractionDigits:v%1===0?0:2,maximumFractionDigits:2});};
+const today=()=>new Date().toISOString().split('T')[0];
+const tl=t=>t==='petty'?'نثرية':t==='tax'?'ضريبية':'أخرى';
+const pl=p=>p==='cash'?'كاش':'تحويل';
+const tb=t=>`<span class="badge b${t==='petty'?'pt':t==='tax'?'tx':'ot'}">${tl(t)}</span>`;
+const pb=p=>`<span class="badge b${p==='cash'?'cs':'tr'}">${pl(p)}</span>`;
+// Total invoices (petty + tax only)
+const gs=id=>DB.entries.filter(e=>e.supId==id&&(e.type==='petty'||e.type==='tax')&&!e.rejected).reduce((a,e)=>a+(e.total||0),0)-DB.entries.filter(e=>e.supId==id&&e.type==='return').reduce((a,e)=>a+(e.total||0),0);
+
+// Total added (initial budget + all budget_add entries + transfers in)
+const getTotalAdded=id=>{
+  const sup=DB.supervisors.find(s=>s.id==id);
+  const added=DB.entries.filter(e=>e.supId==id&&e.type==='budget_add').reduce((a,e)=>a+(e.amount||e.total||0),0);
+  const transIn=DB.entries.filter(e=>e.supId==id&&e.type==='transfer'&&e.direction==='in').reduce((a,e)=>a+(e.total||0),0);
+  return (sup?sup.budget:0)+added+transIn;
+};
+
+// Transfers out (sent to others) - old entries without direction treated as out
+const getTransfersOut=id=>DB.entries.filter(e=>e.supId==id&&e.type==='transfer'&&(e.direction==='out'||(!e.direction&&e.transferTo))).reduce((a,e)=>a+(e.total||0),0);
+
+// Transfers in (received from others)
+const getTransfersIn=id=>DB.entries.filter(e=>e.supId==id&&e.type==='transfer'&&e.direction==='in').reduce((a,e)=>a+(e.total||0),0);
+
+// Correct balance = added (includes transIn) - invoices - sent
+const getBalance=id=>getTotalAdded(id)-gs(id)-getTransfersOut(id);
+const gn=id=>DB.supervisors.find(s=>s.id==id)?.name||'—';
+const gc=i=>COLORS[i%COLORS.length];
+
+// THEME
+function initTheme(){
+  const t=localStorage.getItem('kayan_theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',t);
+  const b=document.getElementById('tbtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('kayan_theme',t);
+  const b=document.getElementById('tbtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';
+}
+
+// PWA
+let dp;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;const b=document.getElementById('ibtn');if(b)b.style.display='inline-flex';});
+function installApp(){if(dp){dp.prompt();dp.userChoice.then(()=>{dp=null;const b=document.getElementById('ibtn');if(b)b.style.display='none';});}}
+
+// SESSION
+function saveSession(pw,supId){localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId:supId||null,name:res.name,budget:res.budget||0}));}
+async function restoreSession(){
+  try{
+    const s=localStorage.getItem('ks');
+    if(!s)return false;
+    const sess=JSON.parse(s);
+    if(!sess||!sess.ROLE)return false;
+    // Try server login
+    try{
+      const body={role:sess.ROLE,password:sess.pw};
+      if(sess.supId)body.supId=parseInt(sess.supId);
+      const res=await api('/api/login','POST',body);
+      if(res&&res.ok){
+        CU={id:res.supId||0,name:res.name,budget:res.budget||0};
+        ROLE=res.role;
+        return true;
+      }
+    }catch(e){
+      // Server unavailable - restore from local session
+      console.log('Server unavailable, using local session');
     }
-  } catch (e) { console.error('❌ MongoDB error:', e.message); }
+    // Use saved session data without server verification
+    if(sess.ROLE&&sess.name){
+      CU={id:sess.supId||0,name:sess.name,budget:sess.budget||0};
+      ROLE=sess.ROLE;
+      return true;
+    }
+    return false;
+  }catch(e){localStorage.removeItem('ks');return false;}
 }
-async function loadDB() {
-  if (!db) return getFallback();
-  try {
-    const cfg = await db.collection('config').findOne({ _id: 'main' });
-    const entries = await db.collection('entries').find({}).toArray();
-    return {
-      supervisors: cfg.supervisors || [],
-      projects: cfg.projects || [],
-      managerPassword: cfg.managerPassword || 'admin123',
-      nextId: cfg.nextId || 1,
-      laborRates: cfg.laborRates || { company: 100, external: 150 },
-      companyWorkers: cfg.companyWorkers || [],
-      ownerPassword: cfg.ownerPassword || 'owner123',
-      entries: entries.map(e => { const { _id, ...rest } = e; return rest; })
+
+// LOGIN
+async function start(){
+  // Reset all budgets to 0 on first load
+  if(!localStorage.getItem('budgets_reset_v2')){
+    await api('reset-budgets','POST',{}).catch(()=>{});
+    localStorage.setItem('budgets_reset_v2','1');
+  }
+  try{DB=await api('/api/db');}catch(e){}
+  // Load contracts from server (sync across browsers)
+  try{
+    const cr=await api('/api/contracts');
+    if(cr&&cr.contracts&&cr.contracts.length>0){
+      localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));
+    }
+  }catch(e){}
+  // Load sales from server
+  try{
+    const sr=await api('/api/sales');
+    if(sr&&sr.sales&&sr.sales.length>0){
+      localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));
+    }
+  }catch(e){}
+  // Load sales returns from server
+  try{
+    const srr=await api('/api/sales-returns');
+    if(srr&&srr.returns&&srr.returns.length>0){
+      localStorage.setItem('kayan_sales_returns',JSON.stringify(srr.returns));
+    }
+  }catch(e){}
+  const ok=await restoreSession().catch(()=>false);
+  if(ok&&CU&&ROLE){showApp();}
+  else{document.getElementById('lview').style.display='flex';}
+}
+
+function selRole(r){
+  SR=r;
+  document.querySelectorAll('.rb').forEach(b=>b.classList.remove('sel'));
+  const idMap={supervisor:'sup',manager:'mgr',owner:'owner'};
+  document.getElementById('rb-'+idMap[r]).classList.add('sel');
+  const g=document.getElementById('sup-grp');
+  if(r==='supervisor'){
+    document.getElementById('sup-sel').innerHTML='<option value="">اختر...</option>'+DB.supervisors.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+    g.style.display='block';
+  }else g.style.display='none';
+}
+
+async function doLogin(){
+  const err=document.getElementById('lerr');
+  const pw=document.getElementById('pw-inp').value;
+  if(!SR){err.style.display='block';err.textContent='اختر صفتك أولاً';return;}
+  if(!pw){err.style.display='block';err.textContent='أدخل كلمة المرور';return;}
+  const body={role:SR,password:pw};
+  let supId=null;
+  if(SR==='supervisor'){
+    const id=document.getElementById('sup-sel').value;
+    if(!id){err.style.display='block';err.textContent='اختر اسمك';return;}
+    body.supId=parseInt(id);supId=parseInt(id);
+  }
+  try{
+    const res=await api('/api/login','POST',body);
+    if(!res.ok){err.style.display='block';err.textContent=res.error||'كلمة المرور خاطئة';return;}
+    err.style.display='none';
+    CU={id:res.supId||0,name:res.name,budget:res.budget||0};
+    ROLE=res.role;
+    localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId}));
+    showApp();
+  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+}
+
+function doLogout(){
+  CU=null;ROLE=null;SR=null;
+  localStorage.removeItem('ks');
+  document.getElementById('aview').style.display='none';
+  document.getElementById('lview').style.display='flex';
+  document.querySelectorAll('.rb').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('sup-grp').style.display='none';
+  document.getElementById('pw-inp').value='';
+  document.getElementById('lerr').style.display='none';
+}
+
+function showApp(){
+  document.getElementById('lview').style.display='none';
+  document.getElementById('aview').style.display='block';
+  const tbn2=document.getElementById('tbname');if(tbn2)tbn2.textContent=ROLE==='manager'?'الرئيسية':ROLE==='owner'?'الملخص':'الرئيسية';
+  const roleIcons={manager:'⚙️',owner:'👑',supervisor:'👷'};
+  const trl=document.getElementById('tbrole');if(trl)trl.textContent=ROLE==='manager'?'مدير النظام':ROLE==='owner'?'المالك':'مشرف';
+  // title set in goBNav
+  const items=ROLE==='manager'
+    ?[['dash','🏠 الرئيسية'],['txns','📄 المعاملات'],['reports','📊 التقارير'],['setup','⚙️ الإعداد'],['pws','🔑 كلمات المرور'],['transfer','💸 التحويلات'],['labor-mgr','👷 العمالة']]
+    :ROLE==='owner'
+    ?[['owner-dash','📊 الملخص'],['owner-sup','👥 المشرفون'],['owner-proj','🏗️ المشاريع'],['owner-labor','👷 العمالة']]
+    :[['home','🏠 الرئيسية'],['labor','👷 تسجيل عمالة'],['hist','📋 سجلاتي'],['bal','💰 رصيدي']];
+  // Build bottom nav
+  const fabBtn = document.getElementById('fab-btn');
+  const bottomNav = document.getElementById('bottom-nav');
+  
+  if(ROLE !== 'owner'){
+    fabBtn.style.display = 'none';
+    const fabTop = document.getElementById('fab-topbar');
+    if(fabTop) fabTop.style.display = 'flex';
+  }
+  
+  // Build nav with categories like HR
+  const navSections = ROLE==='manager' ? [
+    { label:'الرئيسية', items:[['dash','🏠','الرئيسية']] },
+    { label:'المالية', items:[['txns','📄','المعاملات'],['reports','📊','التقارير'],['transfer','💸','التحويلات']] },
+    { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور']] },
+    { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
+    { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
+    { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
+    { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
+    { label:'المبيعات', items:[['sales','🧾','فواتير المبيعات'],['trial-balance','⚖️','ميزان المراجعة']] },
+  ] : ROLE==='owner' ? [
+    { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
+    { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
+    { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
+  ] : [
+    { label:'الرئيسية', items:[['home','🏠','الرئيسية'],['bal','💰','رصيدي']] },
+    { label:'العمل', items:[['labor','👷','تسجيل عمالة'],['hist','📋','سجلاتي']] },
+    { label:'المرتجعات', items:[['sup-returns','↩️','فواتير مرتجعاتي']] },
+    { label:'المخزون', items:[['inventory','📦','المخزون والعهدة']] },
+  ];
+
+  let navHtml = '';
+  let firstItem = true;
+  navSections.forEach(section=>{
+    navHtml += `<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:1px;text-transform:uppercase">${section.label}</div>`;
+    section.items.forEach(([id,icon,text])=>{
+      const active = firstItem ? ' active' : '';
+      firstItem = false;
+      navHtml += `<button class="bottom-nav-item${active}" onclick="goBNav('${id}',this)" data-id="${id}">
+        <div class="bnav-icon"><span>${icon}</span></div>
+        <span>${text}</span>
+      </button>`;
+    });
+  });
+
+  // Settings button at bottom
+  navHtml += `<div style="flex:1"></div>`;
+  if(ROLE==='manager'){
+    navHtml += `<div style="border-top:1px solid rgba(255,255,255,.08);padding:8px 0">
+      <button class="bottom-nav-item" onclick="goBNav('setup',this)" data-id="setup">
+        <div class="bnav-icon"><span>⚙️</span></div>
+        <span>الإعدادات</span>
+      </button>
+    </div>`;
+  }
+
+  bottomNav.innerHTML = navHtml;
+  
+  if(ROLE==='manager') rDash();
+  else if(ROLE==='owner') rOwnerDash();
+  else rHome();
+}
+
+function openNav(){
+  document.getElementById('bottom-nav').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+}
+function closeNav(){
+  document.getElementById('bottom-nav').classList.remove('open');
+  document.getElementById('nav-overlay').classList.remove('open');
+}
+// Close nav on any click outside
+document.addEventListener('click', function(e){
+  const nav = document.getElementById('bottom-nav');
+  const menuBtn = document.querySelector('.menu-btn');
+  if(nav && nav.classList.contains('open')){
+    if(!nav.contains(e.target) && (!menuBtn || !menuBtn.contains(e.target))){
+      closeNav();
+    }
+  }
+});
+function goBNav(id,btn){
+  closeNav();
+  document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  // Update topbar title
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
+  const tbn = document.getElementById('tbname');
+  if(tbn) tbn.textContent = _titles[id] || '';
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'sales':rSales,'trial-balance':rTrialBalance};
+  map[id]?.();
+}
+
+function goTab(id,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'sales':rSales,'trial-balance':rTrialBalance};
+  map[id]?.();
+}
+
+// ── DASHBOARD ──────────────────────
+function rDash(){
+  const tB=DB.supervisors.reduce((a,s)=>a+s.budget,0);
+  const tS=DB.entries.filter(e=>e.type!=='budget_add'&&e.type!=='transfer').reduce((a,e)=>a+(e.total||0),0);
+  const pt=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tx=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  document.getElementById('mc').innerHTML=`
+    <div class="sg">
+      <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:#C8960C">${fmt(tS)} ﷼</div></div>
+      <div class="stat"><div class="sl">المتبقي الكلي</div><div class="sv" style="color:#C8960C">${fmt(tB-tS)} ﷼</div></div>
+      <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534">${fmt(pt)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b)">${fmt(tx)} ﷼</div></div>
+    </div>
+    <div class="shdr">👥 حالة المشرفين</div>
+    ${DB.supervisors.map((s,i)=>{
+      const sp=gs(s.id),rem=getBalance(s.id),pct=Math.min(100,Math.round(sp/(s.budget||1)*100));
+      const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
+      const warn=pct>80?`<div style="background:rgba(255,100,100,.15);color:#FF8080;border-radius:8px;padding:8px 10px;margin-top:6px;font-size:12px;font-weight:600;border-right:3px solid #FF8080">⚠️ تنبيه: الرصيد اقترب من النهاية — متبقي ${fmt(rem)} ﷼</div>`:'';
+      return`<div style="background:transparent;border-radius:16px;padding:14px;margin-bottom:10px;backdrop-filter:blur(14px)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:transparent;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${s.name[0]}</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:#FFFFFF">${s.name}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:2px">${DB.entries.filter(e=>e.supId==s.id&&(e.type==='petty'||e.type==='tax')).length} فاتورة · مُضاف: ${fmt(getTotalAdded(s.id))} ﷼</div>
+      </div>
+    </div>
+    <div style="text-align:left">
+      <div style="font-size:11px;color:rgba(255,255,255,.55)">صرف: ${fmt(sp)} ﷼</div>
+      <div style="font-size:16px;font-weight:800;color:${rem<0?'#FF8080':rem<500?'#FFB347':'#3DD68C'}">${fmt(rem)} ﷼</div>
+    </div>
+  </div>
+  <div style="height:5px;background:transparent;border-radius:99px;overflow:hidden">
+    <div style="width:${pct}%;height:100%;border-radius:99px;background:${pct>85?'#FF8080':pct>65?'#FFB347':'#f5c842'}"></div>
+  </div>
+  ${warn}
+  <button onclick="exportSupPDF(${s.id})" style="margin-top:8px;width:100%;padding:9px;background:rgba(255,120,120,.15);color:#FF8080;border:1px solid rgba(255,120,120,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px">📄 تصدير تقرير PDF</button>
+</div>`;
+    }).join('')}
+    <div class="shdr" style="margin-top:4px">📋 آخر المعاملات</div>
+    <div class="card">${DB.entries.slice(-5).reverse().map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:2px">${fmt(e.total)} ﷼</div></div></div>`).join('')||'<div class="empty">لا توجد معاملات بعد</div>'}</div>`;
+}
+
+// ── TRANSACTIONS ──────────────────
+function rTxns(){
+  const sO=DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const pO=DB.projects.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="padding:10px 12px;margin-bottom:10px">
+      <div style="margin-bottom:7px"><select id="fs" onchange="rfT()"><option value="all">كل المشرفين</option>${sO}</select></div>
+      <div style="margin-bottom:7px"><select id="fp" onchange="rfT()"><option value="all">كل المشاريع</option>${pO}</select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px">
+        <div><label style="font-size:11px;color:rgba(255,255,255,.75);display:block;margin-bottom:3px">من تاريخ</label><input type="date" id="fd-from" onchange="rfT()" style="width:100%;font-size:12px;padding:6px 8px"></div>
+        <div><label style="font-size:11px;color:rgba(255,255,255,.75);display:block;margin-bottom:3px">إلى تاريخ</label><input type="date" id="fd-to" onchange="rfT()" style="width:100%;font-size:12px;padding:6px 8px"></div>
+      </div>
+            <div class="ftabs"><button class="ftab on" onclick="setFT('all',this)">الكل</button><button class="ftab" onclick="setFT('petty',this)">نثرية</button><button class="ftab" onclick="setFT('tax',this)">ضريبية</button></div>
+    </div>
+    <button class="btn bx" onclick="location.href='/api/export'" style="margin-bottom:10px">
+      <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      تصدير Excel
+    </button>
+    <div id="tl"></div>`;
+  rfT();
+}
+function setFT(v,btn){fType=v;document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');rfT();}
+function rfT(){
+  const fS=document.getElementById('fs')?.value||'all';
+  const fP=document.getElementById('fp')?.value||'all';
+  const fFrom=document.getElementById('fd-from')?.value||'';
+  const fTo=document.getElementById('fd-to')?.value||'';
+  const list=DB.entries.filter(e=>{
+    if(fS!=='all'&&e.supId!=fS)return false;
+    if(fP!=='all'&&e.project!==fP)return false;
+    if(fType!=='all'&&e.type!==fType)return false;
+    if(e.type==='budget_add')return false;
+    if(fFrom&&e.date&&e.date<fFrom)return false;
+    if(fTo&&e.date&&e.date>fTo)return false;
+    return true;
+  }).slice().reverse();
+  const total=list.reduce((a,e)=>a+(e.total||0),0);
+  const el=document.getElementById('tl');if(!el)return;
+  if(!list.length){el.innerHTML='<div class="empty">لا توجد نتائج</div>';return;}
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:11px;color:rgba(255,255,255,.75)">${list.length} معاملة</span><span style="font-size:13px;font-weight:700;color:var(--r)">${fmt(total)} ﷼</span></div>`
+  +list.map(e=>`<div class="card" style="padding:10px 12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}${e.uploadedAt?' · 🕐 '+new Date(e.uploadedAt).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):''}${e.rejected?' · <span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px">✕ مرفوضة</span>':''}</div></div>
+      <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:rgba(255,255,255,.75)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
+    </div>
+    ${e.items?.length?`<div style="margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:rgba(255,255,255,.85)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
+    ${e.imageUrl ? `<div style="margin-top:7px"><a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.9);text-decoration:none;border-radius:5px;padding:3px 8px">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      عرض الفاتورة
+    </a></div>` : ''}
+    <button onclick="delE(${e.id})" style="margin-top:5px;border:none;background:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:11px;font-family:inherit">✕ حذف</button>
+    ${(ROLE==='manager'||ROLE==='owner')&&(e.type==='petty'||e.type==='tax')?`<button onclick="toggleReject(${e.id},${!!e.rejected})" style="margin-top:3px;border:none;background:none;cursor:pointer;font-size:11px;font-family:inherit;color:${e.rejected?'#34d399':'#f87171'}">${e.rejected?'✓ قبول الفاتورة':'✕ رفض الفاتورة'}</button>`:''}
+    ${e.rejected?'<span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;display:inline-block;margin-top:3px">✕ غير مقبولة</span>':''}
+  </div>`).join('');
+}
+async function delE(id){if(!confirm('حذف؟'))return;await api('/api/entries/'+id,'DELETE');DB=await api('/api/db');rfT();rDash();}
+
+// ── REPORTS ────────────────────────
+
+async function toggleReject(id, isRejected){
+  if(!confirm(isRejected?'قبول الفاتورة وإعادتها للرصيد؟':'رفض الفاتورة وإزالتها من الرصيد؟')) return;
+  await api('/api/entries/'+id+'/reject','POST',{rejected:!isRejected});
+  DB = await api('/api/db');
+  rfT(); rDash();
+}
+
+// ── RETURNS (فواتير المرتجعات) ──
+let returnParsed = null;
+let returnB64 = null;
+
+
+function rSupReturns(){
+  document.getElementById('mc').innerHTML = `
+    <div class="card">
+      <div class="ctitle">↩️ رفع فاتورة مرتجع</div>
+      <div style="background:rgba(52,211,153,.08);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#34d399;border-right:3px solid #34d399">
+        ارفع صورة فاتورة المرتجع والذكاء الاصطناعي سيطابقها تلقائياً مع فاتورتك الأصلية
+      </div>
+      <div class="fg">
+        <label class="lbl">ارفع صورة فاتورة المرتجع</label>
+        <div class="drop" id="ret-drop" onclick="document.getElementById('ret-file2').click()" style="cursor:pointer">
+          <div style="font-size:30px;margin-bottom:6px" id="ret-drop-icon">📷</div>
+          <div id="ret-drop-txt" style="font-size:13px;color:rgba(255,255,255,.6)">اضغط لرفع صورة أو PDF للمرتجع</div>
+        </div>
+        <input type="file" id="ret-file2" accept="image/*,.pdf" style="display:none" onchange="handleReturnFile2(this)">
+      </div>
+      <div id="ret-preview2" style="display:none;margin-bottom:12px">
+        <div class="ctitle" style="margin-bottom:8px">نتيجة التحليل والمطابقة</div>
+        <div id="ret-result2" style="background:rgba(255,255,255,.05);border-radius:10px;padding:12px;font-size:13px"></div>
+      </div>
+      <div id="ret-err2" class="err" style="display:none"></div>
+      <div id="ret-ok2" class="ok" style="display:none"></div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn bp" onclick="analyzeReturn2()" id="ret-analyze-btn2" style="display:none">🤖 تحليل ومطابقة تلقائية</button>
+        <button class="btn" onclick="saveReturn2()" id="ret-save-btn2" style="display:none;background:rgba(52,211,153,.15);color:#34d399;border-color:rgba(52,211,153,.3)">✅ حفظ المرتجع</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="ctitle">مرتجعاتي</div>
+      ${DB.entries.filter(e=>e.type==='return'&&e.supId==CU.id).length===0
+        ? '<div class="empty">لا توجد مرتجعات بعد</div>'
+        : DB.entries.filter(e=>e.type==='return'&&e.supId==CU.id).sort((a,b)=>b.id-a.id).map(e=>`
+          <div style="padding:10px;border-bottom:1px solid rgba(255,255,255,.06)">
+            <div style="display:flex;justify-content:space-between">
+              <div>
+                <div style="font-weight:700;font-size:13px">${e.desc}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.5)">${e.date} · ${e.project}</div>
+                ${e.origInvoiceId?`<div style="font-size:11px;color:#70B5FF">↩ من فاتورة #${e.origInvoiceId}</div>`:''}
+              </div>
+              <div style="color:#34d399;font-weight:700">+${fmt(e.total)} ﷼</div>
+            </div>
+          </div>`).join('')}
+    </div>
+  `;
+}
+
+let returnB64_2 = null;
+let returnParsed_2 = null;
+
+async function handleReturnFile2(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    returnB64_2 = ev.target.result.split(',')[1];
+    document.getElementById('ret-drop-txt').textContent = file.name;
+    document.getElementById('ret-drop-icon').textContent = file.type==='application/pdf'?'📄':'🖼️';
+    document.getElementById('ret-analyze-btn2').style.display = 'block';
+    document.getElementById('ret-err2').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeReturn2(){
+  if(!returnB64_2){alert('يرجى رفع صورة المرتجع أولاً');return;}
+  const btn = document.getElementById('ret-analyze-btn2');
+  btn.textContent = '⏳ جاري التحليل والمطابقة...';
+  btn.disabled = true;
+  try{
+    // Step 1: Analyze the return invoice
+    const res = await api('/api/analyze','POST',{b64:returnB64_2,text:'هذه فاتورة مرتجع، استخرج: المبلغ المرتجع، اسم المورد، رقم الفاتورة الأصلية إن وجد، التاريخ'});
+    if(res.error) throw new Error(res.error);
+    if(!res.total||res.total===0){
+      document.getElementById('ret-preview2').style.display='block';
+      document.getElementById('ret-result2').innerHTML='<div style="padding:10px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171">⚠️ تعذر قراءة المبلغ بوضوح — يرجى رفع صورة أوضح</div>';
+      document.getElementById('ret-save-btn2').style.display='none';
+      btn.textContent='🤖 تحليل ومطابقة تلقائية';btn.disabled=false;return;
+    }
+    returnParsed_2 = res;
+    // Step 2: Auto-match with supervisor's original invoices
+    const myInvoices = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.supId==CU.id);
+    // Match by: supplier name similarity + amount proximity + invoice number
+    let bestMatch = null;
+    let bestScore = 0;
+    const normStr = s=>(s||'').toLowerCase().trim();
+    myInvoices.forEach(orig=>{
+      let score = 0;
+      // Supplier match
+      if(res.supplier&&orig.supplier&&normStr(orig.supplier).includes(normStr(res.supplier).split(' ')[0])) score+=3;
+      // Invoice number match
+      if(res.invoiceNo&&orig.invoiceNo&&normStr(orig.invoiceNo)===normStr(res.invoiceNo)) score+=5;
+      // Amount: return <= original
+      if(res.total<=orig.total) score+=1;
+      if(Math.abs(res.total-orig.total)<orig.total*0.1) score+=2;
+      if(score>bestScore){bestScore=score;bestMatch=orig;}
+    });
+    let html = `<div style="margin-bottom:8px"><b>المورد:</b> ${res.supplier||'—'}</div>`;
+    html += `<div style="margin-bottom:8px"><b>المبلغ المرتجع:</b> <span style="color:#34d399;font-weight:700">${fmt(res.total)} ﷼</span></div>`;
+    html += `<div style="margin-bottom:8px"><b>رقم الفاتورة:</b> ${res.invoiceNo||'—'}</div>`;
+    if(bestMatch&&bestScore>=1){
+      returnParsed_2._matchedOrigId = bestMatch.id;
+      const diff = (bestMatch.total||0)-(res.total||0);
+      html += `<div style="padding:10px;background:rgba(52,211,153,.1);border-radius:8px;margin-top:8px;border-right:3px solid #34d399">`;
+      html += `<div style="font-size:11px;color:#34d399;font-weight:700;margin-bottom:5px">✅ تم التطابق التلقائي</div>`;
+      html += `<b>الفاتورة الأصلية:</b> ${bestMatch.supplier||bestMatch.desc} — ${fmt(bestMatch.total)} ﷼<br>`;
+      html += `<b>تاريخ الفاتورة الأصلية:</b> ${bestMatch.date}<br>`;
+      html += `<b>المتبقي بعد المرتجع:</b> <span style="color:#f5c842">${fmt(diff)} ﷼</span>`;
+      html += `</div>`;
+      document.getElementById('ret-save-btn2').style.display='block';
+    } else {
+      html += `<div style="padding:10px;background:rgba(251,191,36,.1);border-radius:8px;margin-top:8px;border-right:3px solid #fbbf24">`;
+      html += `<div style="font-size:11px;color:#fbbf24;font-weight:700">⚠️ لم يتم التطابق التلقائي</div>`;
+      html += `<div style="font-size:11px;margin-top:4px">تأكد أن الفاتورة الأصلية مسجلة في نظامك</div>`;
+      html += `</div>`;
+      document.getElementById('ret-save-btn2').style.display='none';
+    }
+    document.getElementById('ret-preview2').style.display='block';
+    document.getElementById('ret-result2').innerHTML=html;
+  }catch(e){
+    document.getElementById('ret-err2').style.display='block';
+    document.getElementById('ret-err2').textContent='❌ '+e.message;
+  }
+  btn.textContent='🤖 تحليل ومطابقة تلقائية';btn.disabled=false;
+}
+
+async function saveReturn2(){
+  if(!returnParsed_2||!returnParsed_2.total){alert('يرجى تحليل الفاتورة أولاً');return;}
+  const origId = returnParsed_2._matchedOrigId;
+  if(!origId){alert('لم يتم تطابق الفاتورة الأصلية');return;}
+  const orig = DB.entries.find(e=>e.id===origId);
+  if(!orig){alert('الفاتورة الأصلية غير موجودة');return;}
+  const entry = {
+    supId: CU.id, supName: CU.name, project: orig.project,
+    type: 'return',
+    desc: 'مرتجع: '+(returnParsed_2.supplier||orig.supplier||''),
+    supplier: returnParsed_2.supplier||orig.supplier||'',
+    invoiceNo: returnParsed_2.invoiceNo||'RET-'+Date.now(),
+    date: returnParsed_2.date||today(),
+    payMethod: 'cash',
+    subtotal: returnParsed_2.subtotal||returnParsed_2.total||0,
+    taxRate: returnParsed_2.taxRate||0,
+    taxAmt: returnParsed_2.taxAmt||0,
+    total: returnParsed_2.total||0,
+    origInvoiceId: origId,
+    b64Image: returnB64_2,
+    items: returnParsed_2.items||[]
+  };
+  const res = await api('/api/entries','POST',entry);
+  if(res.error){
+    document.getElementById('ret-err2').style.display='block';
+    document.getElementById('ret-err2').textContent=res.error;
+    return;
+  }
+  DB = await api('/api/db');
+  document.getElementById('ret-ok2').style.display='block';
+  document.getElementById('ret-ok2').textContent='✅ تم حفظ المرتجع — تمت إضافة '+fmt(entry.total)+' ﷼ لرصيدك';
+  document.getElementById('ret-save-btn2').style.display='none';
+  returnParsed_2=null; returnB64_2=null;
+  setTimeout(()=>rSupReturns(),2000);
+}
+
+
+// ── INVENTORY SYSTEM ──────────────────────────────
+// DB storage: DB.inventory = [{id, supId, supName, project, items:[{name,unit,received,used,date}], createdAt}]
+// We use DB.entries with type='inventory_receive' and type='inventory_use'
+
+function getInventory(supId, project){
+  // Get all receives for this sup/project
+  const receives = DB.entries.filter(e=>e.type==='inventory_receive'&&(supId?e.supId==supId:true)&&(project?e.project===project:true));
+  const uses = DB.entries.filter(e=>e.type==='inventory_use'&&(supId?e.supId==supId:true)&&(project?e.project===project:true));
+  // Aggregate by item name per sup+project
+  const items = {};
+  receives.forEach(e=>{
+    (e.inventoryItems||[]).forEach(it=>{
+      const key = e.supId+'|'+e.project+'|'+it.name;
+      if(!items[key]) items[key]={name:it.name,unit:it.unit,supId:e.supId,project:e.project,received:0,used:0};
+      items[key].received += (+it.qty||0);
+    });
+  });
+  uses.forEach(e=>{
+    (e.inventoryItems||[]).forEach(it=>{
+      const key = e.supId+'|'+e.project+'|'+it.name;
+      if(!items[key]) items[key]={name:it.name,unit:it.unit,supId:e.supId,project:e.project,received:0,used:0};
+      items[key].used += (+it.qty||0);
+    });
+  });
+  return Object.values(items).map(it=>({...it, remaining:it.received-it.used}));
+}
+
+// ── SUPERVISOR INVENTORY ──
+let invB64 = null;
+let invParsed = null;
+
+function rInventory(){
+  const myItems = getInventory(CU.id, null);
+  const projects = [...new Set(DB.entries.filter(e=>e.supId==CU.id&&(e.type==='inventory_receive'||e.type==='inventory_use')).map(e=>e.project))];
+  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+
+  document.getElementById('mc').innerHTML = `
+    <div class="card">
+      <div class="ctitle">📦 استلام بضاعة جديدة</div>
+      <div class="fg">
+        <label class="lbl">المشروع</label>
+        <select id="inv-proj"><option value="">-- اختر المشروع --</option>${pOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">ارفع إيصال الاستلام (اختياري)</label>
+        <div class="drop" id="inv-drop" onclick="document.getElementById('inv-file').click()" style="cursor:pointer">
+          <div style="font-size:28px;margin-bottom:5px" id="inv-icon">📷</div>
+          <div id="inv-txt" style="font-size:13px;color:rgba(255,255,255,.6)">ارفع صورة الإيصال والذكاء يقرأ الأصناف</div>
+        </div>
+        <input type="file" id="inv-file" accept="image/*,.pdf" style="display:none" onchange="pickInvFile(this)">
+      </div>
+      <div id="inv-ai-result" style="display:none"></div>
+      <div class="ctitle" style="margin-top:8px">أو أضف يدوياً</div>
+      <div id="inv-manual-items">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin-bottom:6px">
+          <input id="inv-item-0" placeholder="اسم الصنف" style="font-size:12px">
+          <input id="inv-qty-0" type="number" placeholder="الكمية" style="font-size:12px">
+          <input id="inv-unit-0" placeholder="الوحدة" style="font-size:12px">
+          <button onclick="addInvRow()" style="border:1px solid rgba(245,200,66,.3);border-radius:8px;background:rgba(245,200,66,.1);color:#f5c842;font-size:18px;cursor:pointer;padding:0 10px">+</button>
+        </div>
+      </div>
+      <div class="err" id="inv-err" style="display:none"></div>
+      <div id="inv-ok" class="ok" style="display:none"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn bp" onclick="analyzeInvReceipt()" id="inv-ai-btn" style="display:none">🤖 قراءة الأصناف بالذكاء</button>
+        <button class="btn" onclick="saveInvReceive()" style="background:rgba(52,211,153,.15);color:#34d399;border-color:rgba(52,211,153,.3)">✅ حفظ الاستلام</button>
+      </div>
+    </div>
+
+    ${myItems.length ? `
+    <div class="shdr">📋 مخزوني الحالي (عهدة)</div>
+    ${[...new Set(myItems.map(it=>it.project))].map(proj=>`
+      <div class="card" style="padding:12px 14px;margin-bottom:8px">
+        <div style="font-weight:700;color:#f5c842;margin-bottom:10px;font-size:13px">🏗️ ${proj}</div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;font-size:11px;font-weight:700;color:rgba(255,255,255,.5);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px">
+          <span>الصنف</span><span style="text-align:center">مستلم</span><span style="text-align:center">مستخدم</span><span style="text-align:center">متبقي (عهدة)</span>
+        </div>
+        ${myItems.filter(it=>it.project===proj).map(it=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);align-items:center">
+            <div style="font-size:13px;font-weight:600">${it.name}</div>
+            <div style="text-align:center;font-size:13px;color:#70B5FF">${it.received} ${it.unit}</div>
+            <div style="text-align:center;font-size:13px;color:#f87171">${it.used} ${it.unit}</div>
+            <div style="text-align:center;font-size:13px;font-weight:700;color:${it.remaining<0?'#f87171':it.remaining===0?'rgba(255,255,255,.4)':'#34d399'}">${it.remaining} ${it.unit}</div>
+          </div>`).join('')}
+      </div>`).join('')}
+
+    <div class="shdr">🔧 تسجيل استخدام</div>
+    <div class="card">
+      <div class="fg">
+        <label class="lbl">المشروع</label>
+        <select id="use-proj" onchange="loadUseItems()"><option value="">-- اختر المشروع --</option>${[...new Set(myItems.map(it=>it.project))].map(p=>`<option>${p}</option>`).join('')}</select>
+      </div>
+      <div id="use-items-list"></div>
+      <div class="err" id="use-err" style="display:none"></div>
+      <div id="use-ok" class="ok" style="display:none"></div>
+      <button class="btn bp" onclick="saveInvUse()">💾 حفظ الاستخدام</button>
+    </div>` : '<div class="empty">لا يوجد مخزون بعد — ابدأ بإضافة استلام</div>'}
+  `;
+}
+
+let invRowCount = 1;
+function addInvRow(){
+  const id = invRowCount++;
+  const div = document.createElement('div');
+  div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin-bottom:6px';
+  div.innerHTML=`<input id="inv-item-${id}" placeholder="اسم الصنف" style="font-size:12px"><input id="inv-qty-${id}" type="number" placeholder="الكمية" style="font-size:12px"><input id="inv-unit-${id}" placeholder="الوحدة" style="font-size:12px"><button onclick="this.parentElement.remove()" style="border:1px solid rgba(255,100,100,.3);border-radius:8px;background:rgba(255,100,100,.1);color:#f87171;font-size:16px;cursor:pointer;padding:0 10px">✕</button>`;
+  document.getElementById('inv-manual-items').appendChild(div);
+}
+
+async function pickInvFile(input){
+  const file = input.files[0];if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    invB64 = ev.target.result.split(',')[1];
+    document.getElementById('inv-icon').textContent = file.type==='application/pdf'?'📄':'🖼️';
+    document.getElementById('inv-txt').textContent = file.name;
+    document.getElementById('inv-ai-btn').style.display='block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeInvReceipt(){
+  if(!invB64){alert('يرجى رفع صورة الإيصال أولاً');return;}
+  const btn=document.getElementById('inv-ai-btn');
+  btn.textContent='⏳ جاري القراءة...';btn.disabled=true;
+  try{
+    const res = await api('/api/analyze','POST',{b64:invB64,text:'هذا إيصال استلام بضاعة. استخرج الأصناف والكميات والوحدات فقط في items. كل صنف يكون له: desc=اسم الصنف، qty=الكمية، unit=الوحدة'});
+    if(res.error) throw new Error(res.error);
+    invParsed = res;
+    // Show parsed items
+    const items = res.items||[];
+    if(!items.length){
+      document.getElementById('inv-ai-result').style.display='block';
+      document.getElementById('inv-ai-result').innerHTML='<div style="padding:8px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171;margin-bottom:10px">⚠️ تعذر قراءة الأصناف — أضفها يدوياً</div>';
+    } else {
+      // Fill manual items with parsed data
+      const manualDiv = document.getElementById('inv-manual-items');
+      manualDiv.innerHTML='';
+      invRowCount=0;
+      items.forEach((it,i)=>{
+        const id=invRowCount++;
+        const div=document.createElement('div');
+        div.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin-bottom:6px';
+        div.innerHTML=`<input id="inv-item-${id}" value="${it.desc||''}" style="font-size:12px"><input id="inv-qty-${id}" type="number" value="${it.qty||''}" style="font-size:12px"><input id="inv-unit-${id}" value="${it.unit||'وحدة'}" style="font-size:12px"><button onclick="this.parentElement.remove()" style="border:1px solid rgba(255,100,100,.3);border-radius:8px;background:rgba(255,100,100,.1);color:#f87171;font-size:16px;cursor:pointer;padding:0 10px">✕</button>`;
+        manualDiv.appendChild(div);
+      });
+      document.getElementById('inv-ai-result').style.display='block';
+      document.getElementById('inv-ai-result').innerHTML=`<div style="padding:8px;background:rgba(52,211,153,.1);border-radius:8px;color:#34d399;margin-bottom:10px">✅ تم قراءة ${items.length} صنف — راجع البيانات وعدّل إن احتجت</div>`;
+    }
+  }catch(e){
+    document.getElementById('inv-ai-result').style.display='block';
+    document.getElementById('inv-ai-result').innerHTML=`<div style="padding:8px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171;margin-bottom:10px">❌ ${e.message}</div>`;
+  }
+  btn.textContent='🤖 قراءة الأصناف بالذكاء';btn.disabled=false;
+}
+
+async function saveInvReceive(){
+  const project = document.getElementById('inv-proj').value;
+  const err = document.getElementById('inv-err');
+  if(!project){err.style.display='block';err.textContent='⚠️ يجب اختيار المشروع';return;}
+  
+  // Collect items
+  const items=[];
+  document.querySelectorAll('[id^="inv-item-"]').forEach(el=>{
+    const id=el.id.replace('inv-item-','');
+    const name=el.value.trim();
+    const qty=parseFloat(document.getElementById('inv-qty-'+id)?.value)||0;
+    const unit=document.getElementById('inv-unit-'+id)?.value||'وحدة';
+    if(name&&qty>0) items.push({name,qty,unit});
+  });
+  
+  if(!items.length){err.style.display='block';err.textContent='⚠️ أضف صنفاً واحداً على الأقل';return;}
+  err.style.display='none';
+  
+  const entry={
+    supId:CU.id, supName:CU.name, project,
+    type:'inventory_receive',
+    desc:'استلام بضاعة — '+items.map(it=>it.name).join('، '),
+    date:today(), total:0,
+    inventoryItems:items,
+    b64Image:invB64||null
+  };
+  
+  const res=await api('/api/entries','POST',entry);
+  if(res.error){err.style.display='block';err.textContent=res.error;return;}
+  DB=await api('/api/db');
+  invB64=null;invParsed=null;invRowCount=1;
+  document.getElementById('inv-ok').style.display='block';
+  document.getElementById('inv-ok').textContent='✅ تم حفظ الاستلام — '+items.length+' صنف';
+  setTimeout(()=>rInventory(),1500);
+}
+
+function loadUseItems(){
+  const proj=document.getElementById('use-proj').value;
+  if(!proj) return;
+  const items=getInventory(CU.id,proj).filter(it=>it.remaining>0);
+  const el=document.getElementById('use-items-list');
+  if(!items.length){el.innerHTML='<div style="color:rgba(255,255,255,.5);font-size:12px;padding:8px 0">لا يوجد مخزون في هذا المشروع</div>';return;}
+  el.innerHTML='<div style="margin:10px 0">'+items.map(it=>`
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px;align-items:center">
+      <div style="font-size:13px;font-weight:600">${it.name}<div style="font-size:10px;color:rgba(255,255,255,.5)">متبقي: ${it.remaining} ${it.unit}</div></div>
+      <input type="number" id="use-qty-${it.name}" placeholder="المستخدم" min="0" max="${it.remaining}" style="font-size:12px">
+      <span style="font-size:11px;color:rgba(255,255,255,.5)">${it.unit}</span>
+    </div>`).join('')+'</div>';
+}
+
+async function saveInvUse(){
+  const proj=document.getElementById('use-proj').value;
+  const err=document.getElementById('use-err');
+  if(!proj){err.style.display='block';err.textContent='⚠️ اختر المشروع';return;}
+  const items=getInventory(CU.id,proj).filter(it=>it.remaining>0);
+  const used=[];
+  items.forEach(it=>{
+    const qty=parseFloat(document.getElementById('use-qty-'+it.name)?.value)||0;
+    if(qty>0){
+      if(qty>it.remaining){err.style.display='block';err.textContent='⚠️ الكمية المستخدمة ('+qty+') أكبر من المتبقي ('+it.remaining+') لصنف: '+it.name;return;}
+      used.push({name:it.name,qty,unit:it.unit});
+    }
+  });
+  if(!used.length){err.style.display='block';err.textContent='⚠️ أدخل كمية مستخدمة لصنف واحد على الأقل';return;}
+  err.style.display='none';
+  const entry={
+    supId:CU.id,supName:CU.name,project:proj,
+    type:'inventory_use',
+    desc:'استخدام — '+used.map(it=>it.name).join('، '),
+    date:today(),total:0,
+    inventoryItems:used
+  };
+  const res=await api('/api/entries','POST',entry);
+  if(res.error){err.style.display='block';err.textContent=res.error;return;}
+  DB=await api('/api/db');
+  document.getElementById('use-ok').style.display='block';
+  document.getElementById('use-ok').textContent='✅ تم تسجيل الاستخدام';
+  setTimeout(()=>rInventory(),1500);
+}
+
+// ── MANAGER INVENTORY ──
+function rInventoryMgr(){
+  const allItems = getInventory(null, null);
+  const bySup = {};
+  allItems.forEach(it=>{
+    if(!bySup[it.supId]) bySup[it.supId]={supId:it.supId,items:[]};
+    bySup[it.supId].items.push(it);
+  });
+  const allReceives = DB.entries.filter(e=>e.type==='inventory_receive');
+  const allUses = DB.entries.filter(e=>e.type==='inventory_use');
+
+  document.getElementById('mc').innerHTML = `
+    <div class="ctitle">📦 مخزون المشرفين والعهدات</div>
+    ${Object.values(bySup).length===0 ? '<div class="empty">لا يوجد مخزون بعد</div>' :
+    Object.values(bySup).map(sup=>{
+      const supName = DB.supervisors.find(s=>s.id==sup.supId)?.name||'مشرف';
+      const projects = [...new Set(sup.items.map(it=>it.project))];
+      return `
+      <div class="card" style="margin-bottom:10px">
+        <div style="font-weight:800;color:#f5c842;font-size:14px;margin-bottom:12px">👷 ${supName}</div>
+        ${projects.map(proj=>`
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:6px">🏗️ ${proj}</div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;font-size:10px;font-weight:700;color:rgba(255,255,255,.4);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:4px">
+              <span>الصنف</span><span style="text-align:center">مستلم</span><span style="text-align:center">مستخدم</span><span style="text-align:center">عهدة</span><span></span>
+            </div>
+            ${sup.items.filter(it=>it.project===proj).map(it=>`
+              <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:center">
+                <div style="font-size:12px;font-weight:600">${it.name}</div>
+                <div style="text-align:center;font-size:12px;color:#70B5FF">${it.received} ${it.unit}</div>
+                <div style="text-align:center;font-size:12px;color:#f87171">${it.used} ${it.unit}</div>
+                <div style="text-align:center;font-size:12px;font-weight:700;color:${it.remaining<0?'#f87171':it.remaining===0?'rgba(255,255,255,.3)':'#34d399'}">${it.remaining} ${it.unit}</div>
+                <div style="display:flex;gap:4px;flex-shrink:0">
+                  <button onclick="editInventoryItem(${sup.supId},\'${proj}\',\'${it.name}\')" style="border:1px solid rgba(245,200,66,.3);border-radius:6px;padding:3px 7px;background:rgba(245,200,66,.1);color:#f5c842;cursor:pointer;font-size:11px">✏️</button>
+                  <button onclick="deleteInventoryItem(${sup.supId},\'${proj}\',\'${it.name}\')" style="border:1px solid rgba(255,80,80,.3);border-radius:6px;padding:3px 7px;background:rgba(255,80,80,.1);color:#f87171;cursor:pointer;font-size:11px">✕</button>
+                </div>
+              </div>`).join('')}
+          </div>`).join('')}
+        <details style="margin-top:6px">
+          <summary style="font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;padding:4px 0;list-style:none">▼ سجل الحركات التفصيلي</summary>
+          <div style="margin-top:8px">
+            ${[...allReceives,...allUses].filter(e=>e.supId==sup.supId).sort((a,b)=>b.id-a.id).map(e=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:11px">
+                <div>
+                  <span style="color:${e.type==='inventory_receive'?'#34d399':'#f87171'}">${e.type==='inventory_receive'?'📥 استلام':'📤 استخدام'}</span>
+                  <span style="color:rgba(255,255,255,.5);margin-right:6px">${e.project} · ${e.date}</span>
+                  <span style="color:rgba(255,255,255,.7)">${(e.inventoryItems||[]).map(it=>it.name+' ('+it.qty+' '+it.unit+')').join('، ')}</span>
+                </div>
+                <button onclick="deleteInvEntry(${e.id})" style="border:none;background:none;color:rgba(255,80,80,.5);cursor:pointer;font-size:13px;flex-shrink:0;margin-right:4px">✕</button>
+              </div>`).join('')||'<div style="color:rgba(255,255,255,.3);font-size:11px;padding:6px 0">لا توجد سجلات</div>'}
+          </div>
+        </details>
+      </div>`;
+    }).join('')}
+    <div id="inv-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;align-items:center;justify-content:center;padding:20px">
+      <div style="background:rgba(15,10,40,.97);border:1px solid rgba(245,200,66,.2);border-radius:16px;padding:20px;width:100%;max-width:360px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:#f5c842">✏️ تعديل المادة</div>
+        <div id="inv-edit-content"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button onclick="saveInvEdit()" style="flex:1;padding:10px;background:rgba(245,200,66,.2);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:8px;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:700">💾 حفظ</button>
+          <button onclick="document.getElementById('inv-edit-modal').style.display='none'" style="padding:10px 16px;background:transparent;color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15);border-radius:8px;cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let _invEditData = null;
+
+function editInventoryItem(supId, proj, itemName){
+  const allItems = getInventory(supId, proj);
+  const it = allItems.find(i=>i.name===itemName);
+  if(!it) return;
+  _invEditData = {supId, proj, itemName};
+  document.getElementById('inv-edit-content').innerHTML = `
+    <div class="fg"><label class="lbl">اسم المادة</label><input id="inv-edit-name" value="${it.name}" style="color:#fff;background:rgba(255,255,255,.08)"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div><label class="lbl" style="font-size:11px">إجمالي المستلم</label><input type="number" id="inv-edit-received" value="${it.received}" min="0" oninput="updateInvRemaining()"></div>
+      <div><label class="lbl" style="font-size:11px">إجمالي المستخدم</label><input type="number" id="inv-edit-used" value="${it.used}" min="0" oninput="updateInvRemaining()"></div>
+    </div>
+    <div class="fg"><label class="lbl">الوحدة</label><input id="inv-edit-unit" value="${it.unit||'وحدة'}" oninput="updateInvRemaining()"></div>
+    <div style="padding:8px 12px;background:rgba(52,211,153,.08);border-radius:8px;font-size:12px;display:flex;justify-content:space-between">
+      <span>المتبقي بعد التعديل:</span>
+      <strong id="inv-edit-remaining" style="color:#34d399">${it.received-it.used} ${it.unit}</strong>
+    </div>
+  `;
+  document.getElementById('inv-edit-modal').style.display='flex';
+}
+
+function updateInvRemaining(){
+  const r=parseFloat(document.getElementById('inv-edit-received')?.value)||0;
+  const u=parseFloat(document.getElementById('inv-edit-used')?.value)||0;
+  const unit=document.getElementById('inv-edit-unit')?.value||'';
+  const rem=document.getElementById('inv-edit-remaining');
+  if(rem){rem.textContent=(r-u)+' '+unit;rem.style.color=r-u<0?'#f87171':'#34d399';}
+}
+
+async function saveInvEdit(){
+  if(!_invEditData) return;
+  const {supId, proj, itemName} = _invEditData;
+  const newName = document.getElementById('inv-edit-name').value.trim()||itemName;
+  const newReceived = parseFloat(document.getElementById('inv-edit-received').value)||0;
+  const newUsed = parseFloat(document.getElementById('inv-edit-used').value)||0;
+  const newUnit = document.getElementById('inv-edit-unit').value.trim()||'وحدة';
+  const current = getInventory(supId, proj).find(i=>i.name===itemName);
+  if(!current){document.getElementById('inv-edit-modal').style.display='none';return;}
+  const receivedDiff = newReceived - current.received;
+  const usedDiff = newUsed - current.used;
+  const supName = DB.supervisors.find(s=>s.id==supId)?.name||'';
+  if(Math.abs(receivedDiff)>0.01){
+    await api('/api/entries','POST',{supId,supName,project:proj,type:'inventory_receive',desc:'تعديل: '+newName,date:today(),total:0,inventoryItems:[{name:newName,qty:receivedDiff,unit:newUnit}]});
+  }
+  if(Math.abs(usedDiff)>0.01){
+    await api('/api/entries','POST',{supId,supName,project:proj,type:'inventory_use',desc:'تعديل: '+newName,date:today(),total:0,inventoryItems:[{name:newName,qty:usedDiff,unit:newUnit}]});
+  }
+  DB=await api('/api/db');
+  document.getElementById('inv-edit-modal').style.display='none';
+  _invEditData=null;
+  rInventoryMgr();
+}
+
+async function deleteInventoryItem(supId, proj, itemName){
+  if(!confirm('حذف كل سجلات "'+itemName+'" من مخزون هذا المشرف في المشروع؟'))return;
+  const toDelete=DB.entries.filter(e=>(e.type==='inventory_receive'||e.type==='inventory_use')&&e.supId==supId&&e.project===proj&&(e.inventoryItems||[]).some(it=>it.name===itemName));
+  for(const e of toDelete) await api('/api/entries/'+e.id,'DELETE');
+  DB=await api('/api/db');
+  rInventoryMgr();
+}
+
+async function deleteInvEntry(id){
+  if(!confirm('حذف هذا السجل؟'))return;
+  await api('/api/entries/'+id,'DELETE');
+  DB=await api('/api/db');
+  rInventoryMgr();
+}
+
+
+function rCostCenterOwner(){
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
+  const today_d = new Date();
+
+  // Alerts
+  const alerts = [];
+  contracts.forEach(c=>{
+    (c.payments||[]).forEach(p=>{
+      if(p.status==='pending'){
+        if(p.type==='date'&&p.dueDate){
+          const due=new Date(p.dueDate);
+          const diff=Math.ceil((due-today_d)/(1000*60*60*24));
+          if(diff<=7&&diff>=0) alerts.push({contract:c,payment:p,msg:'دفعة قادمة خلال '+diff+' يوم',color:'#fbbf24'});
+          if(diff<0) alerts.push({contract:c,payment:p,msg:'دفعة متأخرة منذ '+Math.abs(diff)+' يوم',color:'#f87171'});
+        }
+        if(p.type==='progress'&&c.progress>=(p.progressPct||0)){
+          alerts.push({contract:c,payment:p,msg:'تم بلوغ '+p.progressPct+'% من الإنجاز',color:'#34d399'});
+        }
+      }
+    });
+  });
+
+  // Overall summary
+  const totalContractValue = contracts.reduce((a,c)=>a+(c.value||0),0);
+  const totalReceived = contracts.reduce((a,c)=>a+(c.transfers||[]).reduce((b,t)=>b+(t.amount||0),0),0);
+  const totalExpenses = contracts.reduce((a,c)=>{
+    return a+DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).reduce((b,e)=>b+(e.total||0),0);
+  },0);
+  const totalProfit = totalContractValue - totalExpenses;
+  const totalRemaining = totalContractValue - totalReceived;
+
+  document.getElementById('mc').innerHTML = `
+    ${alerts.length?`<div style="margin-bottom:12px">${alerts.map(a=>`
+      <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:10px 14px;margin-bottom:6px;border-right:3px solid ${a.color}">
+        <div style="font-weight:700;font-size:13px;color:${a.color}">🔔 ${a.msg}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">${a.contract.clientName} · ${a.contract.project} · ${fmt(a.payment.amount)} ﷼</div>
+      </div>`).join('')}</div>`:''}
+
+    <div class="shdr">📊 الملخص الإجمالي</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="stat"><div class="sl">إجمالي العقود</div><div class="sv" style="color:#f5c842">${fmt(totalContractValue)} ﷼</div></div>
+      <div class="stat"><div class="sl">إجمالي المحصّل</div><div class="sv" style="color:#34d399">${fmt(totalReceived)} ﷼</div></div>
+      <div class="stat"><div class="sl">إجمالي المصروفات</div><div class="sv" style="color:#f87171">${fmt(totalExpenses)} ﷼</div></div>
+      <div class="stat"><div class="sl">صافي الربح</div><div class="sv" style="color:${totalProfit>=0?'#34d399':'#f87171'}">${fmt(totalProfit)} ﷼</div></div>
+    </div>
+
+    <div class="shdr">📋 تقارير العقود</div>
+    ${contracts.length===0?'<div class="empty">لا توجد عقود</div>':
+    contracts.map(c=>{
+      const recv=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      const rem=(c.value||0)-recv;
+      const exp=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).reduce((a,e)=>a+(e.total||0),0);
+      const profit=(c.value||0)-exp;
+      const pct=Math.min(100,Math.round(recv/(c.value||1)*100));
+      return `
+      <div class="card" style="padding:13px 14px;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:800;color:#f5c842;margin-bottom:8px">${c.clientName} — ${c.project}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+          <div style="background:rgba(245,200,66,.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">قيمة العقد</div>
+            <div style="font-size:13px;font-weight:800;color:#f5c842">${fmt(c.value)} ﷼</div>
+          </div>
+          <div style="background:rgba(52,211,153,.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">المحصّل</div>
+            <div style="font-size:13px;font-weight:800;color:#34d399">${fmt(recv)} ﷼</div>
+          </div>
+          <div style="background:rgba(248,113,113,.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">المصروفات</div>
+            <div style="font-size:13px;font-weight:800;color:#f87171">${fmt(exp)} ﷼</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+          <div style="background:rgba(112,181,255,.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">المتبقي من العميل</div>
+            <div style="font-size:13px;font-weight:800;color:#70B5FF">${fmt(rem)} ﷼</div>
+          </div>
+          <div style="background:rgba(${profit>=0?'52,211,153':'248,113,113'},.08);border-radius:7px;padding:7px;text-align:center">
+            <div style="font-size:9px;color:rgba(255,255,255,.5)">${profit>=0?'الربح':'الخسارة'}</div>
+            <div style="font-size:13px;font-weight:800;color:${profit>=0?'#34d399':'#f87171'}">${profit>=0?'+':''}${fmt(profit)} ﷼</div>
+          </div>
+        </div>
+        <div class="pbar"><div class="pf" style="width:${pct}%;background:linear-gradient(90deg,#34d399,#f5c842)"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;margin-bottom:8px"><span>إنجاز ${c.progress||0}%</span><span>محصّل ${pct}%</span></div>
+        <button onclick="exportCostReport('${c.id}')" style="width:100%;padding:8px;background:rgba(112,181,255,.1);color:#70B5FF;border:1px solid rgba(112,181,255,.2);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 تصدير تقرير PDF</button>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function rCostCenter(){
+  // Owner sees reports only
+  if(ROLE==='owner') return rCostCenterOwner();
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
+  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+
+  // Check for alerts
+  const today_d = new Date();
+  const alerts = [];
+  contracts.forEach(c=>{
+    (c.payments||[]).forEach(p=>{
+      if(p.status==='pending'){
+        if(p.type==='date' && p.dueDate){
+          const due = new Date(p.dueDate);
+          const diff = Math.ceil((due-today_d)/(1000*60*60*24));
+          if(diff<=7 && diff>=0) alerts.push({contract:c, payment:p, msg:'دفعة قادمة خلال '+diff+' يوم', color:'#fbbf24'});
+          if(diff<0) alerts.push({contract:c, payment:p, msg:'دفعة متأخرة منذ '+Math.abs(diff)+' يوم', color:'#f87171'});
+        }
+        if(p.type==='progress' && c.progress>=(p.progressPct||0)){
+          alerts.push({contract:c, payment:p, msg:'تم بلوغ '+p.progressPct+'% من الإنجاز', color:'#34d399'});
+        }
+      }
+    });
+    // B2B alert - only for B2B contracts
+    if(c.isB2B && c.b2b?.completed){
+      const remaining=(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      if(remaining>0){
+        const daysSince=Math.ceil((today_d-new Date(c.b2b.completedDate))/(1000*60*60*24));
+        const color=daysSince>30?'#f87171':daysSince>14?'#fbbf24':'#C4B5FD';
+        alerts.push({contract:c, payment:{amount:remaining}, msg:'B2B — اكتملت الأعمال منذ '+daysSince+' يوم — مستحقات غير مصروفة', color});
+      }
+    }
+  });
+
+  document.getElementById('mc').innerHTML = `
+    ${alerts.length ? `
+    <div style="margin-bottom:12px">
+      ${alerts.map(a=>`
+        <div style="background:rgba(${a.color==='#f87171'?'248,113,113':'a.color'==='#fbbf24'?'251,191,36':'52,211,153'},.12);border-radius:10px;padding:10px 14px;margin-bottom:6px;border-right:3px solid ${a.color};display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:13px;color:${a.color}">🔔 ${a.msg}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">${a.contract.clientName} · ${a.contract.project} · ${fmt(a.payment.amount)} ﷼</div>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <div class="card">
+      <div class="ctitle">➕ عقد جديد</div>
+      
+      <!-- AI Contract Reader -->
+      <div style="margin-bottom:14px">
+        <label class="lbl">📄 ارفع نسخة العقد (PDF أو صورة)</label>
+        <div class="drop" id="contract-drop" onclick="document.getElementById('contract-file').click()" style="cursor:pointer;padding:16px">
+          <div style="font-size:28px;margin-bottom:5px" id="contract-icon">📋</div>
+          <div id="contract-txt" style="font-size:12px;color:rgba(255,255,255,.6)">الذكاء الاصطناعي يستخرج بيانات العقد تلقائياً</div>
+        </div>
+        <input type="file" id="contract-file" accept="image/*,.pdf" style="display:none" onchange="analyzeContract(this)">
+        <div id="contract-ai-status" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">
+          ⏳ جاري قراءة العقد...
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div>
+        <span style="font-size:11px;color:rgba(255,255,255,.4)">أو أدخل يدوياً</span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.1)"></div>
+      </div>
+
+      <div class="fg"><label class="lbl">اسم العميل</label><input id="cc-client" placeholder="اسم العميل أو الشركة"></div>
+      <div class="fg"><label class="lbl">المشروع</label><select id="cc-proj"><option value="">-- اختر المشروع --</option>${pOpts}</select></div>
+      <div class="fg"><label class="lbl">قيمة العقد (﷼)</label><input id="cc-value" type="number" placeholder="0.00"></div>
+      <div class="fg"><label class="lbl">تاريخ العقد</label><input id="cc-date" type="date" value="${today()}"></div>
+      <div class="fg"><label class="lbl">ملاحظات</label><input id="cc-notes" placeholder="وصف المشروع أو شروط الدفع..."></div>
+      <div class="fg" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(167,139,250,.08);border-radius:10px;border:1px solid rgba(167,139,250,.2)">
+        <input type="checkbox" id="cc-b2b" style="width:20px;height:20px;accent-color:#C4B5FD;flex-shrink:0">
+        <div>
+          <label for="cc-b2b" style="font-size:13px;font-weight:700;color:#C4B5FD;cursor:pointer">🔄 عقد باك تو باك (B2B)</label>
+          <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">الدفع يكون بعد اكتمال الأعمال</div>
+        </div>
+      </div>
+      <button class="btn bp" onclick="addContract()">✅ إضافة العقد</button>
+    </div>
+
+    ${contracts.length===0 ? '<div class="empty">لا توجد عقود بعد</div>' :
+    contracts.slice().reverse().map(c=>{
+      const totalReceived = (c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      const totalDue = (c.payments||[]).filter(p=>p.status==='paid').reduce((a,p)=>a+(p.amount||0),0);
+      const remaining = (c.value||0) - totalReceived;
+      const pendingPayments = (c.payments||[]).filter(p=>p.status==='pending');
+      const paidPayments = (c.payments||[]).filter(p=>p.status==='paid');
+      const pct = Math.min(100,Math.round(totalReceived/(c.value||1)*100));
+      return `
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#f5c842">${c.clientName}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.6)">🏗️ ${c.project} · ${c.date}</div>
+            ${c.notes?`<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${c.notes}</div>`:''}
+          </div>
+          <button onclick="deleteContract('${c.id}')" style="border:none;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px">✕</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+          <div style="background:rgba(245,200,66,.08);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">قيمة العقد</div>
+            <div style="font-size:14px;font-weight:800;color:#f5c842">${fmt(c.value)} ﷼</div>
+          </div>
+          <div style="background:rgba(52,211,153,.08);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">إجمالي الحوالات</div>
+            <div style="font-size:14px;font-weight:800;color:#34d399">${fmt(totalReceived)} ﷼</div>
+          </div>
+          <div style="background:rgba(${remaining<0?'248,113,113':'112,181,255'},.08);border-radius:8px;padding:8px;text-align:center">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">المتبقي</div>
+            <div style="font-size:14px;font-weight:800;color:${remaining<0?'#f87171':'#70B5FF'}">${fmt(remaining)} ﷼</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <div class="pbar"><div class="pf" style="width:${pct}%;background:linear-gradient(90deg,#34d399,#f5c842)"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.5);margin-top:3px"><span>تم استلام ${pct}%</span><span>متبقي ${100-pct}%</span></div>
+        </div>
+
+        <!-- نسبة الإنجاز -->
+        <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;color:rgba(255,255,255,.7)">نسبة الإنجاز:</span>
+          <input type="range" min="0" max="100" value="${c.progress||0}" oninput="updateProgress('${c.id}',this.value);document.getElementById('prog-${c.id}').textContent=this.value+'%'" style="flex:1">
+          <span id="prog-${c.id}" style="font-size:13px;font-weight:700;color:#f5c842;min-width:35px">${c.progress||0}%</span>
+        </div>
+
+        <!-- Back to Back - only for B2B contracts -->
+        ${c.isB2B ? `<div style="margin-bottom:10px;padding:10px 12px;background:rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.08);border-radius:10px;border:1px solid rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${c.b2b?.completed?8:0}px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:${c.b2b?.completed?'#34d399':'#C4B5FD'}">🔄 عقد باك تو باك (B2B)</div>
+              ${c.b2b?.completed?'<div style=\"font-size:10px;color:rgba(255,255,255,.5);margin-top:2px\">اكتملت الأعمال: '+c.b2b.completedDate+' — منذ <strong style=\"color:#fbbf24\">'+(Math.ceil((new Date()-new Date(c.b2b.completedDate))/(1000*60*60*24)))+' يوم</strong></div>':'<div style=\"font-size:10px;color:rgba(255,255,255,.4);margin-top:2px\">الدفع بعد اكتمال الأعمال</div>'}
+            </div>
+            <button onclick="toggleB2B('${c.id}')" style="border:1px solid rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.4);border-radius:8px;padding:5px 12px;background:rgba(${c.b2b?.completed?'52,211,153':'167,139,250'},.15);color:${c.b2b?.completed?'#34d399':'#C4B5FD'};cursor:pointer;font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif">
+              ${c.b2b?.completed?'✓ مكتمل':'تسجيل اكتمال'}
+            </button>
+          </div>
+          ${c.b2b?.completed?`<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:12px;color:rgba(255,255,255,.7)">المستحقات المتبقية:</div><div style="font-size:15px;font-weight:800;color:${(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0)>0?'#fbbf24':'#34d399'}">${fmt((c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0))} ﷼</div></div>`:''}
+        </div>` : ''}
+
+        <!-- جدول الدفعات -->
+        <div style="margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">📋 جدول الدفعات</div>
+          ${(c.payments||[]).map((p,i)=>`
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-bottom:5px;align-items:center;padding:6px 8px;background:rgba(255,255,255,.04);border-radius:7px">
+              <div style="font-size:12px;font-weight:600">${fmt(p.amount)} ﷼</div>
+              <div style="font-size:11px;color:rgba(255,255,255,.6)">${p.type==='date'?'📅 '+p.dueDate:'📊 '+p.progressPct+'% إنجاز'}</div>
+              <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${p.status==='paid'?'rgba(52,211,153,.2)':'rgba(251,191,36,.2)'};color:${p.status==='paid'?'#34d399':'#fbbf24'};text-align:center">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</span>
+              <button onclick="togglePayment('${c.id}',${i})" style="border:none;background:none;cursor:pointer;font-size:14px;color:${p.status==='paid'?'#34d399':'rgba(255,255,255,.4)'}">${p.status==='paid'?'✓':'○'}</button>
+              <button onclick="deletePayment('${c.id}',${i})" style="border:none;background:none;cursor:pointer;font-size:13px;color:rgba(255,80,80,.6)">✕</button>
+            </div>`).join('')}
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-top:6px">
+            <input type="number" id="pay-amt-${c.id}" placeholder="المبلغ ﷼" style="font-size:11px;padding:6px 8px">
+            <select id="pay-type-${c.id}" style="font-size:11px;padding:6px 8px" onchange="document.getElementById('pay-extra-${c.id}').style.display=this.value==='date'?'block':'none'">
+              <option value="date">📅 بتاريخ</option>
+              <option value="progress">📊 بنسبة إنجاز</option>
+            </select>
+            <div>
+              <input id="pay-extra-${c.id}" type="date" style="font-size:11px;padding:6px 8px;width:100%">
+            </div>
+            <button onclick="addPayment('${c.id}')" style="border:1px solid rgba(245,200,66,.3);border-radius:7px;background:rgba(245,200,66,.1);color:#f5c842;cursor:pointer;font-size:12px;padding:0 10px">+</button>
+          </div>
+        </div>
+
+        <!-- الحوالات الواردة -->
+        <div>
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">💰 الحوالات الواردة</div>
+          ${(c.transfers||[]).slice().reverse().map((t,ri)=>{
+            const realIdx = (c.transfers.length-1) - ri;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px">
+              <div style="flex:1">
+                <span style="color:rgba(255,255,255,.8)">${t.date}</span>
+                ${t.ref?`<span style="color:rgba(255,255,255,.5);margin-right:6px">${t.ref}</span>`:''}
+                ${t.bank?`<span style="background:rgba(112,181,255,.15);color:#70B5FF;font-size:10px;padding:1px 6px;border-radius:99px;margin-right:4px">${t.bank}</span>`:''}
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:#34d399;font-weight:700">+${fmt(t.amount)} ﷼</span>
+                <button onclick="deleteTransfer('${c.id}',${realIdx})" style="border:none;background:none;color:rgba(255,80,80,.6);cursor:pointer;font-size:14px;padding:2px 4px" title="حذف الحوالة">✕</button>
+              </div>
+            </div>`;
+          }).join('')}
+          <!-- AI Upload -->
+          <div style="margin-top:10px">
+            <div style="border:2px dashed rgba(52,211,153,.3);border-radius:10px;padding:10px;text-align:center;cursor:pointer;background:rgba(52,211,153,.05)" onclick="document.getElementById('tr-file-${c.id}').click()">
+              <div id="tr-icon-${c.id}" style="font-size:22px;margin-bottom:4px">📷</div>
+              <div id="tr-txt-${c.id}" style="font-size:11px;color:rgba(255,255,255,.5)">ارفع إيصال الحوالة — الذكاء يقرأها تلقائياً</div>
+            </div>
+            <input type="file" id="tr-file-${c.id}" accept="image/*,.pdf" style="display:none" onchange="pickTransferFile('${c.id}',this)">
+            <div id="tr-preview-${c.id}" style="display:none;margin-top:8px;background:rgba(52,211,153,.08);border-radius:8px;padding:10px">
+              <div id="tr-result-${c.id}"></div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <button onclick="confirmTransfer('${c.id}')" style="flex:1;border:1px solid rgba(52,211,153,.4);border-radius:8px;background:rgba(52,211,153,.15);color:#34d399;cursor:pointer;font-size:12px;font-weight:700;padding:8px;font-family:'Tajawal',sans-serif">✅ تأكيد وحفظ</button>
+                <button onclick="cancelTransfer('${c.id}')" style="border:1px solid rgba(255,255,255,.15);border-radius:8px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-size:12px;padding:8px 12px;font-family:'Tajawal',sans-serif">إلغاء</button>
+              </div>
+            </div>
+            <!-- Manual fallback -->
+            <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr auto;gap:6px">
+              <input type="number" id="tr-amt-${c.id}" placeholder="المبلغ ﷼" style="font-size:11px;padding:6px 8px">
+              <input id="tr-ref-${c.id}" placeholder="رقم مرجعي" style="font-size:11px;padding:6px 8px">
+              <input type="date" id="tr-date-${c.id}" value="${today()}" style="font-size:11px;padding:6px 8px">
+              <button onclick="addTransfer('${c.id}')" style="border:1px solid rgba(52,211,153,.3);border-radius:7px;background:rgba(52,211,153,.1);color:#34d399;cursor:pointer;font-size:12px;padding:0 12px">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- كشف حساب -->
+        <button onclick="exportContractPDF('${c.id}')" style="width:100%;margin-top:12px;padding:10px;background:rgba(217,48,37,.15);color:#f87171;border:1px solid rgba(217,48,37,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 كشف حساب العميل</button>
+      </div>`;
+    }).join('')}
+
+    <!-- تقارير مركز التكلفة -->
+    ${contracts.length ? `
+    <div class="shdr" style="margin-top:4px">📊 تقارير مركز التكلفة</div>
+    ${contracts.map(c=>{
+      const totalReceived=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      const remaining=(c.value||0)-totalReceived;
+      // Get project expenses from DB entries
+      const projExpenses=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).reduce((a,e)=>a+(e.total||0),0);
+      const profit=(c.value||0)-projExpenses;
+      const profitPct=Math.round(profit/(c.value||1)*100);
+      return `
+      <div class="card" style="padding:13px 14px;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:800;color:#f5c842;margin-bottom:10px">${c.clientName} — ${c.project}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div style="background:rgba(245,200,66,.08);border-radius:8px;padding:8px">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">قيمة العقد</div>
+            <div style="font-size:15px;font-weight:800;color:#f5c842">${fmt(c.value)} ﷼</div>
+          </div>
+          <div style="background:rgba(52,211,153,.08);border-radius:8px;padding:8px">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">المحصّل من العميل</div>
+            <div style="font-size:15px;font-weight:800;color:#34d399">${fmt(totalReceived)} ﷼</div>
+          </div>
+          <div style="background:rgba(248,113,113,.08);border-radius:8px;padding:8px">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">إجمالي مصروفات المشروع</div>
+            <div style="font-size:15px;font-weight:800;color:#f87171">${fmt(projExpenses)} ﷼</div>
+          </div>
+          <div style="background:rgba(${profit>=0?'52,211,153':'248,113,113'},.08);border-radius:8px;padding:8px">
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">الربح / الخسارة</div>
+            <div style="font-size:15px;font-weight:800;color:${profit>=0?'#34d399':'#f87171'}">${profit>=0?'+':''}${fmt(profit)} ﷼</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4)">${profitPct}% من قيمة العقد</div>
+          </div>
+        </div>
+        <div style="background:rgba(112,181,255,.08);border-radius:8px;padding:8px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:12px;color:rgba(255,255,255,.7)">المتبقي من العميل</div>
+          <div style="font-size:15px;font-weight:800;color:${remaining>0?'#70B5FF':'#34d399'}">${fmt(remaining)} ﷼</div>
+        </div>
+        <button onclick="exportCostReport('${c.id}')" style="width:100%;margin-top:10px;padding:9px;background:rgba(112,181,255,.12);color:#70B5FF;border:1px solid rgba(112,181,255,.25);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 تصدير تقرير مركز التكلفة</button>
+      </div>`;
+    }).join('')}` : ''}
+  `;
+}
+
+
+// ── AI TRANSFER READER ──
+const _trParsed = {};
+let _trIsPdf2 = {};
+const _trB64 = {};
+
+async function pickTransferFile(contractId, input){
+  const file = input.files[0]; if(!file) return;
+  const isPdf = file.type === 'application/pdf';
+  _trIsPdf2[contractId] = isPdf;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    _trB64[contractId] = ev.target.result.split(',')[1];
+    document.getElementById('tr-icon-'+contractId).textContent = '⏳';
+    document.getElementById('tr-txt-'+contractId).textContent = 'جاري قراءة الإيصال...';
+    try{
+      const res = await api('/api/analyze-transfer','POST',{b64: _trB64[contractId], isPdf:_trIsPdf2[contractId]||false});
+      if(res.error) throw new Error(res.error);
+      _trParsed[contractId] = res;
+      let html = '';
+      if(!res.total||res.total===0){
+        html = '<div style="color:#f87171;font-size:12px">⚠️ تعذر قراءة المبلغ — استخدم الإدخال اليدوي</div>';
+        document.getElementById('tr-preview-'+contractId).querySelector('button').style.display='none';
+      } else {
+        html = `<div style="font-size:12px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:rgba(255,255,255,.6)">المبلغ</span><span style="color:#34d399;font-weight:800;font-size:14px">${fmt(res.total)} ﷼</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:rgba(255,255,255,.6)">التاريخ</span><span>${res.date||today()}</span></div>
+          ${res.invoiceNo?`<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:rgba(255,255,255,.6)">المرجع</span><span>${res.invoiceNo}</span></div>`:''}
+          ${res.supplier?`<div style="display:flex;justify-content:space-between"><span style="color:rgba(255,255,255,.6)">البنك/الجهة</span><span style="color:#70B5FF">${res.supplier}</span></div>`:''}
+        </div>`;
+      }
+      document.getElementById('tr-result-'+contractId).innerHTML = html;
+      document.getElementById('tr-preview-'+contractId).style.display = 'block';
+      document.getElementById('tr-icon-'+contractId).textContent = '✅';
+      document.getElementById('tr-txt-'+contractId).textContent = 'تم قراءة الإيصال';
+    }catch(e){
+      document.getElementById('tr-icon-'+contractId).textContent = '❌';
+      document.getElementById('tr-txt-'+contractId).textContent = 'فشل القراءة — استخدم الإدخال اليدوي';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function confirmTransfer(contractId){
+  const parsed = _trParsed[contractId];
+  if(!parsed||!parsed.total){alert('لا توجد بيانات للحفظ');return;}
+  const cs = getContracts();
+  const c = cs.find(c=>c.id===contractId); if(!c) return;
+  // Check duplicate transfer
+  if(parsed.invoiceNo){
+    const dupRef=(c.transfers||[]).find(t=>t.ref&&t.ref.trim().toLowerCase()===parsed.invoiceNo.toLowerCase());
+    if(dupRef){alert('⚠️ يوجد حوالة بنفس الرقم المرجعي\nالمرجع: '+parsed.invoiceNo+'\nالمبلغ: '+fmt(dupRef.amount)+' ﷼\nالتاريخ: '+dupRef.date);return;}
+  }
+  const dupAmt=(c.transfers||[]).find(t=>Math.abs((t.amount||0)-(parsed.total||0))<0.5&&t.date===(parsed.date||today()));
+  if(dupAmt){if(!confirm('⚠️ يوجد حوالة بنفس المبلغ والتاريخ ('+fmt(parsed.total)+' ﷼)\nهل تريد الإضافة على أي حال؟'))return;}
+  c.transfers.push({
+    amount: parsed.total,
+    ref: parsed.invoiceNo||'',
+    bank: parsed.supplier||'',
+    date: parsed.date||today()
+  });
+  saveContracts(cs);
+  delete _trParsed[contractId];
+  delete _trB64[contractId];
+  rCostCenter();
+}
+
+function cancelTransfer(contractId){
+  delete _trParsed[contractId];
+  delete _trB64[contractId];
+  document.getElementById('tr-preview-'+contractId).style.display='none';
+  document.getElementById('tr-icon-'+contractId).textContent='📷';
+  document.getElementById('tr-txt-'+contractId).textContent='ارفع إيصال الحوالة — الذكاء يقرأها تلقائياً';
+}
+
+
+async function analyzeContract(input){
+  const file = input.files[0]; if(!file) return;
+  const isPdf = file.type==='application/pdf';
+  const status = document.getElementById('contract-ai-status');
+  const icon = document.getElementById('contract-icon');
+  const txt = document.getElementById('contract-txt');
+  status.style.display='block';
+  status.textContent='⏳ جاري قراءة العقد...';
+  icon.textContent='⏳';
+
+  const isB2B = document.getElementById('cc-b2b')?.checked||false;
+
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const b64 = ev.target.result.split(',')[1];
+    try{
+      let prompt;
+      if(isB2B){
+        // B2B: no payment schedule, just contract value and duration
+        prompt = `هذا عقد مقاولات من نوع "باك تو باك" — الدفع يكون بعد اكتمال الأعمال. استخرج:
+- اسم العميل أو الجهة المالكة (supplier)
+- قيمة العقد الإجمالية شاملة الضريبة بالأرقام (total)
+- تاريخ العقد (date بصيغة YYYY-MM-DD)
+- وصف الأعمال (desc)
+- مدة الضمان أو مدة الاستحقاق بعد الاكتمال إن وجدت (invoiceNo)
+لا تضع جدول دفعات — items=[]
+الإخراج JSON نقي فقط.`;
+      } else {
+        // Regular: just contract info
+        prompt = `هذا عقد مقاولات. استخرج فقط:
+- اسم العميل أو الجهة المالكة (supplier)
+- قيمة العقد الإجمالية شاملة الضريبة بالأرقام (total)
+- تاريخ العقد (date بصيغة YYYY-MM-DD)
+- وصف الأعمال (desc)
+items=[]
+الإخراج JSON نقي فقط.`;
+      }
+
+      const res = await api('/api/analyze','POST',{b64, text:prompt, isPdf});
+      if(res.error) throw new Error(res.error);
+
+      // Fill form fields
+      if(res.supplier) document.getElementById('cc-client').value = res.supplier;
+      if(res.total && res.total>0) document.getElementById('cc-value').value = res.total;
+      if(res.date) document.getElementById('cc-date').value = res.date;
+
+      let summaryMsg = '';
+
+      if(isB2B){
+        // B2B: just show contract value, no payments
+        const duration = res.invoiceNo||'';
+        document.getElementById('cc-notes').value = (res.desc||'')+(duration?' — مدة الاستحقاق: '+duration:'');
+        window._contractPayments = [];
+        summaryMsg = '✅ تم استخراج بيانات عقد B2B — قيمة العقد: '+fmt(res.total)+' ﷼'+(duration?' — '+duration:'');
+      } else {
+        // Regular: extract payments
+        const items = res.items||[];
+        let notes = res.desc||'';
+        if(items.length>0){
+          notes += '  جدول الدفعات: ';
+          items.forEach((it,i)=>{
+            notes += (i+1)+'. '+(it.desc||'دفعة '+(i+1))+': '+fmt(it.total||0)+' ﷼'+(it.unit?' — '+it.unit:'')+(it.qty>0?' ('+it.qty+'%)':'')+' | ';
+          });
+          window._contractPayments = items.map(it=>({
+            amount: it.total||0,
+            type: (it.unit&&/\d{4}-\d{2}-\d{2}/.test(it.unit))?'date':(it.qty>0?'progress':'date'),
+            dueDate: (it.unit&&/\d{4}-\d{2}-\d{2}/.test(it.unit))?it.unit:null,
+            progressPct: it.qty>0?it.qty:null,
+            status: 'pending'
+          })).filter(p=>p.amount>0);
+          summaryMsg = '✅ تم استخراج '+items.length+' دفعة من جدول الدفعات — راجع البيانات';
+        } else {
+          window._contractPayments = [];
+          summaryMsg = '✅ تم استخراج بيانات العقد — لم يُعثر على جدول دفعات، أضفها يدوياً';
+        }
+        document.getElementById('cc-notes').value = notes;
+      }
+
+      status.innerHTML = '<span style="color:#34d399">'+summaryMsg+'</span>';
+      icon.textContent='✅';
+      txt.textContent = res.supplier||'تم قراءة العقد';
+    }catch(e){
+      status.innerHTML = '<span style="color:#f87171">❌ '+e.message+' — أدخل البيانات يدوياً</span>';
+      icon.textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+
+function exportCostReport(contractId){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const totalReceived=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+  const remaining=(c.value||0)-totalReceived;
+  const projExpenses=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).reduce((a,e)=>a+(e.total||0),0);
+  const profit=(c.value||0)-projExpenses;
+  const paidPay=(c.payments||[]).filter(p=>p.status==='paid').reduce((a,p)=>a+(p.amount||0),0);
+  const pendingPay=(c.payments||[]).filter(p=>p.status==='pending').reduce((a,p)=>a+(p.amount||0),0);
+  const expenses=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.project===c.project&&!e.rejected).sort((a,b)=>a.date.localeCompare(b.date));
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>تقرير مركز التكلفة - ${c.clientName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}
+  h1{font-size:22px;font-weight:900;margin-bottom:4px}
+  h2{font-size:14px;font-weight:800;margin:16px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+  .box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}
+  .box-label{font-size:10px;color:#555;margin-bottom:3px;font-weight:600}
+  .box-value{font-size:18px;font-weight:900}
+  .profit-box{background:${profit>=0?'#dcfce7':'#fee2e2'};border:1.5px solid ${profit>=0?'#166534':'#D93025'};border-radius:6px;padding:12px;text-align:center;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px}
+  th{background:#000;color:#fff;padding:8px;text-align:right;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  td{padding:7px 8px;border:1px solid #ddd}
+  tr:nth-child(even) td{background:#f9f9f9;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .total-row td{background:#e5e7eb;font-weight:800;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  @media print{body{padding:10px}}
+</style></head><body>
+<h1>تقرير مركز التكلفة</h1>
+<div style="font-size:12px;color:#555;margin-bottom:14px">التقرير: ${now} | العميل: ${c.clientName} | المشروع: ${c.project}</div>
+
+<div class="grid">
+  <div class="box"><div class="box-label">قيمة العقد</div><div class="box-value">${fmt(c.value)} ﷼</div></div>
+  <div class="box"><div class="box-label">إجمالي المصروفات</div><div class="box-value" style="color:#D93025">${fmt(projExpenses)} ﷼</div></div>
+  <div class="box"><div class="box-label">المحصّل من العميل</div><div class="box-value" style="color:#1A7A3C">${fmt(totalReceived)} ﷼</div></div>
+  <div class="box"><div class="box-label">المتبقي من العميل</div><div class="box-value" style="color:#1A50A8">${fmt(remaining)} ﷼</div></div>
+  <div class="box"><div class="box-label">نسبة الإنجاز</div><div class="box-value">${c.progress||0}%</div></div>
+  <div class="box"><div class="box-label">دفعات معلقة</div><div class="box-value" style="color:#D97706">${fmt(pendingPay)} ﷼</div></div>
+</div>
+
+<div class="profit-box">
+  <div style="font-size:13px;font-weight:700;color:${profit>=0?'#166534':'#D93025'};margin-bottom:4px">${profit>=0?'✅ الربح المتوقع':'❌ الخسارة المتوقعة'}</div>
+  <div style="font-size:28px;font-weight:900;color:${profit>=0?'#166534':'#D93025'}">${profit>=0?'+':''}${fmt(profit)} ﷼</div>
+  <div style="font-size:11px;color:#555;margin-top:4px">${Math.round(profit/(c.value||1)*100)}% من قيمة العقد (قيمة العقد − إجمالي المصروفات)</div>
+</div>
+
+${expenses.length?`
+<h2>📄 مصروفات المشروع التفصيلية</h2>
+<table>
+  <tr><th>التاريخ</th><th>الوصف</th><th>المورد</th><th>النوع</th><th>المشرف</th><th>المبلغ</th></tr>
+  ${expenses.map(e=>`<tr><td>${e.date}</td><td>${e.desc}</td><td>${e.supplier||'—'}</td><td>${e.type==='tax'?'ضريبية':'نثرية'}</td><td>${DB.supervisors.find(s=>s.id==e.supId)?.name||'—'}</td><td style="font-weight:700;color:#D93025">${fmt(e.total)} ﷼</td></tr>`).join('')}
+  <tr class="total-row"><td colspan="5">إجمالي المصروفات</td><td>${fmt(projExpenses)} ﷼</td></tr>
+</table>`:''}
+
+${c.transfers?.length?`
+<h2>💰 الحوالات الواردة من العميل</h2>
+<table>
+  <tr><th>التاريخ</th><th>المرجع</th><th>البنك/الجهة</th><th>المبلغ</th></tr>
+  ${c.transfers.map(t=>`<tr><td>${t.date}</td><td>${t.ref||'—'}</td><td>${t.bank||'—'}</td><td style="font-weight:700;color:#1A7A3C">+${fmt(t.amount)} ﷼</td></tr>`).join('')}
+  <tr class="total-row"><td colspan="3">إجمالي المحصّل</td><td>${fmt(totalReceived)} ﷼</td></tr>
+</table>`:''}
+
+${c.payments?.length?`
+<h2>📋 جدول الدفعات</h2>
+<table>
+  <tr><th>المبلغ</th><th>الاستحقاق</th><th>الحالة</th></tr>
+  ${c.payments.map(p=>`<tr><td style="font-weight:700">${fmt(p.amount)} ﷼</td><td>${p.type==='date'?p.dueDate:p.progressPct+'% إنجاز'}</td><td style="color:${p.status==='paid'?'#1A7A3C':'#D97706'};font-weight:700">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</td></tr>`).join('')}
+</table>`:''}
+</body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),800);
+}
+
+
+
+function deletePayment(contractId, idx){
+  if(!confirm('حذف هذه الدفعة؟')) return;
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  // If paid, remove auto transfer
+  const p=c.payments[idx];
+  if(p.status==='paid'){
+    const ti=c.transfers.findIndex(t=>t.auto&&t.amount===p.amount);
+    if(ti!==-1) c.transfers.splice(ti,1);
+  }
+  c.payments.splice(idx,1);
+  saveContracts(cs);rCostCenter();
+}
+
+function toggleB2B(contractId){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  if(c.b2b?.completed){
+    if(!confirm('إلغاء تسجيل اكتمال الأعمال؟'))return;
+    delete c.b2b;
+  } else {
+    const dateStr=today();
+    c.b2b={completed:true,completedDate:dateStr};
+    const remaining=(c.value||0)-(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+    if(remaining>0) alert('✅ تم تسجيل اكتمال الأعمال\nالمستحقات المتبقية: '+fmt(remaining)+' ﷼\nسيظهر تنبيه يومي حتى يتم الصرف');
+  }
+  saveContracts(cs);rCostCenter();
+}
+
+function getContracts(){ 
+  try { return JSON.parse(localStorage.getItem('kayan_contracts')||'[]'); } 
+  catch(e){ return []; } 
+}
+function saveContracts(cs){ 
+  localStorage.setItem('kayan_contracts',JSON.stringify(cs));
+  // Sync to server in background
+  api('/api/contracts','POST',{contracts:cs}).catch(()=>{});
+}
+
+function addContract(){
+  const client=document.getElementById('cc-client').value.trim();
+  const project=document.getElementById('cc-proj').value;
+  const value=parseFloat(document.getElementById('cc-value').value)||0;
+  const date=document.getElementById('cc-date').value||today();
+  const notes=document.getElementById('cc-notes').value.trim();
+  if(!client||!project||!value){alert('⚠️ يرجى تعبئة اسم العميل والمشروع وقيمة العقد');return;}
+  const cs=getContracts();
+  // Check duplicate contract
+  const norm=s=>(s||'').trim().toLowerCase();
+  const dup=cs.find(c=>norm(c.clientName)===norm(client)&&norm(c.project)===norm(project));
+  if(dup){alert('⚠️ يوجد عقد مسبق لهذا العميل في نفس المشروع\nالعميل: '+dup.clientName+'\nالمشروع: '+dup.project+'\nتاريخ: '+dup.date);return;}
+  // Auto-add payments from AI contract analysis
+  const payments = window._contractPayments||[];
+  delete window._contractPayments;
+  const isB2B=document.getElementById('cc-b2b')?.checked||false;
+  cs.push({id:'c-'+Date.now(),clientName:client,project,value,date,notes,progress:0,payments,transfers:[],isB2B});
+  saveContracts(cs);
+  if(payments.length) alert('✅ تم إضافة العقد مع '+payments.length+' دفعة من جدول الدفعات');
+  rCostCenter();
+}
+
+function deleteContract(id){
+  if(!confirm('حذف هذا العقد وكل بياناته؟'))return;
+  saveContracts(getContracts().filter(c=>c.id!==id));rCostCenter();
+}
+
+function updateProgress(id,val){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===id);if(!c)return;
+  c.progress=parseInt(val)||0;saveContracts(cs);
+  // Check if any pending progress payment is now due
+  (c.payments||[]).forEach(p=>{if(p.type==='progress'&&p.status==='pending'&&c.progress>=(p.progressPct||0)){alert('🔔 تنبيه: تم بلوغ '+p.progressPct+'% — دفعة مستحقة: '+fmt(p.amount)+' ﷼');}});
+}
+
+function addPayment(contractId){
+  const amt=parseFloat(document.getElementById('pay-amt-'+contractId).value)||0;
+  const type=document.getElementById('pay-type-'+contractId).value;
+  if(!amt){alert('⚠️ أدخل مبلغ الدفعة');return;}
+  const extra=document.getElementById('pay-extra-'+contractId).value;
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  const payment={amount:amt,type,status:'pending'};
+  if(type==='date') payment.dueDate=extra||today();
+  else payment.progressPct=parseInt(extra)||0;
+  c.payments.push(payment);saveContracts(cs);rCostCenter();
+}
+
+function togglePayment(contractId,idx){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  const p=c.payments[idx];
+  const wasPaid = p.status==='paid';
+  p.status=wasPaid?'pending':'paid';
+  // If marking as paid: auto-add to transfers
+  if(!wasPaid){
+    c.transfers.push({amount:p.amount,ref:'دفعة مستحقة',date:today(),auto:true});
+    alert('✅ تم تسجيل الدفعة ('+fmt(p.amount)+' ﷼) كحوالة واردة');
+  } else {
+    // Remove auto-added transfer
+    const idx2=c.transfers.findIndex(t=>t.auto&&t.amount===p.amount);
+    if(idx2!==-1) c.transfers.splice(idx2,1);
+  }
+  saveContracts(cs);rCostCenter();
+}
+
+
+function deleteTransfer(contractId, idx){
+  if(!confirm('حذف هذه الحوالة؟')) return;
+  const cs = getContracts();
+  const c = cs.find(c=>c.id===contractId); if(!c) return;
+  c.transfers.splice(idx, 1);
+  saveContracts(cs);
+  rCostCenter();
+}
+
+function addTransfer(contractId){
+  const amt=parseFloat(document.getElementById('tr-amt-'+contractId).value)||0;
+  const ref=document.getElementById('tr-ref-'+contractId).value.trim();
+  const date=document.getElementById('tr-date-'+contractId)?.value||today();
+  if(!amt){alert('⚠️ أدخل مبلغ الحوالة');return;}
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  // Check duplicate transfer
+  if(ref){
+    const dupRef=(c.transfers||[]).find(t=>t.ref&&t.ref.trim().toLowerCase()===ref.toLowerCase());
+    if(dupRef){alert('⚠️ يوجد حوالة بنفس الرقم المرجعي\nالمرجع: '+ref+'\nالمبلغ: '+fmt(dupRef.amount)+' ﷼\nالتاريخ: '+dupRef.date);return;}
+  }
+  const dupAmt=(c.transfers||[]).find(t=>Math.abs((t.amount||0)-amt)<0.5&&t.date===date);
+  if(dupAmt){if(!confirm('⚠️ يوجد حوالة بنفس المبلغ والتاريخ ('+fmt(amt)+' ﷼ - '+date+')\nهل تريد الإضافة على أي حال؟'))return;}
+  c.transfers.push({amount:amt,ref,date});
+  saveContracts(cs);rCostCenter();
+}
+
+function exportContractPDF(contractId){
+  const cs=getContracts();
+  const c=cs.find(c=>c.id===contractId);if(!c)return;
+  const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const totalReceived=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+  const remaining=(c.value||0)-totalReceived;
+  const paidPay=(c.payments||[]).filter(p=>p.status==='paid').reduce((a,p)=>a+(p.amount||0),0);
+  const pendingPay=(c.payments||[]).filter(p=>p.status==='pending').reduce((a,p)=>a+(p.amount||0),0);
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>كشف حساب - ${c.clientName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}
+  h1{font-size:22px;font-weight:900;margin-bottom:4px}
+  h2{font-size:14px;font-weight:800;margin:16px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+  .box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}
+  .box-label{font-size:10px;color:#555;margin-bottom:4px;font-weight:600}
+  .box-value{font-size:18px;font-weight:900}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px}
+  th{background:#000;color:#fff;padding:8px;text-align:right;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  td{padding:7px 8px;border:1px solid #ddd}
+  tr:nth-child(even) td{background:#f9f9f9;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .total{background:#eee;font-weight:800;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  @media print{body{padding:10px}}
+</style></head><body>
+<h1>كشف حساب العميل</h1>
+<div style="font-size:12px;color:#555;margin-bottom:16px">تاريخ الكشف: ${now}</div>
+<table style="margin-bottom:16px">
+  <tr><td style="font-weight:700">اسم العميل</td><td>${c.clientName}</td><td style="font-weight:700">المشروع</td><td>${c.project}</td></tr>
+  <tr><td style="font-weight:700">تاريخ العقد</td><td>${c.date}</td><td style="font-weight:700">نسبة الإنجاز</td><td>${c.progress||0}%</td></tr>
+  ${c.notes?`<tr><td style="font-weight:700">ملاحظات</td><td colspan="3">${c.notes}</td></tr>`:''}
+</table>
+<div class="summary">
+  <div class="box"><div class="box-label">قيمة العقد</div><div class="box-value">${fmt(c.value)} ﷼</div></div>
+  <div class="box"><div class="box-label">إجمالي الحوالات</div><div class="box-value" style="color:#1A7A3C">${fmt(totalReceived)} ﷼</div></div>
+  <div class="box"><div class="box-label">المتبقي</div><div class="box-value" style="color:${remaining<0?'#D93025':'#1A50A8'}">${fmt(remaining)} ﷼</div></div>
+</div>
+${c.transfers?.length?`
+<h2>💰 الحوالات الواردة</h2>
+<table>
+  <tr><th>#</th><th>التاريخ</th><th>الرقم المرجعي</th><th>المبلغ</th></tr>
+  ${c.transfers.map((t,i)=>`<tr><td>${i+1}</td><td>${t.date}</td><td>${t.ref||'—'}</td><td style="font-weight:700;color:#1A7A3C">${fmt(t.amount)} ﷼</td></tr>`).join('')}
+  <tr class="total"><td colspan="3">الإجمالي</td><td>${fmt(totalReceived)} ﷼</td></tr>
+</table>`:''}
+${c.payments?.length?`
+<h2>📋 جدول الدفعات</h2>
+<table>
+  <tr><th>المبلغ</th><th>الاستحقاق</th><th>الحالة</th></tr>
+  ${c.payments.map(p=>`<tr><td style="font-weight:700">${fmt(p.amount)} ﷼</td><td>${p.type==='date'?p.dueDate:p.progressPct+'% إنجاز'}</td><td style="color:${p.status==='paid'?'#1A7A3C':'#D97706'};font-weight:700">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</td></tr>`).join('')}
+  <tr class="total"><td>مدفوع: ${fmt(paidPay)} ﷼</td><td>معلق: ${fmt(pendingPay)} ﷼</td><td>الإجمالي: ${fmt(c.payments.reduce((a,p)=>a+p.amount,0))} ﷼</td></tr>
+</table>`:''}
+</body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),800);
+}
+
+function rReturns(){
+  const invoiceOpts = DB.entries
+    .filter(e=>e.type==='petty'||e.type==='tax')
+    .sort((a,b)=>b.id-a.id)
+    .map(e=>`<option value="${e.id}">#${e.id} — ${e.supplier||e.desc} — ${fmt(e.total)} ﷼ — ${e.date}</option>`)
+    .join('');
+
+  document.getElementById('mc').innerHTML = `
+    <div class="card">
+      <div class="ctitle">↩️ فواتير المرتجعات</div>
+      <div style="background:rgba(52,211,153,.08);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#34d399;border-right:3px solid #34d399">
+        المرتجع يُضاف لرصيد المشرف ويُقلل من إجمالي مصروفات الشركة
+      </div>
+      <div class="fg">
+        <label class="lbl">فاتورة الشراء الأصلية</label>
+        <select id="ret-orig" style="width:100%">
+          <option value="">-- اختر الفاتورة الأصلية --</option>
+          ${invoiceOpts}
+        </select>
+      </div>
+      <div class="fg">
+        <label class="lbl">ارفع صورة فاتورة المرتجع</label>
+        <div class="drop" id="ret-drop" onclick="document.getElementById('ret-file').click()" style="cursor:pointer">
+          <div style="font-size:30px;margin-bottom:6px" id="ret-drop-icon">📷</div>
+          <div id="ret-drop-txt" style="font-size:13px;color:rgba(255,255,255,.6)">اضغط لرفع صورة أو PDF للمرتجع</div>
+        </div>
+        <input type="file" id="ret-file" accept="image/*,.pdf" style="display:none" onchange="handleReturnFile(this)">
+      </div>
+      <div id="ret-preview" style="display:none;margin-bottom:12px">
+        <div class="ctitle" style="margin-bottom:8px">نتيجة التحليل</div>
+        <div id="ret-result" style="background:rgba(255,255,255,.05);border-radius:10px;padding:12px;font-size:13px"></div>
+      </div>
+      <div id="ret-err" class="err" style="display:none"></div>
+      <div id="ret-ok" class="ok" style="display:none"></div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn bp" onclick="analyzeReturn()" id="ret-analyze-btn" style="display:none">🤖 تحليل المرتجع</button>
+        <button class="btn" onclick="saveReturn()" id="ret-save-btn" style="display:none;background:rgba(52,211,153,.15);color:#34d399;border-color:rgba(52,211,153,.3)">✅ حفظ المرتجع</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="ctitle">سجل المرتجعات</div>
+      ${DB.entries.filter(e=>e.type==='return').length===0
+        ? '<div class="empty">لا توجد مرتجعات بعد</div>'
+        : DB.entries.filter(e=>e.type==='return').sort((a,b)=>b.id-a.id).map(e=>`
+          <div style="padding:10px;border-bottom:1px solid rgba(255,255,255,.06)">
+            <div style="display:flex;justify-content:space-between">
+              <div>
+                <div style="font-weight:700;font-size:13px">${e.desc}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.5)">${e.date} · ${gn(e.supId)} · ${e.project}</div>
+                ${e.origInvoiceId?`<div style="font-size:11px;color:#70B5FF">↩ مرتجع من فاتورة #${e.origInvoiceId}</div>`:''}
+              </div>
+              <div style="color:#34d399;font-weight:700">+${fmt(e.total)} ﷼</div>
+            </div>
+          </div>`).join('')}
+    </div>
+  `;
+}
+
+async function handleReturnFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    returnB64 = ev.target.result.split(',')[1];
+    document.getElementById('ret-drop-txt').textContent = file.name;
+    document.getElementById('ret-drop-icon').textContent = file.type==='application/pdf'?'📄':'🖼️';
+    document.getElementById('ret-analyze-btn').style.display = 'block';
+    document.getElementById('ret-err').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeReturn(){
+  if(!returnB64){alert('يرجى رفع صورة المرتجع أولاً');return;}
+  const btn = document.getElementById('ret-analyze-btn');
+  btn.textContent = '⏳ جاري التحليل...';
+  btn.disabled = true;
+  try{
+    const res = await api('/api/analyze','POST',{b64:returnB64,text:'هذه فاتورة مرتجع، استخرج المبلغ المرتجع والمورد ورقم الفاتورة والتاريخ'});
+    if(res.error) throw new Error(res.error);
+    returnParsed = res;
+    const origId = parseInt(document.getElementById('ret-orig').value);
+    const orig = DB.entries.find(e=>e.id===origId);
+    let html = `<div style="margin-bottom:8px"><b>المورد:</b> ${res.supplier||'—'}</div>`;
+    html += `<div style="margin-bottom:8px"><b>المبلغ المرتجع:</b> <span style="color:#34d399;font-weight:700">${fmt(res.total)} ﷼</span></div>`;
+    html += `<div style="margin-bottom:8px"><b>رقم الفاتورة:</b> ${res.invoiceNo||'—'}</div>`;
+    html += `<div style="margin-bottom:8px"><b>التاريخ:</b> ${res.date||'—'}</div>`;
+    if(orig){
+      const diff = (orig.total||0)-(res.total||0);
+      html += `<div style="margin-top:10px;padding:8px;background:rgba(112,181,255,.1);border-radius:8px">`;
+      html += `<b>الفاتورة الأصلية:</b> ${orig.supplier||orig.desc} — ${fmt(orig.total)} ﷼<br>`;
+      html += `<b>المتبقي بعد المرتجع:</b> <span style="color:#f5c842">${fmt(diff)} ﷼</span>`;
+      html += `</div>`;
+    }
+    if(!res.total || res.total===0){
+      html += `<div style="margin-top:8px;padding:8px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171">⚠️ تعذر قراءة المبلغ — يرجى رفع صورة أوضح</div>`;
+      document.getElementById('ret-save-btn').style.display = 'none';
+    } else {
+      document.getElementById('ret-save-btn').style.display = 'block';
+    }
+    document.getElementById('ret-preview').style.display = 'block';
+    document.getElementById('ret-result').innerHTML = html;
+  }catch(e){
+    document.getElementById('ret-err').style.display='block';
+    document.getElementById('ret-err').textContent='❌ '+e.message;
+  }
+  btn.textContent = '🤖 تحليل المرتجع';
+  btn.disabled = false;
+}
+
+async function saveReturn(){
+  if(!returnParsed||!returnParsed.total){alert('يرجى تحليل الفاتورة أولاً');return;}
+  const origId = parseInt(document.getElementById('ret-orig').value);
+  if(!origId){alert('يرجى اختيار الفاتورة الأصلية');return;}
+  const orig = DB.entries.find(e=>e.id===origId);
+  if(!orig){alert('الفاتورة الأصلية غير موجودة');return;}
+  const entry = {
+    supId: orig.supId, supName: orig.supName, project: orig.project,
+    type: 'return',
+    desc: 'مرتجع: '+(returnParsed.supplier||orig.supplier||''),
+    supplier: returnParsed.supplier||orig.supplier||'',
+    invoiceNo: returnParsed.invoiceNo||'RET-'+Date.now(),
+    date: returnParsed.date||today(),
+    payMethod: 'cash',
+    subtotal: returnParsed.subtotal||returnParsed.total||0,
+    taxRate: returnParsed.taxRate||0,
+    taxAmt: returnParsed.taxAmt||0,
+    total: returnParsed.total||0,
+    origInvoiceId: origId,
+    b64Image: returnB64,
+    items: returnParsed.items||[]
+  };
+  const res = await api('/api/entries','POST',entry);
+  if(res.error){
+    document.getElementById('ret-err').style.display='block';
+    document.getElementById('ret-err').textContent=res.error;
+    return;
+  }
+  DB = await api('/api/db');
+  document.getElementById('ret-ok').style.display='block';
+  document.getElementById('ret-ok').textContent='✅ تم حفظ المرتجع وإضافة '+fmt(entry.total)+' ﷼ لرصيد '+orig.supName;
+  document.getElementById('ret-save-btn').style.display='none';
+  returnParsed=null; returnB64=null;
+  setTimeout(()=>rReturns(),2000);
+}
+
+function rReports(){
+  const rFrom = window._reportFrom||'';
+  const rTo = window._reportTo||'';
+  const rEntries = rFrom||rTo ? DB.entries.filter(e=>(!rFrom||e.date>=rFrom)&&(!rTo||e.date<=rTo)) : DB.entries;
+  const taxT=rEntries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const ptT=rEntries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const txT=rEntries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tot=ptT+txT||1;
+  const pm={};rEntries.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:transparent">
+      <div class="ctitle">فلترة التقارير بالتاريخ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="lbl" style="font-size:11px;color:rgba(255,255,255,.55)">من تاريخ</label>
+          <input type="date" id="rep-from" onchange="window._reportFrom=this.value;rReports()" id="rep-from" style="font-size:12px;padding:8px 10px;color:#FFFFFF;background:transparent"></div>
+        <div><label class="lbl" style="font-size:11px;color:rgba(255,255,255,.55)">إلى تاريخ</label>
+          <input type="date" id="rep-to" onchange="window._reportTo=this.value;rReports()" id="rep-to" style="font-size:12px;padding:8px 10px;color:#FFFFFF;background:transparent"></div>
+      </div>
+      ${rFrom||rTo?`<div style="margin-top:8px;font-size:11px;color:#1A7A3C;font-weight:600">📅 يعرض من ${rFrom||'البداية'} إلى ${rTo||'الآن'}</div>`:''}
+    </div>
+    <div class="card" style="background:transparent"><div class="ctitle">تقرير المشرفين</div>
+    ${DB.supervisors.map((s,i)=>{
+      const sp=gs(s.id),rem=getBalance(s.id),
+        p=DB.entries.filter(e=>e.supId==s.id&&e.type==='petty').reduce((a,e)=>a+(e.total||0),0),
+        t=DB.entries.filter(e=>e.supId==s.id&&e.type==='tax').reduce((a,e)=>a+(e.total||0),0),
+        tx=DB.entries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
+      return`<div class="txr"><div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${gc(i)};display:inline-block"></span>${s.name}</div><div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">نثرية:${fmt(p)} · ضريبية:${fmt(t)} · ضريبة:${fmt(tx)}</div></div><div style="text-align:left"><div style="font-size:13px;font-weight:700;color:var(--r)">${fmt(sp)} ﷼</div><div style="font-size:10px;color:#C8960C">متبقي:${fmt(rem)}</div></div></div>`;
+    }).join('')}</div>
+    <div class="card"><div class="ctitle">تقرير المشاريع</div>${DB.projects.map(p=>`<div class="txr"><span style="font-size:13px">${p}</span><span style="font-weight:700;color:var(--r)">${fmt(pm[p]||0)} ﷼</span></div>`).join('')}</div>
+    <div class="card"><div class="ctitle">إجمالي ضريبة القيمة المضافة</div><div style="font-size:22px;font-weight:800;color:var(--b)">${fmt(taxT)} ﷼</div></div>
+    <div class="card"><div class="ctitle">توزيع المصاريف</div>
+    ${[['نثرية',ptT,'#166534'],['ضريبية',txT,'var(--b)']].map(([l,v,c])=>{
+      const pc=Math.round(v/tot*100);
+      return`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px"><span>${l}</span><span style="font-weight:600;color:${c}">${fmt(v)} ﷼ (${pc}%)</span></div><div class="pbar"><div class="pf" style="width:${pc}%;background:${c}"></div></div></div>`;
+    }).join('')}</div>
+    ${rLaborReport()}
+    <button onclick="exportPDF()" style="width:100%;padding:14px;background:linear-gradient(135deg,#D93025,#E84C40);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;box-shadow:0 4px 14px rgba(217,48,37,.3)">
+      <span style="font-size:20px">📄</span> تصدير تقرير PDF كامل
+    </button>
+    <div class="shdr">الرسوم البيانية</div>
+    <div class="card" style="padding:13px"><div class="ctitle">توزيع الصرف على المشاريع</div><canvas id="ch-proj-rep" style="max-height:220px"></canvas></div>
+    <div class="card" style="padding:13px"><div class="ctitle">نثرية مقابل ضريبية</div><canvas id="ch-type-rep" style="max-height:200px"></canvas></div>
+    <div class="card" style="padding:13px"><div class="ctitle">صرف المشرفين</div><canvas id="ch-sup-rep" style="max-height:220px"></canvas></div>
+    ${buildLaborSection(rFrom, rTo)}
+    `;
+  initCharts('rep', rEntries, DB.supervisors);
+  setTimeout(()=>{
+    const f=document.getElementById('rep-from');
+    const t=document.getElementById('rep-to');
+    if(f)f.value=rFrom;
+    if(t)t.value=rTo;
+  },50);
+}
+
+// ── SETUP ──────────────────────────
+function rSetup(){
+  document.getElementById('mc').innerHTML=`
+    <div class="card"><div class="ctitle">المشرفون</div>
+      ${DB.supervisors.map((s,i)=>`<div class="srow"><div style="display:flex;align-items:center;gap:7px"><div class="av" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-size:12px;font-weight:600">${s.name}</div><div style="font-size:10px;color:rgba(255,255,255,.75)">ميزانية:${fmt(s.budget)} · متبقي:${fmt(s.budget-gs(s.id))}${s.visa?' · فيزا:****'+s.visa.slice(-4):''}</div></div></div><div style="display:flex;gap:5px;align-items:center"><button onclick="_budgetSupId=${s.id};document.getElementById('ab-name').textContent='${s.name}';document.getElementById('ab-amount').value='';document.getElementById('ab-err').style.display='none';document.getElementById('add-budget-form').style.display='block'" style="border:1px solid var(--g);border-radius:6px;padding:4px 10px;background:rgba(245,200,66,.1);color:rgba(255,255,255,.9);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">+ رصيد</button><button class="xb" onclick="delSup(${s.id})">✕</button></div></div>`).join('')}
+      <div id="add-budget-form" style="display:none;background:rgba(245,200,66,.1);border-radius:8px;padding:12px;margin-top:8px">
+        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:8px">إضافة رصيد لـ <span id="ab-name" style="color:#C8960C"></span></div>
+        <div style="display:flex;gap:7px;align-items:center">
+          <input type="number" id="ab-amount" placeholder="المبلغ المضاف ﷼" style="flex:1">
+          <button class="btn bp" onclick="doAddBudget()" style="width:auto;padding:7px 14px;font-size:12px">إضافة</button>
+          <button onclick="document.getElementById('add-budget-form').style.display='none'" style="border:none;background:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:20px;line-height:1">✕</button>
+        </div>
+        <div class="err" id="ab-err"></div>
+      </div>
+      <div class="ar">
+        <input id="nn" placeholder="اسم المشرف" style="flex:2;min-width:100px">
+        <input id="nb" type="number" placeholder="الميزانية" style="max-width:90px">
+        <input id="np" type="password" placeholder="الباسورد" style="max-width:90px">
+        <input id="nv" placeholder="رقم الفيزا" style="flex:2;min-width:100px">
+        <button class="btn bp" onclick="addSup()" style="width:auto;padding:7px 11px">+</button>
+      </div>
+    </div>
+    <div class="card"><div class="ctitle">المشاريع</div>
+      ${DB.projects.map(p=>`<div class="srow"><span style="font-size:12px">${p}</span><button class="xb" onclick="delProj('${p}')">✕</button></div>`).join('')}
+      <div class="ar"><input id="nproj" placeholder="اسم المشروع"><button class="btn bp" onclick="addProj()" style="width:auto;padding:7px 11px">+</button></div>
+    </div>
+    <div class="card">
+      <div class="ctitle">النسخ الاحتياطي</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.75);margin-bottom:12px">احفظ بياناتك أو استعدها من نسخة سابقة</div>
+      
+      <div style="margin-bottom:10px">
+        <label class="lbl">تحميل نسخة احتياطية</label>
+        <button class="btn bx" onclick="location.href='/api/backup'">
+          <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          تحميل النسخة الاحتياطية
+        </button>
+      </div>
+      
+      <div class="sep"></div>
+      
+      <div style="margin-bottom:10px">
+        <label class="lbl">استعادة من نسخة احتياطية</label>
+        <div style="font-size:11px;color:rgba(255,255,255,.75);margin-bottom:8px">اختر ملف JSON من نسخة احتياطية سابقة لاستعادة البيانات</div>
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border:2px dashed var(--n3);border-radius:8px;cursor:pointer;background:transparent;font-size:13px;color:rgba(255,255,255,.85);transition:.15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--n3)'">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          اختر ملف النسخة الاحتياطية (.json)
+          <input type="file" accept=".json" style="display:none" onchange="restoreBackup(this)">
+        </label>
+      </div>
+      
+      <div id="restore-status" style="display:none"></div>
+      
+      <div class="sep"></div>
+      <button class="btn bd" onclick="clearAll()">مسح كل المعاملات</button>
+    </div>`;
+}
+async function addSup(){
+  const n=document.getElementById('nn').value.trim(),b=0,p=document.getElementById('np').value||'1234',v=document.getElementById('nv').value.trim();
+  if(!n)return;
+  await api('/api/supervisors','POST',{name:n,budget:b,password:p,visa:v});
+  DB=await api('/api/db');rSetup();
+}
+async function delSup(id){if(!confirm('حذف؟'))return;await api('/api/supervisors/'+id,'DELETE');DB=await api('/api/db');rSetup();}
+async function addProj(){
+  const n=document.getElementById('nproj').value.trim();if(!n)return;
+  await api('/api/projects','POST',{name:n});DB=await api('/api/db');
+  document.getElementById('nproj').value='';rSetup();
+}
+async function delProj(p){if(!confirm('حذف؟'))return;await api('/api/projects/'+encodeURIComponent(p),'DELETE');DB=await api('/api/db');rSetup();}
+async function clearAll(){if(!confirm('مسح كل المعاملات؟'))return;for(const e of DB.entries)await api('/api/entries/'+e.id,'DELETE');DB=await api('/api/db');rSetup();}
+
+async function restoreBackup(inp){
+  const file=inp.files[0];if(!file)return;
+  const status=document.getElementById('restore-status');
+  
+  if(!confirm('تأكيد: سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية. هل أنت متأكد؟')){
+    inp.value='';return;
+  }
+  
+  status.style.display='block';
+  status.innerHTML='<div style="background:var(--al);border-radius:7px;padding:9px 12px;font-size:12px;color:#C8960C">جاري استعادة البيانات...</div>';
+  
+  try{
+    const text=await file.text();
+    const backup=JSON.parse(text);
+    const res=await api('/api/restore','POST',backup);
+    
+    if(res.ok){
+      DB=await api('/api/db');
+      status.innerHTML=`<div class="ok"><svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم الاستعادة بنجاح — ${res.entries} معاملة و${res.supervisors} مشرف</div>`;
+      setTimeout(()=>{rSetup();status.style.display='none';},2000);
+    }else{
+      status.innerHTML=`<div class="err" style="display:block">${res.error||'فشل في الاستعادة'}</div>`;
+    }
+  }catch(e){
+    status.innerHTML=`<div class="err" style="display:block">الملف غير صحيح — تأكد أنه ملف JSON من النسخة الاحتياطية</div>`;
+  }
+  inp.value='';
+}
+
+// ── PASSWORDS ─────────────────────
+function rPws(){
+  document.getElementById('mc').innerHTML=`
+    <div class="card"><div class="ctitle">كلمة مرور المدير</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><label style="font-size:13px;font-weight:500">المدير</label><input type="password" id="pm" placeholder="كلمة مرور جديدة" style="max-width:160px"></div>
+    </div>
+    <div class="card"><div class="ctitle">كلمات مرور المشرفين</div>
+      ${DB.supervisors.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0"><label style="font-size:13px;font-weight:500">${s.name}</label><input type="password" id="ps${s.id}" placeholder="كلمة مرور جديدة" style="max-width:160px"></div>`).join('')}
+    </div>
+    <button class="btn bp" onclick="savePW()">حفظ كلمات المرور</button>
+    <div class="ok" id="pwok" style="display:none;margin-top:8px"><svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم الحفظ</div>`;
+}
+async function savePW(){
+  const mgr=document.getElementById('pm').value;
+  const sups=DB.supervisors.map(s=>{const pw=document.getElementById('ps'+s.id)?.value;return pw?{id:s.id,password:pw}:null;}).filter(Boolean);
+  const body={};if(mgr)body.managerPassword=mgr;if(sups.length)body.supervisors=sups;
+  await api('/api/passwords','POST',body);
+  const ok=document.getElementById('pwok');if(ok){ok.style.display='flex';setTimeout(()=>ok.style.display='none',2000);}
+}
+
+// ── SUPERVISOR PAGES ───────────────
+function rHome(){
+  const entries=DB.entries.filter(e=>e.supId==CU.id).slice(-5).reverse();
+  const sp=gs(CU.id),rem=getBalance(CU.id),totalAdded=getTotalAdded(CU.id);
+  const pct=Math.min(100,Math.round(sp/(totalAdded||1)*100));
+  const warn=pct>80?`<div class="warn">⚠️ تنبيه: رصيدك اقترب من النهاية! المتبقي ${fmt(rem)} ﷼ فقط</div>`:'';
+  document.getElementById('mc').innerHTML=`
+    ${warn}
+    <div class="card" style="text-align:center;padding:16px">
+      <div style="font-size:12px;color:rgba(255,255,255,.75);margin-bottom:4px">رصيدك المتبقي</div>
+      <div style="font-size:32px;font-weight:800;color:${rem<500?'var(--r)':'var(--gold)'}">${fmt(rem)} ﷼</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:3px">من ${fmt(totalAdded)} ﷼</div>
+      <div class="pbar" style="margin-top:10px"><div class="pf" style="width:${pct}%;background:${pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)'}"></div></div>
+    </div>
+    <div class="shdr">آخر معاملاتي</div>
+    <div class="card">${entries.map(e=>`<div class="txr"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">${e.project} · ${e.date}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:2px">${fmt(e.total)} ﷼</div></div></div>`).join('')||'<div class="empty">لا توجد معاملات بعد</div>'}</div>`;
+}
+function rHist(){
+  const entries=DB.entries.filter(e=>e.supId==CU.id).slice().reverse();
+  document.getElementById('mc').innerHTML=entries.length
+    ?entries.map(e=>`<div class="card" style="padding:10px 12px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div><div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">${e.project}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}</div></div><div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div></div></div></div>`).join('')
+    :'<div class="empty">لا توجد معاملات بعد</div>';
+}
+function rBal(){
+  const entries=DB.entries.filter(e=>e.supId==CU.id);
+  const sp=gs(CU.id),rem=getBalance(CU.id),totalAdded=getTotalAdded(CU.id);
+  const pct=Math.min(100,Math.round(sp/(totalAdded||1)*100));
+  const pc=pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)';
+  const pt=entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tx=entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="text-align:center;padding:20px 14px">
+      <div style="font-size:12px;color:rgba(255,255,255,.75);margin-bottom:5px">المتبقي من ميزانيتي</div>
+      <div style="font-size:36px;font-weight:800;color:${rem<500?'var(--r)':'var(--gold)'}">${fmt(rem)} ﷼</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:3px">من إجمالي ${fmt(totalAdded)} ﷼</div>
+      <div class="pbar" style="margin-top:10px"><div class="pf" style="width:${pct}%;background:${pc}"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:rgba(255,255,255,.75)"><span>صرفت ${pct}%</span><span>متبقي ${100-pct}%</span></div>
+    </div>
+    <div class="sg">
+      <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534">${fmt(pt)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b)">${fmt(tx)} ﷼</div></div>
+      <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:#C8960C">${fmt(sp)} ﷼</div></div>
+      <div class="stat"><div class="sl">المعاملات</div><div class="sv">${entries.length}</div></div>
+    </div>`;
+}
+
+// ── SCAN ───────────────────────────
+function fillSels(){
+  ['ssup','csup'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    if(ROLE==='supervisor'&&CU){
+      el.innerHTML=`<option value="${CU.id}">${CU.name}</option>`;
+      el.disabled=true;
+    } else {
+      el.innerHTML='<option value="">-- اختر المشرف --</option>'+DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+      el.disabled=false;
+    }
+  });
+  ['sproj','cproj'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.innerHTML='<option value="">-- اختر المشروع --</option>'+DB.projects.map(p=>`<option>${p}</option>`).join('');
+  });
+}
+function openScan(){resetScan();fillSels();document.getElementById('swrap').style.display='flex';}
+function closeScan(){document.getElementById('swrap').style.display='none';resetScan();}
+
+function compressImg(file){
+  return new Promise(res=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=1600;let w=img.width,h=img.height;
+        if(w>MAX||h>MAX){const ratio=Math.min(MAX/w,MAX/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        const src=cv.toDataURL('image/jpeg',.92);
+        res({b64:src.split(',')[1],src});
+      };
+      img.src=e.target.result;
     };
-  } catch (e) { console.error('loadDB error:', e.message); return getFallback(); }
+    r.readAsDataURL(file);
+  });
 }
-async function saveConfig(data) {
-  if (!db) return;
-  try {
-    await db.collection('config').updateOne(
-      { _id: 'main' },
-      { $set: { supervisors: data.supervisors, projects: data.projects, managerPassword: data.managerPassword, nextId: data.nextId, laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [], ownerPassword: data.ownerPassword || 'owner123' }},
-      { upsert: true }
+
+async function pickFile(inp){
+  const file=inp.files[0];if(!file)return;
+  
+  if(file.type==='application/pdf'){
+    // Read PDF as base64 and send directly to AI
+    document.getElementById('sdrop').style.display='none';
+    const p=document.getElementById('sprev');
+    const reader=new FileReader();
+    reader.onload=e=>{
+      imgB64=e.target.result.split(',')[1];
+      imgSrc=e.target.result;
+      p.src='data:image/svg+xml;base64,'+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80" viewBox="0 0 200 80"><rect width="200" height="80" rx="8" fill="#dcfce7"/><text x="100" y="45" text-anchor="middle" font-size="13" fill="#166534">✓ PDF جاهز للتحليل</text></svg>');
+      p.style.display='block';
+    };
+    reader.readAsDataURL(file);
+  } else {
+    const {b64,src}=await compressImg(file);
+    imgB64=b64;imgSrc=src;
+    const p=document.getElementById('sprev');p.src=src;p.style.display='block';
+    document.getElementById('sdrop').style.display='none';
+  }
+}
+
+async function runAI(){
+  const txt=(document.getElementById('stxt')?.value||'').trim();
+  const err=document.getElementById('serr');
+  // Wait for PDF conversion if still processing
+  if(!imgB64&&!txt){
+    const sfile=document.getElementById('sfile');
+    if(sfile?.files[0]?.type==='application/pdf'&&!imgB64){
+      err.style.display='block';err.textContent='جاري تحويل PDF... انتظر ثانية ثم اضغط تحليل مرة أخرى';return;
+    }
+    err.style.display='block';err.textContent='يرجى رفع صورة أو كتابة نص';return;
+  }
+  err.style.display='none';
+  document.getElementById('ss1').style.display='none';
+  const ldg=document.getElementById('sldg');ldg.style.display='block';
+  document.getElementById('ltxt').textContent=imgB64?'جاري قراءة الصورة...':'جاري تحليل النص...';
+  try{
+    const sfile=document.getElementById('sfile');const isPdf=sfile?.files[0]?.type==='application/pdf';
+    const params={text:txt,isPdf:!!isPdf};if(imgB64)params.b64=imgB64;
+    const result=await api('/api/analyze','POST',params);
+    if(result.error)throw new Error(result.error);
+    parsed=result;ldg.style.display='none';showResult();
+  }catch(e){
+    ldg.style.display='none';
+    document.getElementById('ss1').style.display='block';
+    err.style.display='block';
+    err.textContent='خطأ: '+(e.message||'حاول مرة أخرى');
+  }
+}
+
+function setInvoiceType(type){
+  parsed.type = type;
+  const pettyBtn = document.getElementById('type-petty');
+  const taxBtn = document.getElementById('type-tax');
+  if(pettyBtn){
+    pettyBtn.style.border = type==='petty' ? '2px solid #3DD68C' : '1px solid rgba(255,255,255,.15)';
+    pettyBtn.style.background = type==='petty' ? 'rgba(61,214,140,.2)' : 'rgba(255,255,255,.06)';
+    pettyBtn.style.boxShadow = type==='petty' ? '0 0 16px rgba(61,214,140,.25),inset 0 1px 0 rgba(255,255,255,.1)' : 'inset 0 1px 0 rgba(255,255,255,.06)';
+    pettyBtn.style.color = '#FFFFFF';
+  }
+  if(taxBtn){
+    taxBtn.style.border = type==='tax' ? '2px solid #f5c842' : '1px solid rgba(255,255,255,.15)';
+    taxBtn.style.background = type==='tax' ? 'rgba(245,200,66,.2)' : 'rgba(255,255,255,.06)';
+    taxBtn.style.boxShadow = type==='tax' ? '0 0 16px rgba(245,200,66,.25),inset 0 1px 0 rgba(255,255,255,.1)' : 'inset 0 1px 0 rgba(255,255,255,.06)';
+    taxBtn.style.color = '#FFFFFF';
+  }
+  // Update type badge in rfields
+  const tb_el = document.getElementById('rfields');
+  if(tb_el) {
+    const rows = tb_el.querySelectorAll('.fr');
+    rows.forEach(r=>{
+      if(r.querySelector('span')?.textContent==='النوع'){
+        const badge = r.querySelector('.badge');
+        if(badge){
+          badge.className = 'badge b'+(type==='petty'?'pt':'tx');
+          badge.textContent = type==='petty'?'نثرية':'ضريبية';
+        }
+      }
+    });
+  }
+}
+
+function showResult(){
+  // ── Quality check ──
+  const hasSupplier = !!(parsed.supplier && parsed.supplier.trim());
+  const hasTotal = !!(parsed.total && parsed.total > 0);
+  const hasDate = !!(parsed.date);
+  const qualityOk = hasSupplier && hasTotal && hasDate;
+
+  if(!qualityOk){
+    // Poor quality - ask to re-upload
+    document.getElementById('ss1').style.display='block';
+    const err = document.getElementById('serr');
+    err.style.display='block';
+    let missing = [];
+    if(!hasSupplier) missing.push('اسم المورد');
+    if(!hasTotal) missing.push('المبلغ');
+    if(!hasDate) missing.push('التاريخ');
+    err.textContent='⚠️ الصورة غير واضحة — تعذر قراءة: '+missing.join('، ')+' — يرجى رفع صورة أوضح';
+    return;
+  }
+
+  // ── Date check for supervisor ──
+  if(ROLE==='supervisor'){
+    const todayStr = today();
+    if(parsed.date && parsed.date !== todayStr){
+      document.getElementById('ss1').style.display='block';
+      const err = document.getElementById('serr');
+      err.style.display='block';
+      err.textContent='⚠️ لا يمكن قبول الفاتورة — تاريخ الفاتورة ('+parsed.date+') لا يطابق تاريخ اليوم ('+todayStr+') — يُسمح فقط بفواتير تاريخ اليوم';
+      return;
+    }
+  }
+
+  const uploadTime = new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+  const uploadDate = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+
+  document.getElementById('ss2').style.display='block';
+  if(imgSrc){const p=document.getElementById('sprev2');p.src=imgSrc;p.style.display='block';}
+  document.getElementById('rfields').innerHTML=`
+    <div style="background:rgba(245,200,66,.08);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:rgba(255,255,255,.6);display:flex;justify-content:space-between">
+      <span>📅 تاريخ الرفع: ${uploadDate}</span>
+      <span>🕐 ${uploadTime}</span>
+    </div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">الوصف</span><span style="font-weight:600">${parsed.desc||'—'}</span></div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">المورد</span><span>${parsed.supplier||'—'}</span></div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">رقم الفاتورة</span><span>${parsed.invoiceNo||'—'}</span></div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">تاريخ الفاتورة</span><span style="color:${ROLE==='supervisor'&&parsed.date!==today()?'#f87171':'rgba(255,255,255,.9)'}">${parsed.date}</span></div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">النوع</span>${tb(parsed.type)}</div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">الدفع</span>${pb(parsed.payMethod)}</div>
+    <div class="sep"></div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">قبل الضريبة</span><span>${fmt(parsed.subtotal)} ﷼</span></div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">ضريبة ${parsed.taxRate||0}%</span><span>${fmt(parsed.taxAmt)} ﷼</span></div>
+    <div class="tbox"><span style="font-size:12px;opacity:.85">الإجمالي</span><span style="font-size:17px;font-weight:700">${fmt(parsed.total)} ﷼</span></div>`;
+  if(parsed.items?.length){
+    document.getElementById('icard').style.display='block';
+    document.getElementById('ilist').innerHTML=parsed.items.map(it=>`<div class="chip"><div style="font-size:12px;font-weight:600">${it.desc}</div><div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px">${it.qty} ${it.unit} × ${fmt(it.unitPrice)} ﷼ = <strong>${fmt(it.total)} ﷼</strong></div></div>`).join('');
+  }
+  // Auto-select type button based on AI result
+  setTimeout(()=>setInvoiceType(parsed.type||'petty'),50);
+  const ss=document.getElementById('ssup'),cs=document.getElementById('csup');
+  if(ss&&cs&&!cs.disabled)cs.value=ss.value;
+  const sp=document.getElementById('sproj'),cp=document.getElementById('cproj');
+  if(sp&&cp)cp.value=sp.value;
+}
+
+async function saveEntry(){
+  const supId=parseInt(document.getElementById('csup').value);
+  const project=document.getElementById('cproj').value;
+  if(!supId||isNaN(supId)){alert('⚠️ يجب اختيار المشرف أولاً');return;}
+  if(!project){alert('⚠️ يجب اختيار المشروع أولاً');return;}
+  // ── فحص وقت الرفع (للمشرف فقط) ──
+  if(ROLE==='supervisor'){
+    const nowHour = new Date().getHours();
+    if(nowHour < 7 || nowHour >= 17){
+      const timeStr = new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+      alert('⚠️ خارج وقت العمل\nوقت الرفع المسموح: 7:00 صباحاً — 5:00 مساءً\nالوقت الحالي: '+timeStr+'\nيرجى رفع الفاتورة خلال أوقات العمل');
+      return;
+    }
+  }
+  if(ROLE==='supervisor'){
+    const entryDate=parsed.date||'';
+    const todayStr=today();
+    if(entryDate&&entryDate!==todayStr){
+      alert('⚠️ لا يمكن قبول الفاتورة - تاريخ الفاتورة ('+entryDate+') لا يطابق تاريخ اليوم ('+todayStr+')');
+      return;
+    }
+  }
+  const supName=DB.supervisors.find(s=>s.id==supId)?.name||'';
+  const uploadTs = new Date().toISOString();
+  const entry={supId,supName,project,type:parsed.type||'petty',desc:parsed.desc||'فاتورة',supplier:parsed.supplier||'',invoiceNo:parsed.invoiceNo||'',date:parsed.date||today(),payMethod:parsed.payMethod||'cash',subtotal:parsed.subtotal||0,taxRate:parsed.taxRate||0,taxAmt:parsed.taxAmt||0,total:parsed.total||parsed.subtotal||0,items:parsed.items||[],uploadedAt:uploadTs};
+  if(imgB64) entry.b64Image = imgB64;
+  // ── فحص التكرار الشامل ──
+  const _norm = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+  const _normItems = items => (items||[]).map(it=>_norm(it.desc)+'|'+it.qty+'|'+it.unitPrice).sort().join(',');
+  const invoices = DB.entries.filter(e=>e.type==='petty'||e.type==='tax');
+
+  // 1. رقم الفاتورة مكرر
+  if(entry.invoiceNo && entry.invoiceNo.trim()){
+    const dup = invoices.find(e=>e.invoiceNo && _norm(e.invoiceNo)===_norm(entry.invoiceNo));
+    if(dup){
+      const who = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
+      alert('⚠️ تكرار — رقم الفاتورة\nالفاتورة رقم "'+entry.invoiceNo+'" مسجلة مسبقاً\nعند: '+who+' | تاريخ: '+dup.date+' | مبلغ: '+fmt(dup.total)+' ﷼');
+      return;
+    }
+  }
+
+  // 2. نفس المورد + المبلغ + التاريخ
+  if(entry.supplier && entry.total && entry.date){
+    const dup2 = invoices.find(e=>
+      _norm(e.supplier)===_norm(entry.supplier) &&
+      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
+      e.date===entry.date
     );
-  } catch (e) { console.error('saveConfig error:', e.message); }
+    if(dup2){
+      const who2 = DB.supervisors.find(s=>s.id==dup2.supId)?.name||'مشرف آخر';
+      alert('⚠️ تكرار — نفس المورد والمبلغ والتاريخ\nالمورد: '+entry.supplier+'\nالمبلغ: '+fmt(entry.total)+' ﷼ | التاريخ: '+entry.date+'\nمسجلة مسبقاً عند: '+who2);
+      return;
+    }
+  }
+
+  // 3. نفس المبلغ + نفس المكونات (items)
+  if(entry.items && entry.items.length > 0){
+    const entryItemsKey = _normItems(entry.items);
+    const dup3 = invoices.find(e=>
+      e.items && e.items.length > 0 &&
+      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
+      _normItems(e.items)===entryItemsKey
+    );
+    if(dup3){
+      const who3 = DB.supervisors.find(s=>s.id==dup3.supId)?.name||'مشرف آخر';
+      alert('⚠️ تكرار — نفس المكونات والمبلغ\nتم تسجيل فاتورة بنفس البنود والمبلغ مسبقاً\nعند: '+who3+' | تاريخ: '+dup3.date);
+      return;
+    }
+  }
+
+  // 4. نفس المبلغ + نفس التاريخ + نفس المشرف
+  if(entry.total && entry.date){
+    const dup4 = invoices.find(e=>
+      e.supId==entry.supId &&
+      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
+      e.date===entry.date &&
+      _norm(e.supplier||'')===_norm(entry.supplier||'')
+    );
+    if(dup4 && dup4.invoiceNo!==entry.invoiceNo){
+      const who4 = DB.supervisors.find(s=>s.id==dup4.supId)?.name||'مشرف';
+      alert('⚠️ تكرار محتمل\nيوجد فاتورة بنفس المبلغ والتاريخ والمورد عند '+who4+'\nرقم الفاتورة السابقة: '+(dup4.invoiceNo||'غير محدد'));
+      return;
+    }
+  }
+
+  // ── Client-side duplicate check (any supervisor) ──
+  const normalize = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+  if(entry.invoiceNo && entry.invoiceNo.trim()){
+    const dup = DB.entries.find(e=>e.invoiceNo && _norm(e.invoiceNo)===_norm(entry.invoiceNo));
+    if(dup){
+      const dupSup = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
+      alert('⚠️ الفاتورة رقم '+entry.invoiceNo+' مسجلة مسبقاً عند '+dupSup+' بتاريخ '+dup.date);
+      return;
+    }
+  }
+  if(entry.supplier && entry.total && entry.date){
+    const dup2 = DB.entries.find(e=>
+      normalize(e.supplier)===normalize(entry.supplier) &&
+      Math.abs((e.total||0)-(entry.total||0))<0.1 &&
+      e.date===entry.date
+    );
+    if(dup2){
+      const dupSup2 = DB.supervisors.find(s=>s.id==dup2.supId)?.name||'مشرف آخر';
+      alert('⚠️ فاتورة مكررة! نفس المورد والمبلغ والتاريخ مسجلة مسبقاً عند '+dupSup2); return;
+    }
+  }
+  document.getElementById('ss2').style.display='none';
+  document.getElementById('sldg').style.display='block';
+  document.getElementById('ltxt').textContent='جاري الحفظ...';
+  try{
+    await api('/api/entries','POST',entry);
+    DB=await api('/api/db');
+    document.getElementById('sldg').style.display='none';
+    document.getElementById('sdone').style.display='block';
+    document.getElementById('dsum').innerHTML=`${parsed.desc} · ${project}<br><strong style="color:#C8960C">${fmt(parsed.total)} ﷼</strong>`;
+    if(ROLE==='supervisor'){
+    const mc=document.getElementById('mc');
+    if(mc){
+      mc.innerHTML+=`<div class="shdr">الرسوم البيانية</div><div class="card" style="padding:13px"><div class="ctitle">صرفي على المشاريع</div><canvas id="ch-proj-sup" style="max-height:200px"></canvas></div><div class="card" style="padding:13px"><div class="ctitle">نثرية مقابل ضريبية</div><canvas id="ch-type-sup" style="max-height:180px"></canvas></div>`;
+      initCharts('sup',DB.entries.filter(e=>e.supId==CU.id),null);
+    }
+  }else rDash();
+  }catch(e){
+    document.getElementById('sldg').style.display='none';
+    document.getElementById('ss2').style.display='block';
+    document.getElementById('serr').style.display='block';
+    document.getElementById('serr').textContent='خطأ في الحفظ';
+  }
 }
-async function addEntry(entry) {
-  if (!db) return;
-  try { await db.collection('entries').insertOne(entry); } catch (e) { console.error('addEntry error:', e.message); }
+
+function resetScan(){
+  imgB64=null;imgSrc=null;parsed=null;
+  document.getElementById('sfile').value='';
+  ['sprev','sprev2'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display='none';el.src='';}});
+  document.getElementById('sdrop').style.display='block';
+  document.getElementById('stxt').value='';
+  document.getElementById('serr').style.display='none';
+  document.getElementById('icard').style.display='none';
+  document.getElementById('ss1').style.display='block';
+  document.getElementById('ss2').style.display='none';
+  document.getElementById('sldg').style.display='none';
+  document.getElementById('sdone').style.display='none';
 }
-async function updateEntry(id, fields) {
-  if (!db) return;
-  try { await db.collection('entries').updateOne({ id }, { $set: fields }); } catch (e) { console.error('updateEntry error:', e.message); }
+
+
+
+function hideAddBudget(){
+  document.getElementById('add-budget-form').style.display = 'none';
+  currentBudgetSupId = null;
 }
-async function deleteEntry(id) {
-  if (!db) return;
-  try { await db.collection('entries').deleteOne({ id }); } catch (e) { console.error('deleteEntry error:', e.message); }
+
+async function doAddBudget(){
+  const amt = parseFloat(document.getElementById('ab-amount').value);
+  const err = document.getElementById('ab-err');
+  if(!amt || amt <= 0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  err.style.display='none';
+  try{
+    const res = await api('/api/supervisors/'+_budgetSupId+'/budget','POST',{amount:amt});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    document.getElementById('add-budget-form').style.display='none';
+    rSetup();
+    // Show success
+    const ok = document.createElement('div');
+    ok.className='ok';ok.style.marginTop='8px';
+    ok.innerHTML=`<svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم إضافة ${fmt(amt)} ﷼`;
+    document.querySelector('#mc .card').appendChild(ok);
+    setTimeout(()=>ok.remove(),2500);
+  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
 }
-function getFallback() {
-  return { supervisors: [{ id: 1, name: 'المشرف', budget: 10000, password: '1234' }], projects: ['المشروع الأول'], entries: [], managerPassword: 'admin123', nextId: 1 };
+
+// ── ADD BUDGET ─────────────────────────
+let _budgetSupId=null;
+function showAddBudget(id,name){
+  _budgetSupId=id;
+  document.getElementById('ab-name').textContent=name;
+  document.getElementById('ab-amount').value='';
+  document.getElementById('ab-err').style.display='none';
+  document.getElementById('add-budget-form').style.display='block';
+  setTimeout(()=>document.getElementById('ab-amount').focus(),100);
 }
-async function analyzeInvoice(b64, text, isPdf=false) {
-  const { default: https } = await import('https');
-  const prompt = `أنت خبير محاسبة سعودي متخصص في تصنيف الفواتير. مهمتك الأساسية التمييز بدقة بين نوعين من الفواتير.
-## قاعدة التصنيف الأساسية:
-### فاتورة ضريبية (tax): رقم ضريبي، A4 مطبوعة
-### فاتورة نثرية (petty): إيصال صغير، بخط يد، بقالة
-## الإخراج JSON نقي فقط:
-{"desc":"اسم المورد","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم أو null","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":رقم,"taxAmt":رقم,"total":رقم,"items":[{"desc":"البند","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
-${text ? 'نص إضافي: ' + text : ''}`;
-  const content = b64
-    ? isPdf
-      ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }]
-      : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
-    : [{ type: 'text', text: prompt }];
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 1500, messages: [{ role: 'user', content }] });
-    const req = https.request({
-      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
-    }, res => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.error) return reject(new Error(json.error.message));
-          const raw = json.content.map(x => x.text || '').join('');
-          const match = raw.match(/\{[\s\S]*\}/);
-          if (!match) return reject(new Error('لم يُستخرج JSON'));
-          let parsed = JSON.parse(match[0]);
-          const fixNum = v => { if (typeof v === 'string') { v = v.replace(/,/g, '.').replace(/[^0-9.]/g, ''); } return parseFloat(v) || 0; };
-          parsed.subtotal = fixNum(parsed.subtotal);
-          parsed.taxAmt = fixNum(parsed.taxAmt);
-          parsed.taxRate = fixNum(parsed.taxRate);
-          parsed.total = fixNum(parsed.total);
-          if (parsed.items && Array.isArray(parsed.items)) {
-            parsed.items = parsed.items.map(it => ({ ...it, qty: fixNum(it.qty), unitPrice: fixNum(it.unitPrice), total: fixNum(it.total) }));
-          }
-          if (!parsed.total || parsed.total === 0) parsed.total = parsed.subtotal + parsed.taxAmt;
-          if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0];
-          resolve(parsed);
-        } catch (e) { reject(e); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+function hideAddBudget(){
+  document.getElementById('add-budget-form').style.display='none';
+  _budgetSupId=null;
+}
+async function doAddBudget(){
+  const amt=parseFloat(document.getElementById('ab-amount').value);
+  const err=document.getElementById('ab-err');
+  if(!amt||amt<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  err.style.display='none';
+  try{
+    const res=await api('/api/supervisors/'+_budgetSupId+'/budget','POST',{amount:amt});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB=await api('/api/db');
+    document.getElementById('add-budget-form').style.display='none';
+    rSetup();
+  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+}
+
+// ── MANAGER TRANSFER ──────────────────
+function rTransfer(){
+  const sOpts = DB.supervisors.map(s=>`<option value="${s.id}">${s.name} (متبقي: ${fmt(s.budget - gs(s.id))} ﷼)</option>`).join('');
+  // Get transfer history
+  const transfers = DB.entries.filter(e=>e.type==='transfer').slice().reverse();
+  
+  document.getElementById('mc').innerHTML=`
+    <div class="card">
+      <div class="ctitle">تحويل رصيد بين المشرفين</div>
+      <div class="fg">
+        <label class="lbl">من المشرف</label>
+        <select id="tf-from">${sOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">إلى المشرف</label>
+        <select id="tf-to">${sOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">المبلغ (﷼)</label>
+        <input type="number" id="tf-amount" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="fg">
+        <label class="lbl">ملاحظة (اختياري)</label>
+        <input type="text" id="tf-note" placeholder="سبب التحويل...">
+      </div>
+      <div class="err" id="tf-err"></div>
+      <div id="tf-ok" style="display:none" class="ok">
+        <svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="tf-ok-msg"></span>
+      </div>
+      <button class="btn bp" onclick="doTransfer()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        تنفيذ التحويل
+      </button>
+    </div>
+    ${transfers.length ? `
+    <div class="shdr">سجل التحويلات</div>
+    <div class="card">
+      ${transfers.map(e=>`<div class="txr">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${e.desc}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">${e.supName} · ${e.date}${e.transferNote?' · '+e.transferNote:''}</div>
+        </div>
+        <div style="text-align:left;flex-shrink:0;margin-right:7px">
+          <span class="badge btransfer">تحويل</span>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>
+        </div>
+      </div>`).join('')}
+    </div>` : ''}`;
+}
+
+async function doTransfer(){
+  const fromId = document.getElementById('tf-from').value;
+  const toId = document.getElementById('tf-to').value;
+  const amount = document.getElementById('tf-amount').value;
+  const note = document.getElementById('tf-note').value;
+  const err = document.getElementById('tf-err');
+  const ok = document.getElementById('tf-ok');
+  
+  err.style.display='none'; ok.style.display='none';
+  
+  if(!amount || parseFloat(amount)<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  if(fromId===toId){err.style.display='block';err.textContent='اختر مشرفَين مختلفَين';return;}
+  
+  try{
+    const res = await api('/api/transfer','POST',{fromId,toId,amount:parseFloat(amount),note});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    document.getElementById('tf-amount').value='';
+    document.getElementById('tf-note').value='';
+    document.getElementById('tf-ok-msg').textContent = res.message;
+    ok.style.display='flex';
+    setTimeout(()=>{ok.style.display='none';rTransfer();},2500);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
+}
+
+// ── SUPERVISOR TRANSFER ────────────────
+function rSTransfer(){
+  const others = DB.supervisors.filter(s=>s.id!=CU.id);
+  const mySpent = DB.entries.filter(e=>e.supId==CU.id).reduce((a,e)=>a+(e.total||0),0);
+  const myBalance = CU.budget - mySpent;
+  const myTransfers = DB.entries.filter(e=>e.supId==CU.id&&e.type==='transfer').slice().reverse();
+  
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="text-align:center;padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:rgba(255,255,255,.75);margin-bottom:4px">رصيدك المتاح للتحويل</div>
+      <div style="font-size:28px;font-weight:800;color:${myBalance<100?'var(--r)':'var(--primary)'}">
+        ${fmt(myBalance)} <span style="font-size:14px">﷼</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctitle">تحويل إلى مشرف آخر</div>
+      ${others.length===0 ? '<div class="empty">لا يوجد مشرفون آخرون</div>' : `
+      <div class="fg">
+        <label class="lbl">إلى المشرف</label>
+        <select id="st-to">${others.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+      </div>
+      <div class="fg">
+        <label class="lbl">المبلغ (﷼)</label>
+        <input type="number" id="st-amount" placeholder="0.00" min="0" step="0.01" max="${myBalance}">
+      </div>
+      <div class="fg">
+        <label class="lbl">ملاحظة (اختياري)</label>
+        <input type="text" id="st-note" placeholder="سبب التحويل...">
+      </div>
+      <div class="err" id="st-err"></div>
+      <div id="st-ok" style="display:none" class="ok">
+        <svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="st-ok-msg"></span>
+      </div>
+      <button class="btn bp" onclick="doSTransfer()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        تحويل
+      </button>`}
+    </div>
+    ${myTransfers.length ? `
+    <div class="shdr">تحويلاتي السابقة</div>
+    <div class="card">
+      ${myTransfers.map(e=>`<div class="txr">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${e.desc}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">${e.date}${e.transferNote?' · '+e.transferNote:''}</div>
+        </div>
+        <div style="text-align:left;flex-shrink:0;margin-right:7px">
+          <span class="badge btransfer">تحويل</span>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>
+        </div>
+      </div>`).join('')}
+    </div>` : ''}`;
+}
+
+async function doSTransfer(){
+  const toId = document.getElementById('st-to').value;
+  const amount = document.getElementById('st-amount').value;
+  const note = document.getElementById('st-note').value;
+  const err = document.getElementById('st-err');
+  const ok = document.getElementById('st-ok');
+  
+  err.style.display='none'; ok.style.display='none';
+  if(!amount||parseFloat(amount)<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  
+  try{
+    const res=await api('/api/transfer','POST',{fromId:CU.id,toId,amount:parseFloat(amount),note});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB=await api('/api/db');
+    // Update local budget
+    CU.budget = DB.supervisors.find(s=>s.id==CU.id)?.budget || CU.budget;
+    document.getElementById('st-amount').value='';
+    document.getElementById('st-note').value='';
+    document.getElementById('st-ok-msg').textContent=res.message;
+    ok.style.display='flex';
+    setTimeout(()=>{ok.style.display='none';rSTransfer();},2500);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
+}
+
+
+
+// ── LABOR REPORT ───────────────────────
+function rLaborReport(){
+  const laborEntries = DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting');
+  if(!laborEntries.length) return '<div class="card"><div class="ctitle">تقرير العمالة</div><div class="empty">لا توجد سجلات عمالة بعد</div></div>';
+  
+  // Group by date
+  const byDate = {};
+  laborEntries.forEach(e=>{
+    const d = e.date;
+    if(!byDate[d]) byDate[d] = {date:d, company:0, external:0, cost:0, projects:new Set(), workers:[]};
+    byDate[d].company += e.laborDetails?.companyCount||0;
+    byDate[d].external += e.laborDetails?.externalCount||0;
+    byDate[d].cost += e.laborDetails?.laborTotal||0;
+    byDate[d].projects.add(e.project);
+    if(e.laborDetails?.companyNames) byDate[d].workers.push(...(e.laborDetails.companyNames.split('، ')));
   });
-}
-async function uploadToCloudinary(b64, isPdf=false) {
-  const { default: https } = await import('https');
-  const UPLOAD_PRESET = 'kayan_invoices';
-  const boundary = 'CloudinaryBoundary' + Date.now();
-  const fileData = Buffer.from(b64, 'base64');
-  const fileName = isPdf ? 'invoice.pdf' : 'invoice.jpg';
-  const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
-  const resourceType = isPdf ? 'raw' : 'image';
-  const textField = (name, value) => Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`);
-  const filePart = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: ${mimeType}\r\n\r\n`);
-  const body = Buffer.concat([textField('upload_preset', UPLOAD_PRESET), filePart, fileData, Buffer.from(`\r\n--${boundary}--\r\n`)]);
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: 'api.cloudinary.com',
-      path: `/v1_1/${CLOUDINARY_CLOUD}/${resourceType}/upload`,
-      method: 'POST',
-      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
-    }, res => {
-      let data = '';
-      res.on('data', d => data += d);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.secure_url) resolve(json.secure_url);
-          else reject(new Error(json.error?.message || JSON.stringify(json)));
-        } catch(e) { reject(e); }
+
+  // Group by worker (attendance)
+  const workerAttendance = {};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!workerAttendance[w.name]) workerAttendance[w.name]={name:w.name,days:0};
+        workerAttendance[w.name].days++;
       });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+    }
   });
+
+  const sortedDates = Object.values(byDate).sort((a,b)=>b.date.localeCompare(a.date));
+  const totalCompany = laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
+  const totalExternal = laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
+  const totalCost = laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+
+  return `
+    <div class="card">
+      <div class="ctitle">تقرير العمالة</div>
+      <div class="sg" style="margin-bottom:12px">
+        <div class="stat"><div class="sl">إجمالي عمال الشركة</div><div class="sv" style="color:rgba(255,255,255,.9)">${totalCompany} <span style="font-size:12px">يوم عمل</span></div></div>
+        <div class="stat"><div class="sl">إجمالي العمال الخارجيين</div><div class="sv" style="color:var(--b)">${totalExternal} <span style="font-size:12px">يوم عمل</span></div></div>
+        <div class="stat"><div class="sl">إجمالي التكلفة</div><div class="sv" style="color:var(--r)">${fmt(totalCost)} <span style="font-size:12px">﷼</span></div></div>
+        <div class="stat"><div class="sl">أيام العمل المسجلة</div><div class="sv">${Object.keys(byDate).length} <span style="font-size:12px">يوم</span></div></div>
+      </div>
+      
+      <div class="ctitle" style="margin-bottom:8px">تفاصيل يومية</div>
+      ${sortedDates.map(d=>`
+        <div style="border-radius:8px;padding:10px 12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.9)">${d.date}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.75)">${fmt(d.cost)} ﷼</div>
+          </div>
+          <div style="display:flex;gap:12px;font-size:12px">
+            <span style="color:#166534">🏢 شركة: <strong>${d.company}</strong></span>
+            <span style="color:var(--b)">👷 خارجي: <strong>${d.external}</strong></span>
+            <span style="color:rgba(255,255,255,.75)">📋 ${Array.from(d.projects).join('، ')}</span>
+          </div>
+        </div>`).join('')}
+    </div>
+    ${Object.keys(workerAttendance).length ? `
+    <div class="card">
+      <div class="ctitle">حضور عمال الشركة</div>
+      ${Object.values(workerAttendance).sort((a,b)=>b.days-a.days).map(w=>`
+        <div class="txr">
+          <div style="font-size:13px;font-weight:600">${w.name}</div>
+          <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.9)">${w.days} يوم</div>
+        </div>`).join('')}
+    </div>` : ''}`;
 }
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', c => { body += c; if (body.length > 50 * 1024 * 1024) req.destroy(); });
-    req.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve({}); } });
-    req.on('error', reject);
+
+
+// ── IMAGES GALLERY ─────────────────────
+function rImages(){
+  const entries = DB.entries.filter(e=>e.imageUrl).slice().reverse();
+  document.getElementById('mc').innerHTML=`
+    <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px;color:rgba(255,255,255,.85)">${entries.length} فاتورة بصورة</div>
+    </div>
+    ${entries.length===0
+      ?'<div class="empty">لا توجد صور فواتير بعد — الصور تُحفظ تلقائياً عند رفع الفاتورة</div>'
+      :`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${entries.map(e=>`
+          <div style="background:transparent;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+            <div style="position:relative;padding-top:70%;overflow:hidden;background:transparent">
+              ${e.isPdf
+                ? `<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:transparent;cursor:pointer" onclick="window.open('${e.imageUrl}','_blank')">
+                    <div style="font-size:40px">📄</div>
+                    <div style="font-size:11px;color:#dc2626;font-weight:600;margin-top:5px">اضغط لفتح PDF</div>
+                  </div>`
+                : `<img src="${e.imageUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="openImage('${e.imageUrl}')" onerror="this.style.display='none'">`
+              }
+            </div>
+            <div style="padding:8px 10px">
+              <div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.desc}</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.75);margin-bottom:6px">${gn(e.supId)} · ${e.date}</div>
+              <div style="display:flex;gap:5px">
+                <a href="${e.imageUrl}" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:rgba(255,255,255,.9);text-decoration:none;border-radius:5px;padding:4px 0;background:rgba(245,200,66,.1)">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  عرض
+                </a>
+                <a href="${e.imageUrl}" download="invoice_${e.id}.${e.isPdf?'pdf':'jpg'}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:#fff;text-decoration:none;border-radius:5px;padding:4px 0;background:var(--primary)">
+                  <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                  تحميل
+                </a>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>`}`;
+}
+
+function openPdf(entryId){
+  const entry = DB.entries.find(e=>e.id==entryId);
+  if(!entry||!entry.imageUrl) return;
+  // Open PDF in new window
+  const win = window.open('');
+  win.document.write(`<html><body style="margin:0"><embed src="${entry.imageUrl}" type="application/pdf" width="100%" height="100%"><p style="text-align:center;padding:20px"><a href="${entry.imageUrl}" download="invoice_${entryId}.pdf">تحميل PDF</a></p></body></html>`);
+}
+
+function openImage(url){
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer';
+  overlay.onclick=()=>overlay.remove();
+  overlay.innerHTML=`
+    <div style="position:relative;max-width:95vw;max-height:95vh">
+      <img src="${url}" style="max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px">
+      <div style="position:absolute;top:-40px;left:0;right:0;display:flex;justify-content:space-between;align-items:center">
+        <a href="${url}" download style="color:#fff;font-size:13px;display:flex;align-items:center;gap:5px;text-decoration:none;background:transparent;padding:5px 12px;border-radius:6px">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          تحميل
+        </a>
+        <button onclick="event.stopPropagation();this.closest('div[style*=fixed]').remove()" style="background:transparent;border:none;color:#fff;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px">✕ إغلاق</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+
+// ── SHARED LABOR TABLE ──────────────────
+function buildLaborTable(laborEntries, fromDate, toDate){
+  // Filter by date if provided
+  if(fromDate||toDate){
+    laborEntries = laborEntries.filter(e=>(!fromDate||e.date>=fromDate)&&(!toDate||e.date<=toDate));
+  }
+  const externalRate = (DB.laborRates||{}).external||150;
+  const companyRate = (DB.laborRates||{}).company||100;
+
+  const extW={};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList){
+      e.laborDetails.externalWorkersList.forEach(w=>{
+        const k=w.name+'||'+w.jobTitle;
+        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
+        extW[k].days++;
+        extW[k].total+=externalRate;
+        if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+        if(e.project)extW[k].projects.add(e.project);
+      });
+    }
   });
-}
-function sendJSON(res, data, status = 200) {
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-  res.end(JSON.stringify(data));
-}
-function generateExcel(dbData) {
-  const supMap = {};
-  dbData.supervisors.forEach(s => supMap[s.id] = s.name);
-  const rows = dbData.entries.map(e => {
-    const itemsDesc = (e.items && e.items.length > 0) ? e.items.map(it => it.desc + ' (' + it.qty + ' ' + it.unit + ')').join(' | ') : (e.desc || '');
-    return `<Row><Cell><Data ss:Type="Number">${e.id}</Data></Cell><Cell><Data ss:Type="String">${supMap[e.supId] || ''}</Data></Cell><Cell><Data ss:Type="String">${e.project || ''}</Data></Cell><Cell><Data ss:Type="String">${e.type === 'petty' ? 'نثرية' : e.type === 'tax' ? 'ضريبية' : e.type === 'return' ? 'مرتجع' : 'أخرى'}</Data></Cell><Cell><Data ss:Type="String">${itemsDesc}</Data></Cell><Cell><Data ss:Type="String">${e.supplier || ''}</Data></Cell><Cell><Data ss:Type="String">${e.invoiceNo || ''}</Data></Cell><Cell><Data ss:Type="String">${e.date || ''}</Data></Cell><Cell><Data ss:Type="String">${e.payMethod === 'cash' ? 'كاش' : 'تحويل'}</Data></Cell><Cell><Data ss:Type="Number">${e.subtotal || 0}</Data></Cell><Cell><Data ss:Type="Number">${e.taxRate || 0}</Data></Cell><Cell><Data ss:Type="Number">${e.taxAmt || 0}</Data></Cell><Cell><Data ss:Type="Number">${e.total || 0}</Data></Cell></Row>`;
-  }).join('');
-  return `<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel"><Worksheet ss:Name="المصروفات" ss:RightToLeft="1"><Table><Row><Cell><Data ss:Type="String">الرقم</Data></Cell><Cell><Data ss:Type="String">المشرف</Data></Cell><Cell><Data ss:Type="String">المشروع</Data></Cell><Cell><Data ss:Type="String">النوع</Data></Cell><Cell><Data ss:Type="String">الوصف</Data></Cell><Cell><Data ss:Type="String">المورد</Data></Cell><Cell><Data ss:Type="String">رقم الفاتورة</Data></Cell><Cell><Data ss:Type="String">التاريخ</Data></Cell><Cell><Data ss:Type="String">طريقة الدفع</Data></Cell><Cell><Data ss:Type="String">قبل الضريبة</Data></Cell><Cell><Data ss:Type="String">نسبة الضريبة%</Data></Cell><Cell><Data ss:Type="String">مبلغ الضريبة</Data></Cell><Cell><Data ss:Type="String">الإجمالي</Data></Cell></Row>${rows}</Table></Worksheet></Workbook>`;
-}
-const server = http.createServer(async (req, res) => {
-  const { pathname } = url.parse(req.url);
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,DELETE,PATCH', 'Access-Control-Allow-Headers': 'Content-Type' });
-    return res.end();
-  }
-  if (pathname === '/api/login' && req.method === 'POST') {
-    const { role, password, supId } = await parseBody(req);
-    const data = await loadDB();
-    if (role === 'owner') {
-      if (password === (data.ownerPassword || 'owner123')) return sendJSON(res, { ok: true, role: 'owner', name: 'المالك' });
-      return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-    }
-    if (role === 'manager') {
-      if (password === data.managerPassword) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
-      return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-    }
-    if (role === 'supervisor') {
-      const sup = data.supervisors.find(s => s.id === parseInt(supId));
-      if (!sup) return sendJSON(res, { ok: false, error: 'المشرف غير موجود' }, 404);
-      if (sup.password !== password) return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-      return sendJSON(res, { ok: true, role: 'supervisor', name: sup.name, supId: sup.id, budget: sup.budget });
-    }
-    return sendJSON(res, { ok: false, error: 'بيانات خاطئة' }, 400);
-  }
-  if (pathname === '/api/db' && req.method === 'GET') {
-    const data = await loadDB();
-    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [] };
-    delete safe.managerPassword;
-    return sendJSON(res, safe);
-  }
-  if (pathname === '/api/passwords' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    if (body.managerPassword) data.managerPassword = body.managerPassword;
-    if (body.ownerPassword) data.ownerPassword = body.ownerPassword;
-    if (body.supervisors) {
-      body.supervisors.forEach(({ id, password }) => {
-        const sup = data.supervisors.find(s => s.id == id);
-        if (sup && password) sup.password = password;
+
+  const compW={};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!compW[w.name])compW[w.name]={name:w.name,days:0,total:0,dates:[],projects:new Set()};
+        compW[w.name].days++;
+        compW[w.name].total+=companyRate;
+        if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+        if(e.project)compW[w.name].projects.add(e.project);
       });
     }
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname === '/api/entries' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    const normalize = s => (s || '').toString().trim().toLowerCase().replace(/\s+/g, '');
-    // Skip duplicate check for returns
-    if (body.type !== 'return') {
-      if (body.invoiceNo && body.invoiceNo.trim()) {
-        const dup = data.entries.find(e => e.invoiceNo && normalize(e.invoiceNo) === normalize(body.invoiceNo));
-        if (dup) return sendJSON(res, { error: `⚠️ الفاتورة رقم ${body.invoiceNo} مسجلة مسبقاً بتاريخ ${dup.date}` });
-      }
-      if (body.supplier && body.total && body.date) {
-        const dup2 = data.entries.find(e => normalize(e.supplier) === normalize(body.supplier) && Math.abs((e.total||0)-(body.total||0)) < 0.1 && e.date === body.date);
-        if (dup2) return sendJSON(res, { error: `⚠️ يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ` });
-      }
-    }
-    const entry = { ...body, id: data.nextId++ };
-    if (body.b64Image) {
-      const isPdf = body.isPdf || false;
-      try {
-        entry.imageUrl = await uploadToCloudinary(body.b64Image, isPdf);
-        entry.isPdf = isPdf;
-      } catch(e) { console.error('Upload failed:', e.message); }
-      delete entry.b64Image;
-    }
-    await addEntry(entry);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true, entry });
-  }
-  // Reject/accept entry
-  if (pathname.match(/\/api\/entries\/\d+\/reject/) && req.method === 'POST') {
-    const id = parseInt(pathname.split('/')[3]);
-    const { rejected } = await parseBody(req);
-    await updateEntry(id, { rejected: !!rejected });
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname.startsWith('/api/entries/') && req.method === 'DELETE') {
-    const id = parseInt(pathname.split('/').pop());
-    await deleteEntry(id);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname === '/api/supervisors' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    data.supervisors.push({ id: Date.now(), name: body.name, budget: 0, password: body.password || '1234', visa: body.visa || '' });
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname === '/api/labor-waiting' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    const todayDate = new Date().toISOString().split('T')[0];
-    const entry = {
-      id: Date.now(), supId: 0, supName: 'المدير', project: body.project || '',
-      type: 'labor_waiting', desc: `عمالة انتظار ${body.date || todayDate}`,
-      date: body.date || todayDate, total: 0,
-      laborDetails: { companyCount: (body.presentWorkers||[]).length, externalCount: (body.externalWorkersList||[]).length, laborTotal: 0, presentWorkers: body.presentWorkers || [], externalWorkersList: body.externalWorkersList || [], isWaiting: true }
-    };
-    const dup = data.entries.find(e => e.type === 'labor_waiting' && e.date === entry.date && e.project === entry.project);
-    if (dup) return sendJSON(res, { error: 'تم تسجيل عمالة انتظار لهذا المشروع في نفس اليوم' }, 400);
-    await addEntry(entry);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname.match(/\/api\/supervisors\/\d+\/budget/) && req.method === 'POST') {
-    const id = parseInt(pathname.split('/')[3]);
-    const { amount } = await parseBody(req);
-    const data = await loadDB();
-    const sup = data.supervisors.find(s => s.id === id);
-    if (!sup) return sendJSON(res, { error: 'مشرف غير موجود' }, 404);
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0) return sendJSON(res, { error: 'مبلغ غير صحيح' }, 400);
-    sup.budget += amt;
-    await saveConfig(data);
-    return sendJSON(res, { ok: true, newBudget: sup.budget });
-  }
-  if (pathname.startsWith('/api/supervisors/') && !pathname.includes('/budget') && req.method === 'DELETE') {
-    const id = parseInt(pathname.split('/').pop());
-    const data = await loadDB();
-    data.supervisors = data.supervisors.filter(s => s.id !== id);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname === '/api/projects' && req.method === 'POST') {
-    const { name } = await parseBody(req);
-    const data = await loadDB();
-    if (name && !data.projects.includes(name)) data.projects.push(name);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname.startsWith('/api/projects/') && req.method === 'DELETE') {
-    const name = decodeURIComponent(pathname.split('/').pop());
-    const data = await loadDB();
-    data.projects = data.projects.filter(p => p !== name);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname === '/api/upload-image' && req.method === 'POST') {
-    try {
-      const { b64 } = await parseBody(req);
-      if (!b64) return sendJSON(res, { error: 'لا توجد صورة' }, 400);
-      const url = await uploadToCloudinary(b64);
-      return sendJSON(res, { ok: true, url });
-    } catch(e) { return sendJSON(res, { error: 'فشل رفع الصورة: ' + e.message }, 500); }
-  }
+  });
 
-  // Save contracts (cost center)
-  if (pathname === '/api/contracts' && req.method === 'POST') {
-    try {
-      const { contracts } = await parseBody(req);
-      const data = await loadDB();
-      await db.collection('config').updateOne(
-        { _id: 'main' },
-        { $set: { contracts: contracts || [] } },
-        { upsert: true }
-      );
-      return sendJSON(res, { ok: true });
-    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
-  }
+  const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList=Object.values(compW).sort((a,b)=>b.days-a.days);
+  const totalExt=extList.reduce((a,w)=>a+w.days,0);
+  const totalComp=compList.reduce((a,w)=>a+w.days,0);
 
-  // Load contracts (cost center)
-  if (pathname === '/api/contracts' && req.method === 'GET') {
-    try {
-      const cfg = await db.collection('config').findOne({ _id: 'main' });
-      return sendJSON(res, { contracts: cfg?.contracts || [] });
-    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
-  }
+  return `
+    ${extList.length?`
+    <div class="shdr">👷 العمال الخارجيون — إجمالي الأيام</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:var(--primary);color:var(--gold-light);padding:10px 14px;font-size:11px;font-weight:700">
+        <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span>
+      </div>
+      ${extList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:${'transparent'}">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.75)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${w.dates.sort().join(' · ')}</div>
+          </div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:var(--blue)">${w.days}<div style="font-size:9px;font-weight:400;color:rgba(255,255,255,.75)">يوم</div></div>
+          <div style="text-align:center;font-size:13px;font-weight:700;color:var(--red)">${fmt(w.total)}<div style="font-size:9px;font-weight:400;color:rgba(255,255,255,.75)">﷼</div></div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:rgba(245,200,66,.1);font-weight:700">
+        <span style="color:rgba(255,255,255,.9)">الإجمالي</span>
+        <span style="text-align:center;color:var(--blue);font-size:15px">${totalExt} يوم</span>
+        <span style="text-align:center;color:var(--red)">${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</span>
+      </div>
+    </div>` : ''}
 
+    ${compList.length?`
+    <div class="shdr" style="margin-top:8px">🏢 عمال الشركة — إجمالي الأيام</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:2fr 1fr;background:var(--primary);color:var(--gold-light);padding:10px 14px;font-size:11px;font-weight:700">
+        <span>اسم العامل</span><span style="text-align:center">إجمالي الأيام</span>
+      </div>
+      ${compList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr;padding:10px 14px;background:${'transparent'}">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.75)">${[...w.projects].join('،')}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${w.dates.sort().join(' · ')}</div>
+          </div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:rgba(255,255,255,.9)">${w.days}<div style="font-size:9px;font-weight:400;color:rgba(255,255,255,.75)">يوم</div></div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr;padding:10px 14px;background:rgba(245,200,66,.1);font-weight:700">
+        <span style="color:rgba(255,255,255,.9)">الإجمالي</span>
+        <span style="text-align:center;color:rgba(255,255,255,.9);font-size:15px">${totalComp} يوم</span>
+      </div>
+    </div>` : ''}
 
-  // Save sales invoices
-  if (pathname === '/api/sales' && req.method === 'POST') {
-    try {
-      const { sales } = await parseBody(req);
-      await db.collection('config').updateOne(
-        { _id: 'main' },
-        { $set: { sales: sales || [] } },
-        { upsert: true }
-      );
-      return sendJSON(res, { ok: true });
-    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
-  }
+    <div class="shdr" style="margin-top:8px">📅 السجل اليومي</div>
+    ${laborEntries.map(e=>`
+      <div class="card" style="padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <div style="font-weight:800;color:rgba(255,255,255,.9)">${e.date}</div>
+          <div style="font-size:12px;color:var(--red);font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,.75);margin-bottom:5px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}</div>
+        ${e.laborDetails?.presentWorkers?.length?`<div style="background:rgba(245,200,66,.1);border-radius:7px;padding:6px 10px;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.9)">🏢 (${e.laborDetails.companyCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</span></div>`:''}
+        ${e.laborDetails?.externalWorkersList?.length?`<div style="background:rgba(112,181,255,.12);border-radius:7px;padding:6px 10px"><span style="font-size:11px;font-weight:700;color:var(--blue)">👷 (${e.laborDetails.externalCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</span></div>`:''}
+      </div>`).join('')}`;
+}
 
-  // Load sales invoices
-  if (pathname === '/api/sales' && req.method === 'GET') {
-    try {
-      const cfg = await db.collection('config').findOne({ _id: 'main' });
-      return sendJSON(res, { sales: cfg?.sales || [] });
-    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
-  }
+// ── LABOR MANAGER ──────────────────────
+function rLaborMgr(){
+  const rates = DB.laborRates || {company:100, external:150};
+  const workers = DB.companyWorkers || [];
+  const mgrFrom = window._mgrLaborFrom||'';
+  const mgrTo = window._mgrLaborTo||'';
 
-  // Analyze bank transfer
-  if (pathname === '/api/analyze-transfer' && req.method === 'POST') {
-    if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
-    try {
-      const { b64, isPdf } = await parseBody(req);
-      const { default: https } = await import('https');
-      const prompt = 'هذا إيصال حوالة بنكية أو تحويل مالي. استخرج فقط: المبلغ المحول (total كرقم)، تاريخ التحويل (date بصيغة YYYY-MM-DD)، رقم المرجع (invoiceNo)، اسم البنك (supplier). أخرج JSON نقي فقط.';
-      const content = b64 ? (isPdf ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }] : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]) : [{ type: 'text', text: prompt }];
-      const result = await new Promise((resolve, reject) => {
-        const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 300, messages: [{ role: 'user', content }] });
-        const r2 = https.request({ hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'pdfs-2024-09-25', 'Content-Length': Buffer.byteLength(body) } }, res2 => {
-          let data = ''; res2.on('data', d => data += d);
-          res2.on('end', () => { try { const json = JSON.parse(data); if (json.error) return reject(new Error(json.error.message)); const raw = json.content.map(x => x.text || '').join(''); const match = raw.match(/\{[\s\S]*\}/); if (!match) return reject(new Error('لم يُستخرج JSON')); const parsed = JSON.parse(match[0]); parsed.total = parseFloat(String(parsed.total || '0').replace(/[^0-9.]/g, '')) || 0; if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0]; resolve(parsed); } catch (e) { reject(e); } });
-        }); r2.on('error', reject); r2.write(body); r2.end();
+  // Filter ALL labor entries by date
+  const allLabor = DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting');
+  const laborEntries = (mgrFrom||mgrTo)
+    ? allLabor.filter(e=>(!mgrFrom||e.date>=mgrFrom)&&(!mgrTo||e.date<=mgrTo))
+    : allLabor;
+  laborEntries.sort((a,b)=>b.date.localeCompare(a.date));
+
+  const totalCost = laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const totalComp = laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
+  const totalExt  = laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
+
+  // Build worker summaries FROM FILTERED entries
+  const extW={}, compW={};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList){
+      e.laborDetails.externalWorkersList.forEach(w=>{
+        const k=w.name+'||'+w.jobTitle;
+        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
+        extW[k].days++;
+        extW[k].total+=rates.external;
+        if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+        if(e.project)extW[k].projects.add(e.project);
       });
-      return sendJSON(res, result);
-    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
-  }
-  if (pathname === '/api/analyze' && req.method === 'POST') {
-    if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
-    try {
-      const { b64, text, isPdf } = await parseBody(req);
-      const result = await analyzeInvoice(b64 || null, text || '', isPdf);
-      return sendJSON(res, result);
-    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
-  }
-  if (pathname === '/api/workers' && req.method === 'POST') {
-    const { name, jobTitle } = await parseBody(req);
-    const data = await loadDB();
-    if (!data.companyWorkers) data.companyWorkers = [];
-    data.companyWorkers.push({ id: Date.now(), name, jobTitle: jobTitle || '' });
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname.startsWith('/api/workers/') && req.method === 'DELETE') {
-    const id = parseInt(pathname.split('/').pop());
-    const data = await loadDB();
-    data.companyWorkers = (data.companyWorkers || []).filter(w => w.id !== id);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname === '/api/labor-rates' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    data.laborRates = { company: parseFloat(body.company)||100, external: parseFloat(body.external)||150 };
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
-  }
-  if (pathname === '/api/labor' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    const rates = data.laborRates || { company: 100, external: 150 };
-    const presentWorkers = body.presentWorkers || [];
-    const externalWorkersList = body.externalWorkersList || [];
-    const companyCount = presentWorkers.length;
-    const externalCount = externalWorkersList.length;
-    const externalTotal = externalCount * rates.external;
-    const total = companyCount * rates.company + externalTotal;
-    if (companyCount + externalCount === 0) return sendJSON(res, { error: 'أدخل عمالاً للتسجيل' }, 400);
-    const todayDate = new Date().toISOString().split('T')[0];
-    try {
-      const todayAll = data.entries.filter(e => e.type === 'labor' && e.date === todayDate);
-      const allCompany = [], allExternal = [];
-      todayAll.forEach(e => {
-        if(e.laborDetails && e.laborDetails.presentWorkers) e.laborDetails.presentWorkers.forEach(w => allCompany.push(w.name));
-        if(e.laborDetails && e.laborDetails.externalWorkersList) e.laborDetails.externalWorkersList.forEach(w => allExternal.push(w.name));
+    }
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[],projects:new Set()};
+        compW[w.name].days++;
+        if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+        if(e.project)compW[w.name].projects.add(e.project);
       });
-      const dupC = presentWorkers.filter(w => allCompany.includes(w.name));
-      if(dupC.length > 0) return sendJSON(res, { error: '⚠️ هؤلاء العمال مسجلون اليوم: ' + dupC.map(w=>w.name).join('، ') });
-      const dupE = externalWorkersList.filter(w => allExternal.includes(w.name));
-      if(dupE.length > 0) return sendJSON(res, { error: '⚠️ هؤلاء العمال مسجلون اليوم: ' + dupE.map(w=>w.name).join('، ') });
-    } catch(dupErr) { console.error('Dup check error:', dupErr.message); }
-    const sup = data.supervisors.find(s => s.id == body.supId);
-    const entry = {
-      id: data.nextId++, supId: parseInt(body.supId), supName: sup ? sup.name : '',
-      project: body.project || '', type: 'labor', desc: `عمالة ${todayDate}`,
-      supplier: '', invoiceNo: 'LAB-' + Date.now(), date: todayDate,
-      payMethod: 'cash', subtotal: externalTotal, taxRate: 0, taxAmt: 0, total: externalTotal,
-      items: [
-        ...presentWorkers.map(w => ({ desc: w.name, qty: 1, unit: 'يوم', unitPrice: rates.company, total: rates.company, type: 'company' })),
-        ...externalWorkersList.map(w => ({ desc: `${w.name} - ${w.jobTitle}`, qty: 1, unit: 'يوم', unitPrice: rates.external, total: rates.external, type: 'external' }))
-      ],
-      laborDetails: { presentWorkers, externalWorkersList, companyCount, externalCount, companyRate: rates.company, externalRate: rates.external, laborTotal: total, companyNames: presentWorkers.map(w=>w.name).join('، '), externalNames: externalWorkersList.map(w=>`${w.name} (${w.jobTitle})`).join('، ') }
-    };
-    await addEntry(entry);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true, entry, total });
+    }
+  });
+  const extList  = Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList = Object.values(compW).sort((a,b)=>b.days-a.days);
+
+  document.getElementById('mc').innerHTML=`
+    <!-- Date Filter -->
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:transparent">
+      <div class="ctitle">فلترة بالتاريخ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="lbl" style="font-size:11px;color:rgba(255,255,255,.55)">من تاريخ</label>
+          <input type="date" id="mgr-labor-from" onchange="window._mgrLaborFrom=this.value;rLaborMgr()" id="mgr-from-input"
+            style="font-size:12px;padding:8px 10px;color:#FFFFFF;background:transparent">
+        </div>
+        <div>
+          <label class="lbl" style="font-size:11px;color:rgba(255,255,255,.55)">إلى تاريخ</label>
+          <input type="date" id="mgr-labor-to" onchange="window._mgrLaborTo=this.value;rLaborMgr()" id="mgr-to-input"
+            style="font-size:12px;padding:8px 10px;color:#FFFFFF;background:transparent">
+        </div>
+      </div>
+      ${mgrFrom||mgrTo?`<div style="margin-top:8px;font-size:11px;color:#1A7A3C;font-weight:600">📅 ${mgrFrom||'البداية'} → ${mgrTo||'الآن'} — ${laborEntries.length} سجل</div>`:''}
+    </div>
+
+    <!-- Summary Stats -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="stat"><div class="sl">أيام الشركة</div><div class="sv" style="color:rgba(255,255,255,.9)">${totalComp}</div></div>
+      <div class="stat"><div class="sl">أيام الخارجيين</div><div class="sv" style="color:#1A50A8">${totalExt}</div></div>
+      <div class="stat"><div class="sl">إجمالي التكلفة</div><div class="sv" style="color:#D93025">${fmt(totalCost)} ﷼</div></div>
+      <div class="stat"><div class="sl">أيام تسجيل</div><div class="sv">${laborEntries.length}</div></div>
+    </div>
+
+    <!-- External Workers Table -->
+    ${extList.length?`
+    <div class="shdr">👷 العمال الخارجيون</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;background:transparent;color:#FFF0C0;padding:10px 14px;font-size:11px;font-weight:700">
+        <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span><span style="text-align:center">المشاريع</span>
+      </div>
+      ${extList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;background:${'transparent'}">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.55)">${w.jobTitle}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">${w.dates.sort().join(' · ')}</div>
+          </div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:#1A50A8">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.55);font-weight:400">يوم</div></div>
+          <div style="text-align:center;font-size:13px;font-weight:700;color:#D93025">${fmt(w.total)}<div style="font-size:9px;color:rgba(255,255,255,.55);font-weight:400">﷼</div></div>
+          <div style="text-align:center;font-size:10px;color:rgba(255,255,255,.55)">${[...w.projects].join('،')}</div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;background:rgba(245,200,66,.1);font-weight:700">
+        <span style="color:rgba(255,255,255,.9)">الإجمالي</span>
+        <span style="text-align:center;color:#1A50A8">${totalExt} يوم</span>
+        <span style="text-align:center;color:#D93025">${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</span>
+        <span></span>
+      </div>
+    </div>`:''} 
+
+    <!-- Company Workers Table -->
+    ${compList.length?`
+    <div class="shdr" style="margin-top:8px">🏢 عمال الشركة</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:transparent;color:#FFF0C0;padding:10px 14px;font-size:11px;font-weight:700">
+        <span>الاسم</span><span style="text-align:center">إجمالي الأيام</span><span style="text-align:center">المشاريع</span>
+      </div>
+      ${compList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:${'transparent'}">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">${w.dates.sort().join(' · ')}</div>
+          </div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:rgba(255,255,255,.9)">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.55);font-weight:400">يوم</div></div>
+          <div style="text-align:center;font-size:10px;color:rgba(255,255,255,.55)">${[...w.projects].join('،')}</div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:rgba(245,200,66,.1);font-weight:700">
+        <span style="color:rgba(255,255,255,.9)">الإجمالي</span>
+        <span style="text-align:center;color:rgba(255,255,255,.9)">${totalComp} يوم</span>
+        <span></span>
+      </div>
+    </div>`:''} 
+
+    <!-- Daily Log -->
+    <div class="shdr" style="margin-top:8px">📅 السجل اليومي</div>
+    ${laborEntries.length ? laborEntries.map(e=>`
+      <div class="card" style="padding:12px 14px;background:transparent">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <div style="font-weight:800;color:rgba(255,255,255,.9);font-size:14px">${e.date}</div>
+          <div style="font-size:12px;color:#D93025;font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:5px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}</div>
+        ${e.laborDetails?.presentWorkers?.length?`<div style="background:rgba(245,200,66,.1);border-radius:8px;padding:7px 10px;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.9)">🏢 (${e.laborDetails.companyCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</span></div>`:''}
+        ${e.laborDetails?.externalWorkersList?.length?`<div style="background:rgba(112,181,255,.12);border-radius:8px;padding:7px 10px"><span style="font-size:11px;font-weight:700;color:#1A50A8">👷 (${e.laborDetails.externalCount}): </span><span style="font-size:11px;color:#FFFFFF">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</span></div>`:''}
+      </div>`).join('')
+    : '<div class="empty">لا توجد سجلات في هذه الفترة</div>'}
+
+    <!-- Rates & Workers Management -->
+    <div class="card" style="margin-top:8px">
+      <div class="ctitle">أسعار العمالة اليومية</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div><label class="lbl">أجر عامل الشركة (﷼/يوم)</label><input type="number" id="lr-company" value="${rates.company}" min="0" style="color:#FFFFFF;background:transparent"></div>
+        <div><label class="lbl">أجر العامل الخارجي (﷼/يوم)</label><input type="number" id="lr-external" value="${rates.external}" min="0" style="color:#FFFFFF;background:transparent"></div>
+      </div>
+      <button class="btn bp" onclick="saveLaborRates()">حفظ الأسعار</button>
+      <div id="lr-ok" class="ok" style="display:none;margin-top:8px"><svg width="15" height="15" fill="none" stroke="#1A7A3C" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم حفظ الأسعار</div>
+    </div>
+    <div class="card">
+      <div class="ctitle">عمال الشركة</div>
+      ${workers.map(w=>`<div class="srow"><div><div style="font-size:13px;font-weight:600;color:#FFFFFF">${w.name}</div><div style="font-size:11px;color:rgba(255,255,255,.55)">${w.jobTitle||'عامل'}</div></div><button class="xb" onclick="deleteWorker(${w.id})">✕</button></div>`).join('')}
+      ${workers.length===0?'<div class="empty" style="padding:1rem;color:rgba(255,255,255,.55)">لم يُضف عمال بعد</div>':''}
+      <div class="ar" style="margin-top:10px">
+        <input id="nw-name" placeholder="اسم العامل" style="flex:2;color:#FFFFFF;background:transparent">
+        <input id="nw-job" placeholder="الصفة" style="flex:2;color:#FFFFFF;background:transparent">
+        <button class="btn bp" onclick="addWorker()" style="width:auto;padding:9px 14px">+</button>
+      </div>
+    </div>
+
+    <div class="shdr" style="margin-top:8px">⏳ تسجيل عمالة انتظار</div>
+    <div class="card">
+      <div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:12px;padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;border-right:3px solid #f5c842">
+        عمال حاضرون بدون شغل — تُسجل في التقارير كحضور بدون خصم من الرصيد
+      </div>
+      <div class="fg">
+        <label class="lbl">التاريخ</label>
+        <input type="date" id="wait-date" value="${today()}">
+      </div>
+      <input type="hidden" id="wait-proj" value="انتظار - سكن">
+      <div class="ctitle" style="margin-top:4px">عمال الشركة</div>
+      ${buildWaitingWorkersList(workers)}
+      <div class="ctitle">عمال خارجيون</div>
+      <div id="wait-ext-list"></div>
+      <button onclick="addWaitExtWorker()" style="border:1px dashed rgba(245,200,66,.35);border-radius:10px;padding:10px;background:rgba(245,200,66,.06);font-size:13px;color:rgba(255,255,255,.8);cursor:pointer;font-family:'Tajawal',sans-serif;width:100%;margin-bottom:12px">+ إضافة عامل خارجي</button>
+      <div class="err" id="wait-err"></div>
+      <div id="wait-ok" class="ok" style="display:none">✅ تم تسجيل عمالة الانتظار</div>
+      <button class="btn bp" onclick="submitWaitingLabor()">تسجيل عمالة الانتظار</button>
+    </div>
+  `;
+}
+
+async function addWorker(){
+  const nameEl = document.getElementById('nw-name');
+  const jobEl = document.getElementById('nw-job');
+  if(!nameEl || !jobEl) return;
+  const name = nameEl.value.trim();
+  const jobTitle = jobEl.value.trim();
+  if(!name){nameEl.style.borderColor='var(--r)';return;}
+  nameEl.style.borderColor='';
+  try{
+    const res = await api('/api/workers','POST',{name,jobTitle});
+    if(res.ok){
+      nameEl.value='';
+      jobEl.value='';
+      DB = await api('/api/db');
+      rLaborMgr();
+    }
+  }catch(e){console.error('addWorker error:',e);}
+}
+
+async function deleteWorker(id){
+  if(!confirm('حذف العامل؟')) return;
+  await api('/api/workers/'+id,'DELETE');
+  DB = await api('/api/db');
+  rLaborMgr();
+}
+
+// ── WAITING LABOR ──────────────────────────
+let waitExtCount = 0;
+
+
+
+function buildSupWorkersList(workers){
+  if(!workers||!workers.length) return '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px">لم يُضف عمال من المدير بعد</div>';
+  const registered = getRegisteredToday();
+  const available = workers.filter(w=>!registered.has(w.name));
+  if(!available.length) return '<div style="padding:10px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399;margin-bottom:10px;text-align:center">✅ جميع العمال مسجلون اليوم</div>';
+  return '<div style="margin-bottom:12px">'+available.map(function(w){
+    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">'+
+    '<input type="checkbox" id="cw-'+w.id+'" value="'+w.id+'" data-name="'+w.name+'" onchange="calcLabor()" style="width:18px;height:18px;accent-color:rgba(255,255,255,.9)">'+
+    '<div><div style="font-size:13px;font-weight:500">'+w.name+'</div>'+
+    '<div style="font-size:11px;color:rgba(255,255,255,.75)">'+(w.jobTitle||'عامل')+'</div></div></label>';
+  }).join('')+'</div>';
+}
+
+function buildWaitingWorkersList(workers){
+  if(!workers||!workers.length) return '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px">لم يُضف عمال بعد</div>';
+  const registered = getRegisteredToday();
+  const available = workers.filter(w=>!registered.has(w.name));
+  if(!available.length) return '<div style="padding:10px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399;margin-bottom:10px;text-align:center">✅ جميع العمال في المشاريع اليوم</div>';
+  return '<div style="margin-bottom:12px">'+available.map(w=>
+    '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">'+
+    '<input type="checkbox" id="ww-'+w.id+'" value="'+w.id+'" style="width:18px;height:18px;accent-color:#f5c842">'+
+    '<div><div style="font-size:13px;font-weight:500;color:#FFFFFF">'+w.name+'</div>'+
+    '<div style="font-size:11px;color:rgba(255,255,255,.5)">'+(w.jobTitle||'عامل')+'</div></div>'+
+    '</label>'
+  ).join('')+'</div>';
+}
+
+function getRegisteredToday(){
+  const todayStr = new Date().toISOString().split('T')[0];
+  const registered = new Set();
+  DB.entries.filter(e=>e.type==='labor'&&e.date===todayStr).forEach(e=>{
+    if(e.laborDetails && e.laborDetails.presentWorkers)
+      e.laborDetails.presentWorkers.forEach(w=>registered.add(w.name));
+  });
+  return registered;
+}
+
+function addWaitExtWorker(){
+  waitExtCount++;
+  const id = waitExtCount;
+  const div = document.createElement('div');
+  div.id = 'wait-ext-'+id;
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:7px;align-items:center';
+  div.innerHTML = `
+    <input type="text" placeholder="اسم العامل" id="we-name-${id}" style="flex:2">
+    <select id="we-job-${id}" style="flex:2">
+      <option>مليس</option><option>نجار</option><option>حداد</option>
+      <option>كهربائي</option><option>سباك</option><option>دهان</option>
+      <option>عامل عام</option><option>أخرى</option>
+    </select>
+    <button onclick="document.getElementById('wait-ext-${id}').remove()" style="border:none;background:none;color:var(--rd);cursor:pointer;font-size:18px">✕</button>`;
+  document.getElementById('wait-ext-list').appendChild(div);
+}
+
+async function submitWaitingLabor(){
+  const date = document.getElementById('wait-date')?.value || today();
+  const project = document.getElementById('wait-proj')?.value;
+  const err = document.getElementById('wait-err');
+  const ok = document.getElementById('wait-ok');
+  err.style.display='none'; ok.style.display='none';
+
+  // Collect company workers
+  const workers = DB.companyWorkers || [];
+  const presentWorkers = workers.filter(w => document.getElementById('ww-'+w.id)?.checked)
+    .map(w=>({id:w.id, name:w.name, jobTitle:w.jobTitle}));
+
+  // Collect external workers
+  const extEls = document.querySelectorAll('[id^="we-name-"]');
+  const externalWorkersList = Array.from(extEls).map(el=>{
+    const id = el.id.replace('we-name-','');
+    const name = el.value.trim();
+    const jobTitle = document.getElementById('we-job-'+id)?.value||'عامل';
+    return name ? {name, jobTitle} : null;
+  }).filter(Boolean);
+
+  if(presentWorkers.length + externalWorkersList.length === 0){
+    err.style.display='block'; err.textContent='اختر عمالاً للتسجيل'; return;
   }
-  if (pathname === '/api/transfer' && req.method === 'POST') {
-    const { fromId, toId, amount, note } = await parseBody(req);
-    const data = await loadDB();
-    const fromSup = data.supervisors.find(s => s.id == fromId);
-    const toSup = data.supervisors.find(s => s.id == toId);
-    if (!fromSup || !toSup) return sendJSON(res, { error: 'مشرف غير موجود' }, 400);
-    if (fromId == toId) return sendJSON(res, { error: 'لا يمكن التحويل لنفس المشرف' }, 400);
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0) return sendJSON(res, { error: 'المبلغ غير صحيح' }, 400);
-    const fromAdded = (fromSup.budget||0) + data.entries.filter(e=>e.supId==fromId&&e.type==='budget_add').reduce((a,e)=>a+(e.amount||e.total||0),0);
-    const fromInvoices = data.entries.filter(e=>e.supId==fromId&&(e.type==='petty'||e.type==='tax')).reduce((a,e)=>a+(e.total||0),0);
-    const fromOut = data.entries.filter(e=>e.supId==fromId&&e.type==='transfer'&&e.direction==='out').reduce((a,e)=>a+(e.total||0),0);
-    const fromIn = data.entries.filter(e=>e.supId==fromId&&e.type==='transfer'&&e.direction==='in').reduce((a,e)=>a+(e.total||0),0);
-    const fromBalance = fromAdded - fromInvoices - fromOut + fromIn;
-    if (amt > fromBalance) return sendJSON(res, { error: `الرصيد غير كافٍ — المتبقي: ${fromBalance.toFixed(2)} ﷼` }, 400);
-    const today = new Date().toISOString().split('T')[0];
-    const trf = 'TRF-' + Date.now();
-    await addEntry({ id: data.nextId++, supId: parseInt(fromId), supName: fromSup.name, project: 'تحويل داخلي', type: 'transfer', direction: 'out', desc: `تحويل إلى ${toSup.name}`, supplier: '', invoiceNo: trf, date: today, payMethod: 'transfer', subtotal: amt, taxRate: 0, taxAmt: 0, total: amt, items: [], transferTo: toSup.name, transferNote: note || '' });
-    await addEntry({ id: data.nextId++, supId: parseInt(toId), supName: toSup.name, project: 'تحويل داخلي', type: 'transfer', direction: 'in', desc: `تحويل من ${fromSup.name}`, supplier: '', invoiceNo: trf+'-IN', date: today, payMethod: 'transfer', subtotal: amt, taxRate: 0, taxAmt: 0, total: amt, items: [], transferFrom: fromSup.name, transferNote: note || '' });
-    await saveConfig(data);
-    return sendJSON(res, { ok: true, message: `تم تحويل ${amt} ﷼ من ${fromSup.name} إلى ${toSup.name}` });
-  }
-  if (pathname === '/api/backup' && req.method === 'GET') {
-    const data = await loadDB();
-    const timestamp = new Date().toISOString().split('T')[0];
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Content-Disposition': `attachment; filename="kayan_backup_${timestamp}.json"` });
-    return res.end(JSON.stringify(data, null, 2));
-  }
-  if (pathname === '/api/restore' && req.method === 'POST') {
-    try {
-      const body = await parseBody(req);
-      if (!body.supervisors || !body.projects) return sendJSON(res, { error: 'ملف غير صحيح' }, 400);
-      if (!body.managerPassword) body.managerPassword = 'admin123';
-      if (db) {
-        await db.collection('entries').deleteMany({});
-        if (body.entries && body.entries.length > 0) await db.collection('entries').insertMany(body.entries);
-      }
-      await saveConfig(body);
-      return sendJSON(res, { ok: true, message: 'تم الاستعادة', entries: body.entries ? body.entries.length : 0, supervisors: body.supervisors.length });
-    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
-  }
-  if (pathname === '/api/export' && req.method === 'GET') {
-    const data = await loadDB();
-    const xml = generateExcel(data);
-    res.writeHead(200, { 'Content-Type': 'application/vnd.ms-excel', 'Content-Disposition': 'attachment; filename="expenses.xls"', 'Access-Control-Allow-Origin': '*' });
-    return res.end(xml);
-  }
-  if (pathname === '/manifest.json') {
-    const f = path.join(__dirname, 'manifest.json');
-    if (fs.existsSync(f)) { res.writeHead(200, { 'Content-Type': 'application/manifest+json' }); return res.end(fs.readFileSync(f, 'utf8')); }
-  }
-  if (pathname === '/sw.js') {
-    const f = path.join(__dirname, 'sw.js');
-    if (fs.existsSync(f)) { res.writeHead(200, { 'Content-Type': 'application/javascript' }); return res.end(fs.readFileSync(f, 'utf8')); }
-  }
-  if (pathname === '/icon-192.png' || pathname === '/icon-512.png') {
-    const f = path.join(__dirname, pathname.replace('/', '') + '.b64');
-    if (fs.existsSync(f)) { const buf = Buffer.from(fs.readFileSync(f, 'utf8'), 'base64'); res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(buf); }
-  }
-  if (pathname === '/api/attendance' && req.method === 'GET') {
-    const data = await loadDB();
-    const query = url.parse(req.url, true).query;
-    const month = parseInt(query.month) || new Date().getMonth();
-    const year = parseInt(query.year) || new Date().getFullYear();
-    const laborEntries = data.entries.filter(e => {
-      if (e.type !== 'labor' && e.type !== 'labor_waiting') return false;
-      const d = new Date(e.date);
-      return d.getMonth() === month && d.getFullYear() === year;
+
+  try{
+    // Use manager's account (id=0) or first supervisor for logging
+    // Type: 'labor_waiting' - no cost
+    const res = await api('/api/labor-waiting','POST',{
+      date, project, presentWorkers, externalWorkersList
     });
-    const workerDays = {};
-    laborEntries.forEach(e => {
-      if (e.laborDetails && e.laborDetails.presentWorkers) {
-        e.laborDetails.presentWorkers.forEach(w => {
-          if (!workerDays[w.name]) workerDays[w.name] = new Set();
-          workerDays[w.name].add(e.date);
-        });
-      }
-    });
-    const workDays = 26;
-    const employees = Object.entries(workerDays).map(([name, dates]) => ({ name, present_days: dates.size, absent_days: Math.max(0, workDays - dates.size), late_minutes: 0, notes: '' }));
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    return res.end(JSON.stringify({ month: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][month], year, work_days: workDays, employees }));
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    ok.style.display='flex';
+    // Reset checkboxes
+    workers.forEach(w=>{const cb=document.getElementById('ww-'+w.id);if(cb)cb.checked=false;});
+    waitExtCount=0;
+    document.getElementById('wait-ext-list').innerHTML='';
+    setTimeout(()=>{ok.style.display='none';rLaborMgr();},2000);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
   }
-  // HTML
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'));
-});
-connectMongo().then(() => {
-  server.listen(PORT, () => console.log(`✅ Server on port ${PORT}`));
-});
+}
+
+async function saveLaborRates(){
+  const company = parseFloat(document.getElementById('lr-company').value)||100;
+  const external = parseFloat(document.getElementById('lr-external').value)||150;
+  await api('/api/labor-rates','POST',{company,external});
+  DB.laborRates = {company,external};
+  const ok = document.getElementById('lr-ok');
+  ok.style.display='flex';
+  setTimeout(()=>ok.style.display='none',2000);
+}
+
+// ── LABOR SUPERVISOR ───────────────────
+function rLaborSup(){
+  const rates = DB.laborRates || {company:100,external:150};
+  const workers = DB.companyWorkers || [];
+  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+  const myLabor = DB.entries.filter(e=>e.supId==CU.id&&e.type==='labor').slice(-5).reverse();
+  
+  document.getElementById('mc').innerHTML=`
+    <div class="card">
+      <div class="ctitle">تسجيل عمالة - ${today()}</div>
+      <div style="background:rgba(245,200,66,.1);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:rgba(255,255,255,.9);display:flex;justify-content:space-between">
+        <span>عامل شركة: <strong>${fmt(rates.company)} ﷼</strong></span>
+        <span>عامل خارجي: <strong>${fmt(rates.external)} ﷼</strong></span>
+      </div>
+      <div class="fg">
+        <label class="lbl">المشروع</label>
+        <select id="lab-proj">${pOpts}</select>
+      </div>
+      
+      <div class="ctitle" style="margin-top:12px">عمال الشركة الحاضرون</div>
+      ${workers.length===0 
+        ? '<div style="font-size:12px;color:rgba(255,255,255,.75);margin-bottom:10px">لم يُضف عمال من المدير بعد</div>'
+        : buildSupWorkersList(workers)
+      }
+      
+      <div class="ctitle" style="margin-top:4px">العمال الخارجيون</div>
+      <div id="ext-workers-list"></div>
+      <button onclick="addExtWorker()" style="border:2px dashed var(--gold);border-radius:12px;padding:14px;background:rgba(245,200,66,.1);font-size:14px;font-weight:700;color:rgba(255,255,255,.9);cursor:pointer;font-family:'Tajawal',sans-serif;width:100%;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px">
+        <span style="font-size:24px">👷</span>
+        <span>+ إضافة عامل خارجي</span>
+      </button>
+      
+      <div id="lab-calc" style="background:rgba(245,200,66,.1);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:none">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:rgba(255,255,255,.85)">عمال الشركة</span><span id="lc-company" style="font-weight:600">0 ﷼</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:rgba(255,255,255,.85)">عمال خارجيون</span><span id="lc-external" style="font-weight:600">0 ﷼</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding-top:6px"><span>إجمالي التكلفة</span><span id="lc-total" style="color:rgba(255,255,255,.9)">0 ﷼</span></div>
+        <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:4px">* للمعرفة فقط — لا تُخصم من رصيدك</div>
+      </div>
+      
+      <div class="err" id="lab-err"></div>
+      <div id="lab-ok" class="ok" style="display:none"><svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span id="lab-ok-msg"></span></div>
+      <button class="btn bp" onclick="submitLabor()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        تسجيل العمالة
+      </button>
+    </div>
+    ${myLabor.length ? `<div class="shdr">آخر سجلات العمالة</div>${myLabor.map(e=>`<div class="card" style="padding:10px 13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <div style="font-weight:700;color:rgba(255,255,255,.9)">${e.date}</div>
+        <span class="badge blabor">عمالة</span>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,.75);margin-bottom:4px">${e.project}</div>
+      ${e.laborDetails?.presentWorkers?.length?`<div style="font-size:11px;color:rgba(255,255,255,.85)">🏢 ${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</div>`:''}
+      ${e.laborDetails?.externalWorkersList?.length?`<div style="font-size:11px;color:rgba(255,255,255,.85);margin-top:2px">👷 ${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</div>`:''}
+      <div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,.75)">${(e.laborDetails?.companyCount||0)} شركة + ${(e.laborDetails?.externalCount||0)} خارجي</div>
+    </div>`).join('')}` : ''}`;
+}
+
+let extWorkerCount = 0;
+function addExtWorker(){
+  extWorkerCount++;
+  const id = extWorkerCount;
+  const div = document.createElement('div');
+  div.id = 'ext-'+id;
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:7px;align-items:center';
+  div.innerHTML = `
+    <input type="text" placeholder="اسم العامل" id="ew-name-${id}" style="flex:2" oninput="calcLabor()">
+    <select id="ew-job-${id}" style="flex:2" onchange="calcLabor()">
+      <option>مليس</option><option>نجار</option><option>حداد</option>
+      <option>كهربائي</option><option>سباك</option><option>دهان</option>
+      <option>عامل عام</option><option>أخرى</option>
+    </select>
+    <button onclick="document.getElementById('ext-${id}').remove();calcLabor()" style="border:none;background:none;color:var(--r);cursor:pointer;font-size:18px;padding:0 4px">✕</button>`;
+  document.getElementById('ext-workers-list').appendChild(div);
+  calcLabor();
+}
+
+function calcLabor(){
+  const rates = DB.laborRates || {company:100,external:150};
+  const workers = DB.companyWorkers || [];
+  // Count checked company workers
+  const c = workers.filter(w => document.getElementById('cw-'+w.id)?.checked).length;
+  // Count external workers with names
+  const extList = document.querySelectorAll('[id^="ew-name-"]');
+  const e = Array.from(extList).filter(el=>el.value.trim()).length;
+  const ct = c * rates.company;
+  const et = e * rates.external;
+  const tot = ct + et;
+  const calc = document.getElementById('lab-calc');
+  if(tot > 0 || c > 0 || e > 0){
+    calc.style.display='block';
+    document.getElementById('lc-company').textContent = c + ' عامل × ' + fmt(rates.company) + ' = ' + fmt(ct) + ' ﷼';
+    document.getElementById('lc-external').textContent = e + ' عامل × ' + fmt(rates.external) + ' = ' + fmt(et) + ' ﷼';
+    document.getElementById('lc-total').textContent = fmt(tot) + ' ﷼';
+  } else {
+    calc.style.display='none';
+  }
+}
+
+async function submitLabor(){
+  const project = document.getElementById('lab-proj').value;
+  const err = document.getElementById('lab-err');
+  const ok = document.getElementById('lab-ok');
+  err.style.display='none'; ok.style.display='none';
+  
+  // Collect present company workers
+  const workers = DB.companyWorkers || [];
+  const presentWorkers = workers.filter(w => document.getElementById('cw-'+w.id)?.checked).map(w=>({id:w.id,name:w.name,jobTitle:w.jobTitle}));
+  
+  // Collect external workers
+  const extList = document.querySelectorAll('[id^="ew-name-"]');
+  const externalWorkersList = Array.from(extList).map(el=>{
+    const id = el.id.replace('ew-name-','');
+    const name = el.value.trim();
+    const jobTitle = document.getElementById('ew-job-'+id)?.value||'عامل';
+    return name ? {name,jobTitle} : null;
+  }).filter(Boolean);
+  
+  if(presentWorkers.length + externalWorkersList.length === 0){
+    err.style.display='block';err.textContent='اختر عمالاً للتسجيل';return;
+  }
+  
+  try{
+    const res = await api('/api/labor','POST',{supId:CU.id,project,presentWorkers,externalWorkersList});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB = await api('/api/db');
+    extWorkerCount = 0;
+    document.getElementById('lab-ok-msg').textContent=`تم تسجيل ${presentWorkers.length+externalWorkersList.length} عامل`;
+    ok.style.display='flex';
+    setTimeout(()=>{ok.style.display='none';rLaborSup();},2000);
+  }catch(e){
+    err.style.display='block';err.textContent='خطأ في الاتصال';
+  }
+}
+
+
+// ── OWNER REPORTS ──────────────────────
+function rOwnerDash(){
+  const tBudget=DB.supervisors.reduce((a,s)=>a+getTotalAdded(s.id),0);
+  const tSpent=DB.entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0);
+  const tTax=DB.entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tPetty=DB.entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tVat=DB.entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const tLabor=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const tExternal=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').reduce((a,e)=>a+(e.laborDetails?.externalCount||0)*(e.laborDetails?.externalRate||0),0);
+
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="background:linear-gradient(135deg,var(--primary),#6b3810);color:#fff;border:none">
+      <div style="font-size:12px;opacity:.8;margin-bottom:4px">إجمالي الصرف</div>
+      <div style="font-size:32px;font-weight:800">${fmt(tSpent)} ﷼</div>
+      <div style="font-size:11px;opacity:.7;margin-top:4px">من إجمالي ميزانية ${fmt(tBudget)} ﷼</div>
+      <div style="margin-top:10px;background:transparent;border-radius:6px;height:6px"><div style="width:${Math.min(100,Math.round(tSpent/tBudget*100))}%;height:100%;border-radius:6px;background:transparent"></div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:2px">
+      <div class="stat"><div class="sl">فواتير ضريبية</div><div class="sv" style="color:var(--b)">${fmt(tTax)} ﷼</div></div>
+      <div class="stat"><div class="sl">فواتير نثرية</div><div class="sv" style="color:#166534">${fmt(tPetty)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبة القيمة المضافة</div><div class="sv" style="color:var(--r)">${fmt(tVat)} ﷼</div></div>
+      <div class="stat"><div class="sl">تكلفة العمالة</div><div class="sv" style="color:#C8960C">${fmt(tLabor)} ﷼</div></div>
+    </div>
+    <div class="shdr">الرسوم البيانية</div>
+    <div class="card" style="padding:13px"><div class="ctitle">صرف كل مشروع</div><canvas id="ch-proj-owner" style="max-height:220px"></canvas></div>
+    <div class="card" style="padding:13px"><div class="ctitle">نثرية مقابل ضريبية</div><canvas id="ch-type-owner" style="max-height:200px"></canvas></div>
+    <div class="card" style="padding:13px"><div class="ctitle">صرف المشرفين</div><canvas id="ch-sup-owner" style="max-height:220px"></canvas></div>
+    <button onclick="exportPDF()" style="width:100%;padding:14px;background:linear-gradient(135deg,#D93025,#E84C40);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;box-shadow:0 4px 14px rgba(217,48,37,.3)">
+      <span style="font-size:20px">📄</span> تصدير تقرير PDF كامل
+    </button>
+    <div class="shdr">أداء المشرفين</div>
+    ${DB.supervisors.map((s,i)=>{
+      const spent=DB.entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0);
+      const rem=getBalance(s.id);
+      const pct=Math.min(100,Math.round(spent/(getTotalAdded(s.id)||1)*100));
+      return`<div class="card" style="padding:11px 13px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+          <div style="font-weight:600;font-size:13px">${s.name}</div>
+          <div style="font-size:12px;color:${rem<500?'var(--r)':'var(--primary)'};font-weight:700">${fmt(rem)} ﷼ متبقي</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.75);margin-bottom:5px">
+          <span>صرف: ${fmt(spent)} ﷼</span><span>مُضاف: ${fmt(getTotalAdded(s.id))} ﷼</span>
+        </div>
+        <div class="pbar"><div class="pf" style="width:${pct}%;background:${pct>85?'var(--r)':pct>65?'var(--gold)':'var(--gold)'}"></div></div>
+      </div>`;
+    }).join('')}`;
+
+  initCharts('owner', DB.entries, DB.supervisors);
+}
+
+function rOwnerSup(){
+  document.getElementById('mc').innerHTML=`
+    <div class="shdr">تفاصيل المشرفين</div>
+    ${DB.supervisors.map((s,i)=>{
+      const entries=DB.entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add');
+      const spent=gs(s.id);
+      const rem2=getBalance(s.id);
+      const totalAdd2=getTotalAdded(s.id);
+      const tax=entries.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+      const petty=entries.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+      const vat=entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+      return`<div class="card">
+        <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:10px">${s.name}</div>
+        <div class="sg">
+          <div class="stat"><div class="sl">إجمالي الصرف</div><div class="sv" style="color:var(--r);font-size:16px">${fmt(spent)} ﷼</div></div>
+          <div class="stat"><div class="sl">المتبقي</div><div class="sv" style="color:#C8960C;font-size:16px">${fmt(rem2)} ﷼</div></div>
+          <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b);font-size:14px">${fmt(tax)} ﷼</div></div>
+          <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534;font-size:14px">${fmt(petty)} ﷼</div></div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:5px">${entries.length} معاملة · ضريبة VAT: ${fmt(vat)} ﷼</div>
+      </div>`;
+    }).join('')}`;
+}
+
+function rOwnerProj(){
+  const pm={};
+  DB.entries.filter(e=>e.type!=='labor'&&e.type!=='budget_add').forEach(e=>{
+    if(!pm[e.project])pm[e.project]={total:0,tax:0,petty:0,count:0};
+    pm[e.project].total+=(e.total||0);
+    pm[e.project][e.type]=(pm[e.project][e.type]||0)+(e.total||0);
+    pm[e.project].count++;
+  });
+  const sorted=Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('mc').innerHTML=`
+    <div class="shdr">تقرير المشاريع</div>
+    ${sorted.map(([proj,d])=>`<div class="card">
+      <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:8px">${proj}</div>
+      <div class="sg">
+        <div class="stat"><div class="sl">إجمالي</div><div class="sv" style="color:var(--r);font-size:15px">${fmt(d.total)} ﷼</div></div>
+        <div class="stat"><div class="sl">عدد المعاملات</div><div class="sv" style="font-size:15px">${d.count}</div></div>
+        <div class="stat"><div class="sl">ضريبية</div><div class="sv" style="color:var(--b);font-size:14px">${fmt(d.tax||0)} ﷼</div></div>
+        <div class="stat"><div class="sl">نثرية</div><div class="sv" style="color:#166534;font-size:14px">${fmt(d.petty||0)} ﷼</div></div>
+      </div>
+    </div>`).join('')||'<div class="empty">لا توجد بيانات</div>'}`;
+}
+
+function rOwnerLabor(){
+  const allLabor=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').slice().reverse();
+  const fromDate=window._laborFrom||'';
+  const toDate=window._laborTo||'';
+  console.log('Labor filter:', fromDate, '->', toDate, 'total entries:', allLabor.length);
+  const laborEntries=fromDate||toDate ? allLabor.filter(e=>(!fromDate||e.date>=fromDate)&&(!toDate||e.date<=toDate)) : allLabor;
+  console.log('After filter:', laborEntries.length, 'entries');
+  const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const totalComp=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
+  const totalExt=laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
+
+  document.getElementById('mc').innerHTML=`
+    <div class="card" style="padding:12px 14px;margin-bottom:12px">
+      <div class="ctitle">فلترة بالتاريخ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="lbl" style="font-size:11px">من تاريخ</label>
+          <input type="date" id="labor-from" value="${window._laborFrom||''}" onchange="window._laborFrom=this.value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
+        </div>
+        <div>
+          <label class="lbl" style="font-size:11px">إلى تاريخ</label>
+          <input type="date" id="labor-to" value="${window._laborTo||''}" onchange="window._laborFrom=this.value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="stat"><div class="sl">أيام الشركة</div><div class="sv" style="color:rgba(255,255,255,.9)">${totalComp} يوم</div></div>
+      <div class="stat"><div class="sl">أيام الخارجيين</div><div class="sv" style="color:var(--blue)">${totalExt} يوم</div></div>
+      <div class="stat"><div class="sl">إجمالي التكلفة</div><div class="sv" style="color:var(--red)">${fmt(totalCost)} ﷼</div></div>
+      <div class="stat"><div class="sl">أيام تسجيل</div><div class="sv">${laborEntries.length}</div></div>
+    </div>
+    ${buildLaborTable(laborEntries, window._laborFrom||'', window._laborTo||'')}`;
+}
+
+
+
+// ── PDF EXPORT ─────────────────────────
+function exportPDF(){
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const rFrom = window._reportFrom||'';
+  const rTo = window._reportTo||'';
+  const validE = DB.entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add'&&(!rFrom||e.date>=rFrom)&&(!rTo||e.date<=rTo));
+  // Use same report date filter for labor
+  const laborFrom = rFrom;
+  const laborTo = rTo;
+  const tSpent = validE.reduce((a,e)=>a+(e.total||0),0);
+  const tTax = validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tPetty = validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const tVat = validE.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const tBudget = DB.supervisors.reduce((a,s)=>a+s.budget,0);
+  const exRate = (DB.laborRates||{}).external||150;
+  const compRate = (DB.laborRates||{}).company||100;
+
+  // Projects
+  const pm={};
+  validE.forEach(e=>{if(!pm[e.project])pm[e.project]={total:0,tax:0,petty:0,vat:0};pm[e.project].total+=(e.total||0);if(e.type==='tax')pm[e.project].tax+=(e.total||0);if(e.type==='petty')pm[e.project].petty+=(e.total||0);pm[e.project].vat+=(e.taxAmt||0);});
+  const sortedProj=Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
+
+  // Labor
+  const laborE=DB.entries.filter(e=>(e.type==='labor'||e.type==='labor_waiting')&&(!laborFrom||e.date>=laborFrom)&&(!laborTo||e.date<=laborTo));
+  const extW={};compW={};
+  laborE.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{
+      const k=w.name+'||'+w.jobTitle;
+      if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[]};
+      extW[k].days++;extW[k].total+=exRate;
+      if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+    });
+    if(e.laborDetails?.presentWorkers)e.laborDetails.presentWorkers.forEach(w=>{
+      if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[]};
+      compW[w.name].days++;
+      if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+    });
+  });
+  const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList=Object.values(compW).sort((a,b)=>b.days-a.days);
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>تقرير كيان وبناء</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;background:#fff;padding:20px;font-size:13px}
+  h1{font-size:22px;font-weight:900;color:#000;margin-bottom:4px}
+  h2{font-size:14px;font-weight:800;color:#000;margin:18px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}
+  p,div,span{color:#000}
+  .date,.sub{color:#000;font-size:12px;margin-bottom:16px}
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+  .box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px}
+  .box-label{font-size:10px;color:#000;margin-bottom:3px;font-weight:600}
+  .box-value{font-size:17px;font-weight:800;color:#000}
+  table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px}
+  th{background:#000;color:#fff;padding:8px 10px;text-align:right;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  td{padding:7px 10px;border:1px solid #000;color:#000}
+  tr:nth-child(even) td{background:#f0f0f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .total-row td{background:#ddd;font-weight:800;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .header{margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #000}
+  .red,.green,.blue{color:#000;font-weight:700}
+  @media print{body{padding:8px}}
+</style></head><body>
+<div class="header">
+  <div>
+    <h1>تقرير شركة كيان وبناء للمقاولات</h1>
+    <div class="date">تاريخ التقرير: ${now}${rFrom||rTo?' | الفترة: '+(rFrom||'البداية')+' → '+(rTo||'الآن'):''}</div>
+  </div>
+</div>
+
+<div class="summary">
+  <div class="box"><div class="box-label">إجمالي الصرف</div><div class="box-value">${fmt(tSpent)} ﷼</div></div>
+  <div class="box"><div class="box-label">الميزانية الكلية</div><div class="box-value">${fmt(tBudget)} ﷼</div></div>
+  <div class="box"><div class="box-label">ضريبة VAT</div><div class="box-value">${fmt(tVat)} ﷼</div></div>
+  <div class="box"><div class="box-label">المتبقي</div><div class="box-value">${fmt(tBudget-tSpent)} ﷼</div></div>
+</div>
+
+<h2>📊 تقرير المشرفين</h2>
+<table>
+  <tr><th>المشرف</th><th>الميزانية</th><th>الصرف</th><th>نثرية</th><th>ضريبية</th><th>المتبقي</th></tr>
+  ${DB.supervisors.map(s=>{
+    const sE=validE.filter(e=>e.supId==s.id);
+    const sp=sE.reduce((a,e)=>a+(e.total||0),0);
+    const tx=sE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+    const pt=sE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+    return'<tr><td>'+s.name+'</td><td>'+fmt(s.budget)+' ﷼</td><td>'+fmt(sp)+' ﷼</td><td>'+fmt(pt)+' ﷼</td><td>'+fmt(tx)+' ﷼</td><td style="font-weight:700;color:'+(s.budget-sp<500?'#D93025':'#1A7A3C')+'">'+fmt(s.budget-sp)+' ﷼</td></tr>';
+  }).join('')}
+  <tr class="total-row"><td>الإجمالي</td><td>${fmt(tBudget)} ﷼</td><td>${fmt(tSpent)} ﷼</td><td>${fmt(tPetty)} ﷼</td><td>${fmt(tTax)} ﷼</td><td>${fmt(tBudget-tSpent)} ﷼</td></tr>
+</table>
+
+<h2>🏗️ تقرير المشاريع</h2>
+<table>
+  <tr><th>المشروع</th><th>إجمالي الصرف</th><th>ضريبية</th><th>نثرية</th><th>VAT</th></tr>
+  ${sortedProj.map(([p,d])=>'<tr><td>'+p+'</td><td>'+fmt(d.total)+' ﷼</td><td>'+fmt(d.tax)+' ﷼</td><td>'+fmt(d.petty)+' ﷼</td><td>'+fmt(d.vat)+' ﷼</td></tr>').join('')}
+  <tr class="total-row"><td>الإجمالي</td><td>${fmt(tSpent)} ﷼</td><td>${fmt(tTax)} ﷼</td><td>${fmt(tPetty)} ﷼</td><td>${fmt(tVat)} ﷼</td></tr>
+</table>
+
+${extList.length?'<h2>👷 العمال الخارجيون</h2><table><tr><th>الاسم</th><th>الصفة</th><th>عدد الأيام</th><th>الإجمالي</th></tr>'+extList.map(w=>'<tr><td>'+w.name+'</td><td>'+w.jobTitle+'</td><td style="font-weight:700;color:#1A50A8">'+w.days+' يوم</td><td style="font-size:10px;color:#555">'+(w.dates||[]).sort().join(' · ')+'</td><td style="font-weight:700;color:#D93025">'+fmt(w.total)+' ﷼</td></tr>').join('')+'<tr class="total-row"><td>الإجمالي</td><td></td><td>'+extList.reduce((a,w)=>a+w.days,0)+' يوم</td><td>'+fmt(extList.reduce((a,w)=>a+w.total,0))+' ﷼</td></tr></table>':''}
+
+${compList.length?'<h2>🏢 عمال الشركة</h2><table><tr><th>الاسم</th><th>عدد أيام الحضور</th></tr>'+compList.map(w=>'<tr><td>'+w.name+'</td><td style="font-weight:700;color:#1A7A3C">'+w.days+' يوم</td><td style="font-size:10px;color:#555">'+(w.dates||[]).sort().join(' · ')+'</td></tr>').join('')+'</table>':''}
+
+</body></html>`;
+
+  const win = window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),800);
+}
+
+// ── CHARTS ─────────────────────────────
+function initCharts(prefix, entries, supervisors){
+  const COLORS=['#5C3A1E','#D4A843','#1A56A8','#1E7D4A','#D93025','#7C3AED','#0891B2','#D97706'];
+  const validE=entries.filter(e=>e.type!=='labor'&&e.type!=='transfer'&&e.type!=='budget_add');
+  const tTax=validE.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0);
+  const tPetty=validE.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0);
+  const pm={};
+  validE.forEach(e=>{if(!pm[e.project])pm[e.project]=0;pm[e.project]+=(e.total||0);});
+  const sortedProj=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  setTimeout(()=>{
+    const projCtx=document.getElementById('ch-proj-'+prefix);
+    if(projCtx&&sortedProj.length&&window.Chart){
+      new Chart(projCtx,{type:'bar',data:{labels:sortedProj.map(([p])=>p),datasets:[{label:'﷼',data:sortedProj.map(([,v])=>v),backgroundColor:COLORS.slice(0,sortedProj.length),borderRadius:6}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>fmt(v)}}}}});
+    }
+    const typeCtx=document.getElementById('ch-type-'+prefix);
+    if(typeCtx&&(tTax+tPetty)>0&&window.Chart){
+      new Chart(typeCtx,{type:'doughnut',data:{labels:['ضريبية '+fmt(tTax)+' ﷼','نثرية '+fmt(tPetty)+' ﷼'],datasets:[{data:[tTax,tPetty],backgroundColor:['#1A56A8','#1E7D4A'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}});
+    }
+    if(supervisors){
+      const supCtx=document.getElementById('ch-sup-'+prefix);
+      if(supCtx&&window.Chart){
+        const sd=supervisors.map(s=>({name:s.name,spent:entries.filter(e=>e.supId==s.id&&e.type!=='labor'&&e.type!=='budget_add').reduce((a,e)=>a+(e.total||0),0),budget:s.budget}));
+        new Chart(supCtx,{type:'bar',data:{labels:sd.map(s=>s.name),datasets:[{label:'صرف',data:sd.map(s=>s.spent),backgroundColor:'#D93025',borderRadius:4},{label:'متبقي',data:sd.map(s=>Math.max(0,s.budget-s.spent)),backgroundColor:'#D4A843',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmt(v)}}}}});
+      }
+    }
+  },200);
+}
+
+
+// ── LABOR SECTION FOR REPORTS ──────────────
+function buildLaborSection(fromDate, toDate){
+  const allLabor = DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting');
+  const laborEntries = (fromDate||toDate)
+    ? allLabor.filter(e=>(!fromDate||e.date>=fromDate)&&(!toDate||e.date<=toDate))
+    : allLabor;
+
+  if(!laborEntries.length) return '<div class="shdr" style="margin-top:8px">👷 لا توجد سجلات عمالة في هذه الفترة</div>';
+
+  const rates = DB.laborRates || {company:100, external:150};
+
+  // Separate project labor from waiting labor
+  const projectEntries = laborEntries.filter(e=>e.type==='labor');
+  const waitingEntries = laborEntries.filter(e=>e.type==='labor_waiting');
+
+  // Build project worker tables
+  const extW={}, compW={};
+  projectEntries.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList){
+      e.laborDetails.externalWorkersList.forEach(w=>{
+        const k=w.name+'||'+w.jobTitle;
+        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
+        extW[k].days++;extW[k].total+=rates.external;
+        if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+        if(e.project)extW[k].projects.add(e.project);
+      });
+    }
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[],projects:new Set()};
+        compW[w.name].days++;
+        if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+        if(e.project)compW[w.name].projects.add(e.project);
+      });
+    }
+  });
+
+  // Build waiting worker tables
+  const waitCompW={};
+  waitingEntries.forEach(e=>{
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!waitCompW[w.name])waitCompW[w.name]={name:w.name,days:0,dates:[],projects:new Set()};
+        waitCompW[w.name].days++;
+        if(e.date&&!waitCompW[w.name].dates.includes(e.date))waitCompW[w.name].dates.push(e.date);
+        if(e.project)waitCompW[w.name].projects.add(e.project);
+      });
+    }
+  });
+
+  const extList = Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList = Object.values(compW).sort((a,b)=>b.days-a.days);
+  const waitList = Object.values(waitCompW).sort((a,b)=>b.days-a.days);
+
+  const totalExt = extList.reduce((a,w)=>a+w.days,0);
+  const totalComp = compList.reduce((a,w)=>a+w.days,0);
+  const totalWait = waitList.reduce((a,w)=>a+w.days,0);
+  const totalCost = projectEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+
+  return `
+    <div style="margin-top:10px">
+
+    ${extList.length?`
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px;letter-spacing:.5px">👷 العمال الخارجيون — المشاريع</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:transparent;color:rgba(255,255,255,.7);padding:8px 14px;font-size:11px;font-weight:700">
+        <span>الاسم / الصفة</span><span style="text-align:center">الأيام</span><span style="text-align:center">الإجمالي</span>
+      </div>
+      ${extList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:9px 14px;background:transparent">
+          <div><div style="font-size:13px;font-weight:700">${w.name}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4)">${w.dates.sort().join(' · ')}</div></div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:#70B5FF">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">يوم</div></div>
+          <div style="text-align:center;font-size:13px;font-weight:700;color:#f87171">${fmt(w.total)}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">﷼</div></div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:8px 14px;background:rgba(245,200,66,.1);font-weight:700;font-size:12px">
+        <span>الإجمالي</span>
+        <span style="text-align:center;color:#70B5FF">${totalExt} يوم</span>
+        <span style="text-align:center;color:#f87171">${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</span>
+      </div>
+    </div>`:''}
+
+    ${compList.length?`
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:8px;letter-spacing:.5px">🏢 عمال الشركة — المشاريع</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:2fr 1fr;background:transparent;color:rgba(255,255,255,.7);padding:8px 14px;font-size:11px;font-weight:700">
+        <span>الاسم</span><span style="text-align:center">أيام الحضور</span>
+      </div>
+      ${compList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr;padding:9px 14px;background:transparent">
+          <div><div style="font-size:13px;font-weight:700">${w.name}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">${[...w.projects].join('،')}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4)">${w.dates.sort().join(' · ')}</div></div>
+          <div style="text-align:center;font-size:20px;font-weight:900">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">يوم</div></div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr;padding:8px 14px;background:rgba(245,200,66,.1);font-weight:700;font-size:12px">
+        <span>الإجمالي</span>
+        <span style="text-align:center">${totalComp} يوم</span>
+      </div>
+    </div>`:''}
+
+    ${waitList.length?`
+    <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:8px;letter-spacing:.5px">⏳ عمال الانتظار — السكن</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;border:1px solid rgba(251,191,36,.2)">
+      <div style="display:grid;grid-template-columns:2fr 1fr;background:rgba(251,191,36,.1);color:rgba(255,255,255,.7);padding:8px 14px;font-size:11px;font-weight:700">
+        <span>الاسم</span><span style="text-align:center">أيام الانتظار</span>
+      </div>
+      ${waitList.map((w,i)=>`
+        <div style="display:grid;grid-template-columns:2fr 1fr;padding:9px 14px;background:transparent">
+          <div><div style="font-size:13px;font-weight:700">${w.name}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.4)">${w.dates.sort().join(' · ')}</div></div>
+          <div style="text-align:center;font-size:20px;font-weight:900;color:#fbbf24">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">يوم</div></div>
+        </div>`).join('')}
+      <div style="display:grid;grid-template-columns:2fr 1fr;padding:8px 14px;background:rgba(251,191,36,.1);font-weight:700;font-size:12px">
+        <span style="color:#fbbf24">الإجمالي</span>
+        <span style="text-align:center;color:#fbbf24">${totalWait} يوم — بدون تكلفة</span>
+      </div>
+    </div>`:''}
+
+    </div>
+  `;
+}
+
+
+// ── PDF PER SUPERVISOR ─────────────────
+function exportSupPDF(supId){
+  const sup = DB.supervisors.find(s=>s.id==supId);
+  if(!sup) return;
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const entries = DB.entries.filter(e=>e.supId==supId);
+  const invoices = entries.filter(e=>e.type==='petty'||e.type==='tax');
+  const totalAdded = getTotalAdded(supId);
+  const totalSpent = gs(supId);
+  const transfersOut = getTransfersOut(supId);
+  const transfersIn = getTransfersIn(supId);
+  const balance = getBalance(supId);
+  const vat = invoices.reduce((a,e)=>a+(e.taxAmt||0),0);
+
+  // Labor
+  const laborE = entries.filter(e=>e.type==='labor'||e.type==='labor_waiting');
+  const extW={}, compW={};
+  const exRate=(DB.laborRates||{}).external||150;
+  const compRate=(DB.laborRates||{}).company||100;
+  laborE.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{
+      const k=w.name+'||'+w.jobTitle;
+      if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[]};
+      extW[k].days++;extW[k].total+=exRate;
+      if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+    });
+    if(e.laborDetails?.presentWorkers)e.laborDetails.presentWorkers.forEach(w=>{
+      if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[]};
+      compW[w.name].days++;
+      if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+    });
+  });
+  const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList=Object.values(compW).sort((a,b)=>b.days-a.days);
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>تقرير ${sup.name}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;background:#fff;padding:20px;font-size:13px}
+  h1{font-size:20px;font-weight:900;color:#000}
+  h2{font-size:14px;font-weight:800;color:#000;margin:14px 0 7px;border-bottom:2px solid #000;padding-bottom:4px}
+  p,div,span{color:#000}
+  .sub{color:#000;font-size:12px;margin:3px 0 14px}
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:9px}
+  .box-label{font-size:10px;color:#000;margin-bottom:3px;font-weight:600}
+  .box-value{font-size:15px;font-weight:800;color:#000}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px}
+  th{background:#000;color:#fff;padding:7px 10px;text-align:right;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  td{padding:6px 10px;border:1px solid #000;color:#000}
+  tr:nth-child(even) td{background:#f0f0f0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .total-row td{background:#ddd;font-weight:800;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .red,.green,.blue{color:#000;font-weight:700}
+  @media print{body{padding:8px}}
+</style></head><body>
+<h1>تقرير المشرف: ${sup.name}</h1>
+<div class="sub">تاريخ التقرير: ${now}</div>
+
+<div class="summary">
+  <div class="box"><div class="box-label">إجمالي المُضاف</div><div class="box-value green">${fmt(totalAdded)} ﷼</div></div>
+  <div class="box"><div class="box-label">إجمالي الصرف</div><div class="box-value red">${fmt(totalSpent)} ﷼</div></div>
+  <div class="box"><div class="box-label">الرصيد المتبقي</div><div class="box-value" style="color:${balance<0?'#D93025':'#1A7A3C'}">${fmt(balance)} ﷼</div></div>
+  <div class="box"><div class="box-label">ضريبية</div><div class="box-value blue">${fmt(invoices.filter(e=>e.type==='tax').reduce((a,e)=>a+(e.total||0),0))} ﷼</div></div>
+  <div class="box"><div class="box-label">نثرية</div><div class="box-value">${fmt(invoices.filter(e=>e.type==='petty').reduce((a,e)=>a+(e.total||0),0))} ﷼</div></div>
+  <div class="box"><div class="box-label">ضريبة VAT</div><div class="box-value red">${fmt(vat)} ﷼</div></div>
+</div>
+
+${transfersOut>0||transfersIn>0?`
+<h2>💸 التحويلات</h2>
+<table><tr><th>النوع</th><th>الوصف</th><th>المبلغ</th><th>التاريخ</th></tr>
+${entries.filter(e=>e.type==='transfer').map(e=>`<tr><td>${e.direction==='in'?'✅ وارد':'⬆️ صادر'}</td><td>${e.desc}</td><td class="${e.direction==='in'?'green':'red'}">${fmt(e.total)} ﷼</td><td>${e.date}</td></tr>`).join('')}
+</table>`:''}
+
+<h2>📄 الفواتير التفصيلية</h2>
+${invoices.length?`<table>
+<tr><th>التاريخ</th><th>الوصف</th><th>المورد</th><th>النوع</th><th>المبلغ</th><th>VAT</th><th>الإجمالي</th></tr>
+${invoices.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr><td>${e.date}</td><td>${e.desc}</td><td>${e.supplier||'-'}</td><td>${e.type==='tax'?'ضريبية':'نثرية'}</td><td>${fmt(e.subtotal||0)} ﷼</td><td>${fmt(e.taxAmt||0)} ﷼</td><td class="red">${fmt(e.total)} ﷼</td></tr>`).join('')}
+<tr class="total-row"><td colspan="4">الإجمالي</td><td>${fmt(invoices.reduce((a,e)=>a+(e.subtotal||0),0))} ﷼</td><td>${fmt(vat)} ﷼</td><td>${fmt(totalSpent)} ﷼</td></tr>
+</table>`:'<p style="color:#1A1A1A">لا توجد فواتير</p>'}
+
+${extList.length?`
+<h2>👷 العمال الخارجيون</h2>
+<table><tr><th>الاسم</th><th>الصفة</th><th>الأيام</th><th>التواريخ</th><th>الإجمالي</th></tr>
+${extList.map(w=>`<tr><td>${w.name}</td><td>${w.jobTitle}</td><td class="blue">${w.days} يوم</td><td style="font-size:11px">${w.dates.sort().join(' · ')}</td><td class="red">${fmt(w.total)} ﷼</td></tr>`).join('')}
+</table>`:''}
+
+${compList.length?`
+<h2>🏢 عمال الشركة</h2>
+<table><tr><th>الاسم</th><th>الأيام</th><th>التواريخ</th></tr>
+${compList.map(w=>`<tr><td>${w.name}</td><td class="green">${w.days} يوم</td><td style="font-size:11px">${w.dates.sort().join(' · ')}</td></tr>`).join('')}
+</table>`:''}
+
+</body></html>`;
+
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),800);
+}
+
+
+// ── SALES INVOICES ──────────────────────────────
+let salesB64 = null;
+let salesParsed = null;
+
+function rSales(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+  const salesReturns = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  const totalSales = sales.reduce((a,s)=>a+(s.total||0),0);
+  const totalVat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const totalNet = sales.reduce((a,s)=>a+(s.subtotal||0),0);
+  const totalReturns = salesReturns.reduce((a,r)=>a+(r.total||0),0);
+  const netAfterReturns = totalSales - totalReturns;
+
+  document.getElementById('mc').innerHTML = `
+    <div class="sg" style="margin-bottom:12px">
+      <div class="stat"><div class="sl">إجمالي المبيعات</div><div class="sv" style="color:#34d399">${fmt(totalSales)} ﷼</div></div>
+      <div class="stat"><div class="sl">مرتجعات المبيعات</div><div class="sv" style="color:#f87171">${fmt(totalReturns)} ﷼</div></div>
+      <div class="stat"><div class="sl">صافي بعد المرتجعات</div><div class="sv" style="color:#f5c842">${fmt(netAfterReturns)} ﷼</div></div>
+      <div class="stat"><div class="sl">ضريبة VAT المحصّلة</div><div class="sv" style="color:#70B5FF">${fmt(totalVat)} ﷼</div></div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">➕ فاتورة مبيعات جديدة</div>
+      <div class="fg">
+        <label class="lbl">📄 ارفع صورة الفاتورة (اختياري)</label>
+        <div class="drop" id="sales-drop" onclick="document.getElementById('sales-file').click()" style="cursor:pointer;padding:14px">
+          <div style="font-size:26px;margin-bottom:4px" id="sales-icon">📷</div>
+          <div id="sales-txt" style="font-size:12px;color:rgba(255,255,255,.5)">الذكاء يقرأ الفاتورة تلقائياً</div>
+        </div>
+        <input type="file" id="sales-file" accept="image/*,.pdf" style="display:none" onchange="pickSalesFile(this)">
+      </div>
+      <div id="sales-ai-status" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري القراءة...</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+        <span style="font-size:10px;color:rgba(255,255,255,.3)">أو أدخل يدوياً</span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+      </div>
+      <div class="fg2">
+        <div><label class="lbl">رقم الفاتورة</label><input id="s-inv-no" placeholder="INV-001"></div>
+        <div><label class="lbl">التاريخ</label><input type="date" id="s-date" value="${today()}"></div>
+      </div>
+      <div class="fg"><label class="lbl">اسم العميل</label><input id="s-client" placeholder="اسم العميل أو الشركة"></div>
+      <div class="fg"><label class="lbl">المشروع (اختياري)</label><select id="s-proj"><option value="">-- بدون مشروع --</option>${pOpts}</select></div>
+      <div class="fg2">
+        <div><label class="lbl">المبلغ قبل الضريبة</label><input type="number" id="s-subtotal" placeholder="0.00" oninput="calcSalesVat()"></div>
+        <div><label class="lbl">نسبة VAT %</label><input type="number" id="s-taxrate" placeholder="15" value="15" oninput="calcSalesVat()"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(52,211,153,.08);border-radius:8px;margin-bottom:10px;font-size:13px">
+        <span>ضريبة VAT: <strong id="s-vatamt" style="color:#70B5FF">0.00 ﷼</strong></span>
+        <span>الإجمالي: <strong id="s-total" style="color:#34d399">0.00 ﷼</strong></span>
+      </div>
+      <div class="fg"><label class="lbl">طريقة الدفع</label>
+        <select id="s-paymethod">
+          <option value="cash">💵 كاش</option>
+          <option value="transfer">🏦 تحويل بنكي</option>
+          <option value="deferred">⏳ آجل</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">ملاحظات</label><input id="s-notes" placeholder="وصف البضاعة أو الخدمة..."></div>
+      <div class="err" id="s-err" style="display:none"></div>
+      <button class="btn bp" onclick="saveSalesInvoice()">💾 حفظ فاتورة المبيعات</button>
+    </div>
+
+    ${sales.length===0 ? '<div class="empty">لا توجد فواتير مبيعات بعد</div>' : `
+    <div class="shdr">📋 فواتير المبيعات</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button onclick="filterSales('all',this)" class="ftab on" id="sf-all">الكل (${sales.length})</button>
+      <button onclick="filterSales('cash',this)" class="ftab">كاش</button>
+      <button onclick="filterSales('transfer',this)" class="ftab">تحويل</button>
+      <button onclick="filterSales('deferred',this)" class="ftab">آجل</button>
+      <button onclick="filterSales('returns',this)" class="ftab" style="color:#f87171">↩️ مرتجعات (${salesReturns.length})</button>
+    </div>
+    <div id="sales-list">
+      ${renderSalesList(sales, salesReturns, 'all')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="exportSalesPDF()" style="flex:1;padding:12px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تقرير المبيعات PDF</button>
+      <button onclick="openSalesReturnForm()" style="flex:1;padding:12px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">↩️ إضافة مرتجع</button>
+    </div>
+    `}
+  `;
+}
+
+function calcSalesVat(){
+  const sub = parseFloat(document.getElementById('s-subtotal')?.value)||0;
+  const rate = parseFloat(document.getElementById('s-taxrate')?.value)||0;
+  const vat = sub * rate/100;
+  const total = sub + vat;
+  const ve = document.getElementById('s-vatamt');
+  const te = document.getElementById('s-total');
+  if(ve) ve.textContent = fmt(vat)+' ﷼';
+  if(te) te.textContent = fmt(total)+' ﷼';
+}
+
+function renderSalesList(sales, salesReturns=[], filter='all'){
+  const payLabel = {cash:'💵 كاش', transfer:'🏦 تحويل', deferred:'⏳ آجل'};
+  const payColor = {cash:'#34d399', transfer:'#70B5FF', deferred:'#fbbf24'};
+
+  if(filter==='returns'){
+    if(!salesReturns.length) return '<div class="empty">لا توجد مرتجعات مبيعات</div>';
+    return salesReturns.slice().reverse().map(r=>`
+      <div class="card" style="padding:12px 14px;margin-bottom:8px;border-right:3px solid #f87171!important">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;background:rgba(248,113,113,.2);color:#f87171;padding:2px 7px;border-radius:99px">↩️ مرتجع</span>
+              <div style="font-size:13px;font-weight:700">${r.client||'—'}</div>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px">${r.invoiceNo||'—'} · ${r.date}${r.origInvoiceNo?' · أصلية: '+r.origInvoiceNo:''}</div>
+            ${r.reason?`<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">السبب: ${r.reason}</div>`:''}
+          </div>
+          <div style="text-align:left;flex-shrink:0">
+            <div style="font-size:15px;font-weight:800;color:#f87171">-${fmt(r.total)} ﷼</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">VAT: ${fmt(r.taxAmt)} ﷼</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button onclick="printSalesReturn('${r.id}')" style="flex:1;padding:6px;background:rgba(112,181,255,.1);color:#70B5FF;border:1px solid rgba(112,181,255,.2);border-radius:7px;cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">🖨️ طباعة</button>
+          <button onclick="deleteSalesReturn('${r.id}')" style="padding:6px 10px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.2);border-radius:7px;cursor:pointer;font-size:11px">✕ حذف</button>
+        </div>
+      </div>`).join('');
+  }
+
+  const filtered = filter==='all' ? sales : sales.filter(s=>s.payMethod===filter);
+  if(!filtered.length) return '<div class="empty">لا توجد نتائج</div>';
+  return filtered.slice().reverse().map(s=>`
+    <div class="card" style="padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${s.client||'—'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.5)">${s.invoiceNo||'—'} · ${s.date}${s.project?' · '+s.project:''}</div>
+          ${s.notes?`<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">${s.notes}</div>`:''}
+        </div>
+        <div style="text-align:left;flex-shrink:0">
+          <div style="font-size:15px;font-weight:800;color:#34d399">${fmt(s.total)} ﷼</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">VAT: ${fmt(s.taxAmt)} ﷼</div>
+          <span style="font-size:10px;color:${payColor[s.payMethod]||'#fff'}">${payLabel[s.payMethod]||''}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button onclick="printSaleInvoice('${s.id}')" style="flex:1;padding:6px;background:rgba(112,181,255,.1);color:#70B5FF;border:1px solid rgba(112,181,255,.2);border-radius:7px;cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">🖨️ طباعة</button>
+        <button onclick="openSalesReturnFromInvoice('${s.id}')" style="padding:6px 10px;background:rgba(248,113,113,.08);color:#f87171;border:1px solid rgba(248,113,113,.2);border-radius:7px;cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">↩️</button>
+        <button onclick="deleteSalesInvoice('${s.id}')" style="padding:6px 10px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.2);border-radius:7px;cursor:pointer;font-size:11px">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function filterSales(type, btn){
+  document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const returns = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  const el = document.getElementById('sales-list');
+  if(el) el.innerHTML = renderSalesList(sales, returns, type);
+}
+
+// ── SALES RETURNS ──
+function openSalesReturnForm(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  openSalesReturnModal(null, sales);
+}
+
+function openSalesReturnFromInvoice(saleId){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const orig = sales.find(s=>s.id===saleId);
+  openSalesReturnModal(orig, sales);
+}
+
+function openSalesReturnModal(orig, sales){
+  // Remove old modal if exists
+  const old = document.getElementById('sales-return-modal');
+  if(old) old.remove();
+
+  const saleOpts = sales.map(s=>`<option value="${s.id}" ${orig&&orig.id===s.id?'selected':''}>${s.invoiceNo||s.id} — ${s.client} — ${fmt(s.total)} ﷼</option>`).join('');
+  const modal = document.createElement('div');
+  modal.id='sales-return-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML=`
+    <div style="background:rgba(15,10,40,.97);border:1px solid rgba(248,113,113,.3);border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:700;color:#f87171">↩️ مرتجع مبيعات</div>
+        <button onclick="document.getElementById('sales-return-modal').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:18px">✕</button>
+      </div>
+
+      <!-- Mode: single or bulk -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <button onclick="setReturnMode('manual')" id="ret-mode-manual" style="padding:8px;border:2px solid rgba(248,113,113,.4);border-radius:8px;background:rgba(248,113,113,.12);color:#f87171;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:700">✏️ إدخال يدوي</button>
+        <button onclick="setReturnMode('bulk')" id="ret-mode-bulk" style="padding:8px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:12px">📊 تقرير مجمع</button>
+      </div>
+
+      <!-- Manual mode -->
+      <div id="ret-manual-div">
+        <div style="background:rgba(248,113,113,.08);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#f87171">
+          المرتجع يُخصم من إجمالي المبيعات وضريبة VAT
+        </div>
+        <div class="fg">
+          <label class="lbl">فاتورة المبيعات الأصلية</label>
+          <select id="ret-orig-sale" style="color:#fff;background:rgba(255,255,255,.08)">
+            <option value="">-- بدون ربط (مرتجع عام) --</option>
+            ${saleOpts}
+          </select>
+        </div>
+        <div class="fg">
+          <label class="lbl">📷 ارفع فاتورة المرتجع (اختياري)</label>
+          <div class="drop" onclick="document.getElementById('ret-sale-file').click()" style="padding:10px;cursor:pointer">
+            <div style="font-size:20px;margin-bottom:3px" id="ret-sale-icon">📷</div>
+            <div id="ret-sale-txt" style="font-size:11px;color:rgba(255,255,255,.4)">الذكاء يقرأ المرتجع</div>
+          </div>
+          <input type="file" id="ret-sale-file" accept="image/*,.pdf" style="display:none" onchange="analyzeSalesReturn(this)">
+        </div>
+        <div id="ret-ai-status" style="display:none;margin-bottom:8px;font-size:11px;color:#f5c842;padding:6px 10px;background:rgba(245,200,66,.08);border-radius:6px"></div>
+        <div class="fg2">
+          <div><label class="lbl">رقم مرتجع</label><input id="ret-no" placeholder="RET-001"></div>
+          <div><label class="lbl">التاريخ</label><input type="date" id="ret-date" value="${today()}"></div>
+        </div>
+        <div class="fg"><label class="lbl">اسم العميل</label><input id="ret-client" value="${orig?orig.client:''}" placeholder="اسم العميل"></div>
+        <div class="fg2">
+          <div><label class="lbl">المبلغ قبل الضريبة</label><input type="number" id="ret-sub" placeholder="0.00" oninput="calcRetVat()"></div>
+          <div><label class="lbl">نسبة VAT %</label><input type="number" id="ret-rate" value="${orig?orig.taxRate:15}" oninput="calcRetVat()"></div>
+        </div>
+        <div style="padding:7px 12px;background:rgba(248,113,113,.08);border-radius:7px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between">
+          <span>VAT: <strong id="ret-vatamt" style="color:#70B5FF">0.00 ﷼</strong></span>
+          <span>الإجمالي: <strong id="ret-total-display" style="color:#f87171">0.00 ﷼</strong></span>
+        </div>
+        <div class="fg"><label class="lbl">سبب المرتجع</label><input id="ret-reason" placeholder="تلف / عيب مصنعي / خطأ في الطلب..."></div>
+        <div id="ret-err" class="err" style="display:none"></div>
+        <button onclick="saveSalesReturnManual()" style="width:100%;padding:11px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 حفظ المرتجع</button>
+      </div>
+
+      <!-- Bulk return mode -->
+      <div id="ret-bulk-div" style="display:none">
+        <div style="background:rgba(248,113,113,.08);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#f87171">
+          ارفع تقرير يحتوي على قائمة مرتجعات المبيعات
+        </div>
+        <div class="drop" onclick="document.getElementById('ret-bulk-file').click()" style="padding:14px;cursor:pointer;border-color:rgba(248,113,113,.3)">
+          <div style="font-size:24px;margin-bottom:4px" id="ret-bulk-icon">📊</div>
+          <div id="ret-bulk-txt" style="font-size:11px;color:rgba(255,255,255,.4)">ارفع Excel أو PDF أو صورة جدول</div>
+        </div>
+        <input type="file" id="ret-bulk-file" accept="image/*,.pdf,.xlsx,.xls,.csv" style="display:none" onchange="analyzeBulkReturns(this)">
+        <div id="ret-bulk-status" style="display:none;margin-top:8px"></div>
+        <div id="ret-bulk-preview" style="display:none;margin-top:8px"></div>
+        <button id="ret-bulk-save" onclick="saveBulkReturns()" style="display:none;width:100%;margin-top:10px;padding:11px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">✅ حفظ كل المرتجعات</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function setReturnMode(mode){
+  document.getElementById('ret-manual-div').style.display=mode==='manual'?'block':'none';
+  document.getElementById('ret-bulk-div').style.display=mode==='bulk'?'block':'none';
+  const mb=document.getElementById('ret-mode-manual');
+  const bb=document.getElementById('ret-mode-bulk');
+  if(mb){mb.style.border=mode==='manual'?'2px solid rgba(248,113,113,.4)':'1px solid rgba(255,255,255,.15)';mb.style.background=mode==='manual'?'rgba(248,113,113,.12)':'transparent';mb.style.color=mode==='manual'?'#f87171':'rgba(255,255,255,.6)';}
+  if(bb){bb.style.border=mode==='bulk'?'2px solid rgba(248,113,113,.4)':'1px solid rgba(255,255,255,.15)';bb.style.background=mode==='bulk'?'rgba(248,113,113,.12)':'transparent';bb.style.color=mode==='bulk'?'#f87171':'rgba(255,255,255,.6)';}
+}
+
+function calcRetVat(){
+  const sub=parseFloat(document.getElementById('ret-sub')?.value)||0;
+  const rate=parseFloat(document.getElementById('ret-rate')?.value)||0;
+  const vat=sub*rate/100;
+  const ve=document.getElementById('ret-vatamt');const te=document.getElementById('ret-total-display');
+  if(ve)ve.textContent=fmt(vat)+' ﷼';
+  if(te)te.textContent=fmt(sub+vat)+' ﷼';
+}
+
+async function analyzeSalesReturn(input){
+  const file=input.files[0];if(!file)return;
+  const isPdf=file.type==='application/pdf';
+  document.getElementById('ret-sale-icon').textContent='⏳';
+  document.getElementById('ret-ai-status').style.display='block';
+  document.getElementById('ret-ai-status').textContent='⏳ جاري قراءة فاتورة المرتجع...';
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const b64=ev.target.result.split(',')[1];
+    try{
+      const res=await api('/api/analyze','POST',{b64,isPdf,text:'هذه فاتورة مرتجع مبيعات. استخرج: اسم العميل (supplier)، رقم المرتجع (invoiceNo)، التاريخ (date)، المبلغ قبل الضريبة (subtotal)، نسبة الضريبة (taxRate)، مبلغ الضريبة (taxAmt)، الإجمالي (total). JSON نقي فقط.'});
+      if(res.error)throw new Error(res.error);
+      if(res.supplier)document.getElementById('ret-client').value=res.supplier;
+      if(res.invoiceNo)document.getElementById('ret-no').value=res.invoiceNo;
+      if(res.date)document.getElementById('ret-date').value=res.date;
+      if(res.subtotal)document.getElementById('ret-sub').value=res.subtotal;
+      if(res.taxRate)document.getElementById('ret-rate').value=res.taxRate;
+      calcRetVat();
+      document.getElementById('ret-ai-status').textContent='✅ تم استخراج البيانات';
+      document.getElementById('ret-sale-icon').textContent='✅';
+      document.getElementById('ret-sale-txt').textContent=file.name;
+    }catch(e){
+      document.getElementById('ret-ai-status').textContent='❌ '+e.message;
+      document.getElementById('ret-sale-icon').textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveSalesReturnManual(){
+  const origId=document.getElementById('ret-orig-sale')?.value||'';
+  const client=document.getElementById('ret-client')?.value.trim()||'';
+  const sub=parseFloat(document.getElementById('ret-sub')?.value)||0;
+  const rate=parseFloat(document.getElementById('ret-rate')?.value)||0;
+  const err=document.getElementById('ret-err');
+  if(!client||!sub){err.style.display='block';err.textContent='⚠️ أدخل اسم العميل والمبلغ';return;}
+  const vat=sub*rate/100;
+  const total=sub+vat;
+  const returns=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  // Get original invoice info
+  const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const orig=sales.find(s=>s.id===origId);
+  const ret={
+    id:'r-'+Date.now(),
+    invoiceNo:document.getElementById('ret-no')?.value||'RET-'+Date.now(),
+    origInvoiceNo:orig?orig.invoiceNo:'',
+    origInvoiceId:origId,
+    date:document.getElementById('ret-date')?.value||today(),
+    client,subtotal:sub,taxRate:rate,taxAmt:vat,total,
+    reason:document.getElementById('ret-reason')?.value||'',
+    createdAt:new Date().toISOString()
+  };
+  returns.push(ret);
+  localStorage.setItem('kayan_sales_returns',JSON.stringify(returns));
+  api('/api/sales-returns','POST',{returns}).catch(()=>{});
+  document.getElementById('sales-return-modal')?.remove();
+  alert('✅ تم حفظ المرتجع — '+fmt(total)+' ﷼');
+  rSales();
+}
+
+let _bulkRetParsed=[];
+async function analyzeBulkReturns(input){
+  const file=input.files[0];if(!file)return;
+  const isPdf=file.type==='application/pdf';
+  document.getElementById('ret-bulk-icon').textContent='⏳';
+  document.getElementById('ret-bulk-status').style.display='block';
+  document.getElementById('ret-bulk-status').innerHTML='<div style="font-size:11px;color:#f5c842;padding:6px 10px;background:rgba(245,200,66,.08);border-radius:6px">⏳ جاري تحليل تقرير المرتجعات...</div>';
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const b64=ev.target.result.split(',')[1];
+    try{
+      const prompt='هذا تقرير مرتجعات مبيعات. استخرج كل مرتجع كعنصر منفصل. لكل مرتجع: invoiceNo (رقم المرتجع)، date (YYYY-MM-DD)، client (اسم العميل)، origInvoiceNo (رقم الفاتورة الأصلية)، subtotal (المبلغ بدون ضريبة)، taxRate (نسبة الضريبة)، taxAmt (مبلغ الضريبة)، total (الإجمالي)، reason (السبب). أخرج: {"invoices":[...]}';
+      const res=await api('/api/analyze','POST',{b64,isPdf,text:prompt});
+      if(res.error)throw new Error(res.error);
+      let invoices=res.invoices||res.items||[];
+      if(!invoices.length&&(res.total||res.client))invoices=[res];
+      const fix=v=>parseFloat(String(v||'0').replace(/[^0-9.]/g,''))||0;
+      _bulkRetParsed=invoices.map(inv=>{
+        const sub=fix(inv.subtotal);const rate=fix(inv.taxRate)||15;
+        const vat=fix(inv.taxAmt)||(sub*rate/100);
+        return{invoiceNo:inv.invoiceNo||'',origInvoiceNo:inv.origInvoiceNo||'',date:inv.date||today(),client:inv.client||inv.customer||'—',subtotal:sub,taxRate:rate,taxAmt:vat,total:fix(inv.total)||(sub+vat),reason:inv.reason||''};
+      });
+      const preview=document.getElementById('ret-bulk-preview');
+      preview.style.display='block';
+      preview.innerHTML=`<div style="font-size:11px;color:#f87171;margin-bottom:6px;font-weight:700">↩️ تم استخراج ${_bulkRetParsed.length} مرتجع</div>`
+        +_bulkRetParsed.map(r=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px"><div><div style="font-weight:600">${r.client}</div><div style="color:rgba(255,255,255,.4)">${r.invoiceNo} · ${r.date}</div></div><div style="color:#f87171;font-weight:700">-${fmt(r.total)} ﷼</div></div>`).join('')
+        +`<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:12px;font-weight:700"><span>الإجمالي</span><span style="color:#f87171">-${fmt(_bulkRetParsed.reduce((a,r)=>a+(r.total||0),0))} ﷼</span></div>`;
+      document.getElementById('ret-bulk-save').style.display='block';
+      document.getElementById('ret-bulk-status').innerHTML='<div style="font-size:11px;color:#34d399;padding:6px 10px;background:rgba(52,211,153,.08);border-radius:6px">✅ راجع المرتجعات وأكد</div>';
+      document.getElementById('ret-bulk-icon').textContent='✅';
+      document.getElementById('ret-bulk-txt').textContent=file.name;
+    }catch(e){
+      document.getElementById('ret-bulk-status').innerHTML=`<div style="font-size:11px;color:#f87171;padding:6px 10px;background:rgba(248,113,113,.08);border-radius:6px">❌ ${e.message}</div>`;
+      document.getElementById('ret-bulk-icon').textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveBulkReturns(){
+  if(!_bulkRetParsed.length)return;
+  const returns=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  const existing=new Set(returns.map(r=>r.invoiceNo?.toLowerCase().trim()).filter(Boolean));
+  let added=0,skipped=0;
+  _bulkRetParsed.forEach(r=>{
+    const key=(r.invoiceNo||'').toLowerCase().trim();
+    if(key&&existing.has(key)){skipped++;return;}
+    returns.push({id:'r-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),...r,createdAt:new Date().toISOString()});
+    if(key)existing.add(key);
+    added++;
+  });
+  localStorage.setItem('kayan_sales_returns',JSON.stringify(returns));
+  api('/api/sales-returns','POST',{returns}).catch(()=>{});
+  _bulkRetParsed=[];
+  document.getElementById('sales-return-modal')?.remove();
+  alert('✅ تم حفظ '+added+' مرتجع'+(skipped?' · تخطي '+skipped+' مكرر':''));
+  rSales();
+}
+
+function deleteSalesReturn(id){
+  if(!confirm('حذف هذا المرتجع؟'))return;
+  const returns=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]').filter(r=>r.id!==id);
+  localStorage.setItem('kayan_sales_returns',JSON.stringify(returns));
+  api('/api/sales-returns','POST',{returns}).catch(()=>{});
+  rSales();
+}
+
+function printSalesReturn(id){
+  const returns=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  const r=returns.find(r=>r.id===id);if(!r)return;
+  const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>مرتجع ${r.invoiceNo}</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:30px;font-size:13px}.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #D93025}.ret-badge{background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:4px;font-weight:700;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#991b1b;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:8px;border:1px solid #ddd}.total-row td{background:#fee2e2;font-weight:800}</style></head><body>
+<div class="header"><div><div style="font-size:18px;font-weight:900">شركة كيان وبناء للمقاولات</div><div style="font-size:11px;color:#555;margin-top:3px">إشعار مرتجع مبيعات</div></div><div style="text-align:left"><span class="ret-badge">↩️ مرتجع</span><div style="font-size:14px;font-weight:700;margin-top:4px">${r.invoiceNo}</div></div></div>
+<table style="margin-bottom:16px"><tr><td style="font-weight:700">اسم العميل</td><td>${r.client}</td><td style="font-weight:700">التاريخ</td><td>${r.date}</td></tr>${r.origInvoiceNo?`<tr><td style="font-weight:700">رقم الفاتورة الأصلية</td><td>${r.origInvoiceNo}</td><td></td><td></td></tr>`:''} ${r.reason?`<tr><td style="font-weight:700">سبب المرتجع</td><td colspan="3">${r.reason}</td></tr>`:''}</table>
+<table><tr><th>البيان</th><th>المبلغ</th></tr><tr><td>المبلغ قبل الضريبة</td><td>${fmt(r.subtotal)} ﷼</td></tr><tr><td>ضريبة القيمة المضافة (${r.taxRate}%)</td><td>${fmt(r.taxAmt)} ﷼</td></tr><tr class="total-row"><td>إجمالي المرتجع</td><td style="color:#D93025">-${fmt(r.total)} ﷼</td></tr></table>
+<div style="margin-top:20px;padding:12px;border:1px dashed #ccc;border-radius:6px;font-size:11px;color:#555">هذا الإشعار يُلغي الفاتورة الأصلية جزئياً أو كلياً حسب المبلغ المذكور أعلاه.</div>
+</body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
+}
+
+async function pickSalesFile(input){
+  const file = input.files[0]; if(!file) return;
+  const isPdf = file.type==='application/pdf';
+  const status = document.getElementById('sales-ai-status');
+  const icon = document.getElementById('sales-icon');
+  const txt = document.getElementById('sales-txt');
+  status.style.display='block';
+  icon.textContent='⏳';
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    salesB64 = ev.target.result.split(',')[1];
+    try{
+      const res = await api('/api/analyze','POST',{
+        b64: salesB64, isPdf,
+        text: 'هذه فاتورة مبيعات. استخرج: اسم العميل (supplier)، رقم الفاتورة (invoiceNo)، التاريخ (date بصيغة YYYY-MM-DD)، المبلغ قبل الضريبة (subtotal)، نسبة الضريبة (taxRate)، مبلغ الضريبة (taxAmt)، الإجمالي (total)، البنود (items). JSON نقي فقط.'
+      });
+      if(res.error) throw new Error(res.error);
+      salesParsed = res;
+      // Fill form
+      if(res.supplier) document.getElementById('s-client').value = res.supplier;
+      if(res.invoiceNo) document.getElementById('s-inv-no').value = res.invoiceNo;
+      if(res.date) document.getElementById('s-date').value = res.date;
+      if(res.subtotal) document.getElementById('s-subtotal').value = res.subtotal;
+      if(res.taxRate) document.getElementById('s-taxrate').value = res.taxRate;
+      calcSalesVat();
+      status.innerHTML = '<span style="color:#34d399">✅ تم استخراج البيانات — راجع وأكد</span>';
+      icon.textContent='✅';
+      txt.textContent = file.name;
+    }catch(e){
+      status.innerHTML = '<span style="color:#f87171">❌ '+e.message+'</span>';
+      icon.textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveSalesInvoice(){
+  const invoiceNo = document.getElementById('s-inv-no').value.trim();
+  const date = document.getElementById('s-date').value;
+  const client = document.getElementById('s-client').value.trim();
+  const project = document.getElementById('s-proj').value;
+  const subtotal = parseFloat(document.getElementById('s-subtotal').value)||0;
+  const taxRate = parseFloat(document.getElementById('s-taxrate').value)||0;
+  const payMethod = document.getElementById('s-paymethod').value;
+  const notes = document.getElementById('s-notes').value.trim();
+  const err = document.getElementById('s-err');
+
+  if(!client||!subtotal){err.style.display='block';err.textContent='⚠️ يرجى تعبئة اسم العميل والمبلغ';return;}
+
+  const taxAmt = subtotal * taxRate/100;
+  const total = subtotal + taxAmt;
+
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+
+  // Dup check
+  if(invoiceNo){
+    const dup = sales.find(s=>s.invoiceNo&&s.invoiceNo.trim().toLowerCase()===invoiceNo.toLowerCase());
+    if(dup){err.style.display='block';err.textContent='⚠️ رقم الفاتورة '+invoiceNo+' مسجل مسبقاً';return;}
+  }
+
+  const inv = {
+    id:'s-'+Date.now(), invoiceNo: invoiceNo||'S-'+Date.now(),
+    date, client, project, subtotal, taxRate, taxAmt, total,
+    payMethod, notes, b64: salesB64||null,
+    createdAt: new Date().toISOString()
+  };
+
+  sales.push(inv);
+  localStorage.setItem('kayan_sales', JSON.stringify(sales));
+  // Sync to server
+  api('/api/sales','POST',{sales}).catch(()=>{});
+
+  err.style.display='none';
+  salesB64=null; salesParsed=null;
+  alert('✅ تم حفظ فاتورة المبيعات — '+fmt(total)+' ﷼');
+  rSales();
+}
+
+function deleteSalesInvoice(id){
+  if(!confirm('حذف هذه الفاتورة؟')) return;
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]').filter(s=>s.id!==id);
+  localStorage.setItem('kayan_sales', JSON.stringify(sales));
+  api('/api/sales','POST',{sales}).catch(()=>{});
+  rSales();
+}
+
+function printSaleInvoice(id){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const s = sales.find(s=>s.id===id); if(!s) return;
+  const payLabel = {cash:'كاش',transfer:'تحويل بنكي',deferred:'آجل'};
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>فاتورة مبيعات ${s.invoiceNo}</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:30px;font-size:13px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #000}.company{font-size:20px;font-weight:900}.inv-title{font-size:24px;font-weight:900;color:#b8860b}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}.info-box{background:#f9f9f9;border:1px solid #ddd;border-radius:6px;padding:12px}.info-label{font-size:10px;color:#666;margin-bottom:3px;font-weight:600}.info-value{font-size:14px;font-weight:700}.totals{margin-top:16px;border:1.5px solid #000;border-radius:6px;overflow:hidden}.total-row{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #ddd}.total-row:last-child{border-bottom:none;background:#000;color:#fff;font-weight:800;font-size:15px}.label{color:#555}.grand{color:#fff!important}@media print{body{padding:15px}}</style></head><body>
+<div class="header">
+  <div><div class="company">شركة كيان وبناء للمقاولات</div><div style="font-size:11px;color:#666;margin-top:4px">فاتورة ضريبية</div></div>
+  <div style="text-align:left"><div class="inv-title">فاتورة مبيعات</div><div style="font-size:13px;font-weight:700;color:#333">${s.invoiceNo}</div></div>
+</div>
+<div class="info-grid">
+  <div class="info-box"><div class="info-label">اسم العميل</div><div class="info-value">${s.client}</div></div>
+  <div class="info-box"><div class="info-label">تاريخ الفاتورة</div><div class="info-value">${s.date}</div></div>
+  <div class="info-box"><div class="info-label">طريقة الدفع</div><div class="info-value">${payLabel[s.payMethod]||''}</div></div>
+  ${s.project?`<div class="info-box"><div class="info-label">المشروع</div><div class="info-value">${s.project}</div></div>`:''}
+</div>
+${s.notes?`<div style="padding:10px 14px;background:#f5f5f5;border-radius:6px;margin-bottom:16px;font-size:13px"><strong>الوصف:</strong> ${s.notes}</div>`:''}
+<div class="totals">
+  <div class="total-row"><span class="label">المبلغ قبل الضريبة</span><span>${fmt(s.subtotal)} ﷼</span></div>
+  <div class="total-row"><span class="label">ضريبة القيمة المضافة (${s.taxRate}%)</span><span>${fmt(s.taxAmt)} ﷼</span></div>
+  <div class="total-row"><span class="grand">الإجمالي</span><span>${fmt(s.total)} ﷼</span></div>
+</div>
+</body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
+}
+
+function exportSalesPDF(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const salesReturns = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  if(!sales.length){alert('لا توجد فواتير');return;}
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const total = sales.reduce((a,s)=>a+(s.total||0),0);
+  const vat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const net = sales.reduce((a,s)=>a+(s.subtotal||0),0);
+  const totalRet = salesReturns.reduce((a,r)=>a+(r.total||0),0);
+  const cash = sales.filter(s=>s.payMethod==='cash').reduce((a,s)=>a+(s.total||0),0);
+  const trans = sales.filter(s=>s.payMethod==='transfer').reduce((a,s)=>a+(s.total||0),0);
+  const def = sales.filter(s=>s.payMethod==='deferred').reduce((a,s)=>a+(s.total||0),0);
+  const payLabel = {cash:'كاش',transfer:'تحويل',deferred:'آجل'};
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المبيعات</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}h1{font-size:20px;font-weight:900;margin-bottom:4px}h2{font-size:14px;font-weight:800;margin:16px 0 8px;border-bottom:2px solid #000;padding-bottom:4px}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:3px;font-weight:600}.bv{font-size:17px;font-weight:900}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th{background:#000;color:#fff;padding:8px;text-align:right;font-weight:700;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:7px 8px;border:1px solid #ddd}tr:nth-child(even) td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body>
+<h1>تقرير فواتير المبيعات</h1>
+<div style="font-size:12px;color:#555;margin-bottom:14px">شركة كيان وبناء للمقاولات · ${now}</div>
+<div class="sum">
+  <div class="box"><div class="bl">إجمالي المبيعات</div><div class="bv" style="color:#166534">${fmt(total)} ﷼</div></div>
+  <div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">${fmt(net)} ﷼</div></div>
+  <div class="box"><div class="bl">VAT المحصّلة</div><div class="bv" style="color:#1A50A8">${fmt(vat)} ﷼</div></div>
+  <div class="box"><div class="bl">كاش</div><div class="bv">${fmt(cash)} ﷼</div></div>
+  <div class="box"><div class="bl">تحويل</div><div class="bv">${fmt(trans)} ﷼</div></div>
+  <div class="box"><div class="bl">آجل</div><div class="bv" style="color:#D97706">${fmt(def)} ﷼</div></div>
+</div>
+<h2>تفاصيل الفواتير</h2>
+<table><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th><th>المشروع</th><th>طريقة الدفع</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>
+${sales.sort((a,b)=>a.date.localeCompare(b.date)).map(s=>`<tr><td>${s.invoiceNo}</td><td>${s.date}</td><td>${s.client}</td><td>${s.project||'—'}</td><td>${payLabel[s.payMethod]||'—'}</td><td>${fmt(s.subtotal)} ﷼</td><td>${fmt(s.taxAmt)} ﷼</td><td style="font-weight:700;color:#166534">${fmt(s.total)} ﷼</td></tr>`).join('')}
+<tr class="tr"><td colspan="5">إجمالي المبيعات</td><td>${fmt(net)} ﷼</td><td>${fmt(vat)} ﷼</td><td>${fmt(total)} ﷼</td></tr>
+</table>
+${salesReturns.length?`<h2 style="margin:16px 0 8px;font-size:14px;font-weight:800;color:#D93025;border-bottom:2px solid #D93025;padding-bottom:4px">↩️ مرتجعات المبيعات</h2>
+<table><tr><th>رقم المرتجع</th><th>التاريخ</th><th>العميل</th><th>فاتورة أصلية</th><th>السبب</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>
+${salesReturns.map(r=>`<tr><td>${r.invoiceNo}</td><td>${r.date}</td><td>${r.client}</td><td>${r.origInvoiceNo||'—'}</td><td>${r.reason||'—'}</td><td>${fmt(r.subtotal)} ﷼</td><td>${fmt(r.taxAmt)} ﷼</td><td style="font-weight:700;color:#D93025">-${fmt(r.total)} ﷼</td></tr>`).join('')}
+<tr class="tr"><td colspan="5">إجمالي المرتجعات</td><td></td><td></td><td style="color:#D93025">-${fmt(totalRet)} ﷼</td></tr>
+<tr class="tr"><td colspan="5">صافي المبيعات بعد المرتجعات</td><td></td><td></td><td style="color:#166534">${fmt(total-totalRet)} ﷼</td></tr>
+</table>`:''}
+</body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
+}
+
+// ── TRIAL BALANCE ────────────────────────────────
+function rTrialBalance(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
+
+  // ── إيرادات ──
+  const salesTotal = sales.reduce((a,s)=>a+(s.total||0),0);
+  const salesNet = sales.reduce((a,s)=>a+(s.subtotal||0),0);
+  const salesVat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const salesCash = sales.filter(s=>s.payMethod==='cash').reduce((a,s)=>a+(s.total||0),0);
+  const salesTransfer = sales.filter(s=>s.payMethod==='transfer').reduce((a,s)=>a+(s.total||0),0);
+  const salesDeferred = sales.filter(s=>s.payMethod==='deferred').reduce((a,s)=>a+(s.total||0),0);
+  const contractReceipts = contracts.reduce((a,c)=>a+(c.transfers||[]).reduce((b,t)=>b+(t.amount||0),0),0);
+
+  // ── مصروفات ──
+  const purchases = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
+  const purchasesNet = purchases.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
+  const purchasesVat = purchases.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const purchasesTotal = purchases.reduce((a,e)=>a+(e.total||0),0);
+  const laborCost = DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const returnTotal = DB.entries.filter(e=>e.type==='return').reduce((a,e)=>a+(e.total||0),0);
+
+  // ── VAT ──
+  const vatCollected = salesVat - salesRetVat;
+  const vatPaid = purchasesVat;
+  const vatDue = vatCollected - vatPaid;
+
+  // ── صافي ──
+  const totalRevenue = salesNet + contractReceipts;
+  const totalExpenses = purchasesTotal + laborCost - returnTotal;
+  const netProfit = totalRevenue - totalExpenses;
+
+  // ── Quarter filter ──
+  const now = new Date();
+  const qMonths = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
+  const currentQ = Math.floor(now.getMonth()/3);
+
+  document.getElementById('mc').innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="font-size:15px;font-weight:800;color:#f5c842;margin-bottom:4px">⚖️ ميزان المراجعة</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5)">شركة كيان وبناء للمقاولات</div>
+    </div>
+
+    <!-- فلتر الربع -->
+    <div class="card" style="padding:10px 14px;margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:8px">📅 الفترة المحاسبية</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label class="lbl" style="font-size:11px">من تاريخ</label><input type="date" id="tb-from" onchange="refreshTrialBalance()"></div>
+        <div><label class="lbl" style="font-size:11px">إلى تاريخ</label><input type="date" id="tb-to" onchange="refreshTrialBalance()"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${[1,2,3,4].map(q=>`<button onclick="setTBQuarter(${q},this)" style="padding:5px 12px;border:1px solid rgba(245,200,66,.3);border-radius:99px;background:${currentQ===q-1?'rgba(245,200,66,.2)':'transparent'};color:${currentQ===q-1?'#f5c842':'rgba(255,255,255,.6)'};cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">الربع ${q}</button>`).join('')}
+        <button onclick="setTBYear(this)" style="padding:5px 12px;border:1px solid rgba(112,181,255,.3);border-radius:99px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">السنة كاملة</button>
+      </div>
+    </div>
+
+    <!-- الإيرادات -->
+    <div class="card" style="margin-bottom:10px;border-right:3px solid #34d399!important">
+      <div class="ctitle" style="color:#34d399">📈 الإيرادات (دائن)</div>
+      ${tbRow('مبيعات — صافي بدون ضريبة', salesNet, '#34d399')}
+      ${tbRow('حوالات واردة من عملاء (عقود)', contractReceipts, '#34d399')}
+      ${tbRow('مرتجعات مبيعات (خصم)', -returnTotal, returnTotal>0?'#f87171':'#34d399')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
+        <strong style="color:#34d399">إجمالي الإيرادات</strong>
+        <strong style="color:#34d399;font-size:15px">${fmt(totalRevenue)} ﷼</strong>
+      </div>
+    </div>
+
+    <!-- المصروفات -->
+    <div class="card" style="margin-bottom:10px;border-right:3px solid #f87171!important">
+      <div class="ctitle" style="color:#f87171">📉 المصروفات (مدين)</div>
+      ${tbRow('مشتريات — صافي بدون ضريبة', purchasesNet, '#f87171')}
+      ${tbRow('ضريبة مدخلات (VAT مشتريات)', purchasesVat, '#f87171')}
+      ${tbRow('تكلفة العمالة الخارجية', laborCost, '#f87171')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
+        <strong style="color:#f87171">إجمالي المصروفات</strong>
+        <strong style="color:#f87171;font-size:15px">${fmt(totalExpenses)} ﷼</strong>
+      </div>
+    </div>
+
+    <!-- VAT -->
+    <div class="card" style="margin-bottom:10px;border-right:3px solid #70B5FF!important">
+      <div class="ctitle" style="color:#70B5FF">🧾 حساب ضريبة القيمة المضافة</div>
+      ${tbRow('VAT محصّلة من المبيعات', vatCollected, '#70B5FF')}
+      ${tbRow('VAT مدفوعة على المشتريات', vatPaid, '#f87171')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);margin-top:4px">
+        <strong style="color:${vatDue>=0?'#f87171':'#34d399'}">${vatDue>=0?'VAT مستحقة للهيئة':'VAT مسترجعة'}</strong>
+        <strong style="color:${vatDue>=0?'#f87171':'#34d399'};font-size:15px">${fmt(Math.abs(vatDue))} ﷼</strong>
+      </div>
+    </div>
+
+    <!-- صافي الربح -->
+    <div style="background:${netProfit>=0?'rgba(52,211,153,.12)':'rgba(248,113,113,.12)'};border:1.5px solid ${netProfit>=0?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)'};border-radius:14px;padding:16px;text-align:center;margin-bottom:12px">
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:6px">${netProfit>=0?'✅ صافي الربح':'❌ صافي الخسارة'}</div>
+      <div style="font-size:32px;font-weight:900;color:${netProfit>=0?'#34d399':'#f87171'}">${netProfit>=0?'+':''}${fmt(netProfit)} ﷼</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:6px">= الإيرادات (${fmt(totalRevenue)}) − المصروفات (${fmt(totalExpenses)})</div>
+    </div>
+
+    <button onclick="exportTrialBalancePDF()" style="width:100%;padding:12px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير ميزان المراجعة PDF</button>
+  `;
+}
+
+function tbRow(label, value, color){
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
+    <span style="color:rgba(255,255,255,.8)">${label}</span>
+    <span style="font-weight:700;color:${color}">${fmt(Math.abs(value))} ﷼</span>
+  </div>`;
+}
+
+function setTBQuarter(q, btn){
+  const year = new Date().getFullYear();
+  const starts = ['01-01','04-01','07-01','10-01'];
+  const ends = ['03-31','06-30','09-30','12-31'];
+  document.getElementById('tb-from').value = year+'-'+starts[q-1];
+  document.getElementById('tb-to').value = year+'-'+ends[q-1];
+  document.querySelectorAll('[onclick^="setTBQuarter"]').forEach(b=>{b.style.background='transparent';b.style.color='rgba(255,255,255,.6)';});
+  btn.style.background='rgba(245,200,66,.2)';btn.style.color='#f5c842';
+}
+
+function setTBYear(btn){
+  const year = new Date().getFullYear();
+  document.getElementById('tb-from').value = year+'-01-01';
+  document.getElementById('tb-to').value = year+'-12-31';
+}
+
+function refreshTrialBalance(){ rTrialBalance(); }
+
+function exportTrialBalancePDF(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const salesNet = sales.reduce((a,s)=>a+(s.subtotal||0),0);
+  const salesVat = sales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const salesTotal = sales.reduce((a,s)=>a+(s.total||0),0);
+  const contractReceipts = contracts.reduce((a,c)=>a+(c.transfers||[]).reduce((b,t)=>b+(t.amount||0),0),0);
+  const purchases = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
+  const purchasesNet = purchases.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
+  const purchasesVat = purchases.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const purchasesTotal = purchases.reduce((a,e)=>a+(e.total||0),0);
+  const laborCost = DB.entries.filter(e=>e.type==='labor').reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const returnTotal = DB.entries.filter(e=>e.type==='return').reduce((a,e)=>a+(e.total||0),0);
+  const vatDue = salesVat - purchasesVat;
+  const totalRevenue = salesNet + contractReceipts - returnTotal;
+  const totalExpenses = purchasesTotal + laborCost;
+  const netProfit = totalRevenue - totalExpenses;
+
+  const html=`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>ميزان المراجعة</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}h1{font-size:20px;font-weight:900}h2{font-size:14px;font-weight:800;margin:16px 0 8px;padding:6px 10px;border-radius:4px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:8px;border:1px solid #ddd}.dr{color:#D93025;font-weight:700}.cr{color:#166534;font-weight:700}.total-row td{background:#f0f0f0;font-weight:800}.profit{padding:14px;border-radius:6px;text-align:center;margin-top:14px}.profit-val{font-size:26px;font-weight:900}</style></head><body>
+<h1>ميزان المراجعة</h1>
+<div style="font-size:12px;color:#555;margin-bottom:16px">شركة كيان وبناء للمقاولات · ${now}</div>
+<h2 style="background:#dcfce7;color:#166534">📈 الإيرادات (دائن)</h2>
+<table><tr><th>البيان</th><th>المبلغ</th></tr>
+<tr><td>مبيعات — صافي</td><td class="cr">${fmt(salesNet)} ﷼</td></tr>
+<tr><td>حوالات واردة من عملاء</td><td class="cr">${fmt(contractReceipts)} ﷼</td></tr>
+${returnTotal>0?`<tr><td>مرتجعات (خصم)</td><td class="dr">(${fmt(returnTotal)}) ﷼</td></tr>`:''}
+<tr class="total-row"><td>إجمالي الإيرادات</td><td class="cr">${fmt(totalRevenue)} ﷼</td></tr></table>
+<h2 style="background:#fee2e2;color:#991b1b">📉 المصروفات (مدين)</h2>
+<table><tr><th>البيان</th><th>المبلغ</th></tr>
+<tr><td>مشتريات — صافي</td><td class="dr">${fmt(purchasesNet)} ﷼</td></tr>
+<tr><td>ضريبة مدخلات VAT</td><td class="dr">${fmt(purchasesVat)} ﷼</td></tr>
+<tr><td>تكلفة العمالة</td><td class="dr">${fmt(laborCost)} ﷼</td></tr>
+<tr class="total-row"><td>إجمالي المصروفات</td><td class="dr">${fmt(totalExpenses)} ﷼</td></tr></table>
+<h2 style="background:#dbeafe;color:#1e40af">🧾 حساب VAT</h2>
+<table><tr><th>البيان</th><th>المبلغ</th></tr>
+<tr><td>VAT محصّلة (مبيعات)</td><td class="cr">${fmt(salesVat)} ﷼</td></tr>
+<tr><td>VAT مدفوعة (مشتريات)</td><td class="dr">${fmt(purchasesVat)} ﷼</td></tr>
+<tr class="total-row"><td>${vatDue>=0?'VAT مستحقة للهيئة':'VAT مسترجعة'}</td><td class="${vatDue>=0?'dr':'cr'}">${fmt(Math.abs(vatDue))} ﷼</td></tr></table>
+<div class="profit" style="background:${netProfit>=0?'#dcfce7':'#fee2e2'};border:2px solid ${netProfit>=0?'#166534':'#991b1b'}">
+  <div style="font-size:14px;font-weight:700;color:${netProfit>=0?'#166534':'#991b1b'};margin-bottom:6px">${netProfit>=0?'✅ صافي الربح':'❌ صافي الخسارة'}</div>
+  <div class="profit-val" style="color:${netProfit>=0?'#166534':'#991b1b'}">${netProfit>=0?'+':''}${fmt(netProfit)} ﷼</div>
+</div>
+</body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
+}
+
+// SERVICE WORKER
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+
+// START
+initTheme();
+document.getElementById('top-date').textContent=new Date().toLocaleDateString('ar-SA',{day:'numeric',month:'long',year:'numeric'});
+start();
+</script>
+</body>
+</html>
