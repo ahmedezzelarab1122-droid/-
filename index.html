@@ -5244,11 +5244,25 @@ function rPurchases(){
         <div style="background:rgba(112,181,255,.08);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#70B5FF;border-right:3px solid #70B5FF">
           ارفع تقرير Excel أو PDF يحتوي على قائمة فواتير — الذكاء يستخرج كل فاتورة منفردة
         </div>
-        <div class="drop" onclick="document.getElementById('purch-bulk-file').click()" style="cursor:pointer;padding:18px;border-color:rgba(248,113,113,.4)">
-          <div style="font-size:30px;margin-bottom:6px" id="pb-icon">📊</div>
-          <div id="pb-txt" style="font-size:12px;color:rgba(255,255,255,.5)">ارفع تقرير Excel أو PDF أو صورة جدول</div>
+        <!-- Excel مباشر بدون AI -->
+        <div style="background:rgba(52,211,153,.08);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#34d399;border-right:3px solid #34d399">
+          📊 ملف Excel كبير (+100 فاتورة)؟ استخدم الرفع المباشر بدون AI — أسرع وأدق
         </div>
-        <input type="file" id="purch-bulk-file" accept="image/*,.pdf,.xlsx,.xls,.csv" style="display:none" onchange="pickPurchBulkFile(this)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div class="drop" onclick="document.getElementById('purch-excel-file').click()" style="cursor:pointer;padding:14px;border-color:rgba(52,211,153,.4)">
+            <div style="font-size:24px;margin-bottom:4px">📗</div>
+            <div style="font-size:11px;color:#34d399;font-weight:700">Excel مباشر</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4)">بدون AI — سريع</div>
+          </div>
+          <div class="drop" onclick="document.getElementById('purch-bulk-file').click()" style="cursor:pointer;padding:14px;border-color:rgba(248,113,113,.4)">
+            <div style="font-size:24px;margin-bottom:4px" id="pb-icon">🤖</div>
+            <div style="font-size:11px;color:#f87171;font-weight:700">AI يقرأ</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.4)">PDF أو صورة</div>
+          </div>
+        </div>
+        <div id="pb-txt" style="display:none"></div>
+        <input type="file" id="purch-excel-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="pickExcelDirect(this)">
+        <input type="file" id="purch-bulk-file" accept="image/*,.pdf" style="display:none" onchange="pickPurchBulkFile(this)">
         <div id="pb-status" style="display:none;margin-top:8px"></div>
         <div id="pb-preview" style="display:none;margin-top:10px"></div>
         <button id="pb-save-btn" onclick="savePurchBulk()"
@@ -5380,6 +5394,153 @@ async function savePurchSingle(){
   }catch(e){err.style.display='block';err.textContent='❌ '+e.message;}
 }
 
+
+// ── Excel Direct Parser (no AI needed) ──
+async function pickExcelDirect(input){
+  const file = input.files[0]; if(!file) return;
+  const st = document.getElementById('pb-status');
+  st.style.display='block';
+  st.innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.08);border-radius:8px;font-size:12px;color:#34d399">⏳ جاري قراءة الملف...</div>';
+  document.getElementById('pb-icon').textContent='⏳';
+
+  try{
+    // Load SheetJS
+    if(!window.XLSX){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+    if(!rows.length) throw new Error('الملف فارغ');
+
+    // Auto-detect header row
+    let headerRow = 0;
+    for(let i=0;i<Math.min(5,rows.length);i++){
+      const r = rows[i].map(c=>String(c).trim());
+      if(r.some(c=>c.includes('فاتورة')||c.includes('مورد')||c.includes('تاريخ')||c.includes('مبلغ')||c.includes('invoice')||c.includes('date'))){
+        headerRow=i; break;
+      }
+    }
+
+    const headers = rows[headerRow].map(c=>String(c).trim().toLowerCase());
+    console.log('Headers:', headers);
+
+    // Map column names
+    const findCol = (...names) => {
+      for(const n of names){
+        const idx = headers.findIndex(h=>h.includes(n));
+        if(idx>=0) return idx;
+      }
+      return -1;
+    };
+
+    const colInvNo    = findCol('فاتورة','رقم','invoice','no');
+    const colCode     = findCol('كود','code');
+    const colDate     = findCol('تاريخ','date','يوم','شهر');
+    const colDay      = findCol('يوم','day');
+    const colMonth    = findCol('شهر','month');
+    const colSupplier = findCol('مورد','عميل','supplier','client','اسم');
+    const colSubtotal = findCol('صافي','بدون','subtotal','net');
+    const colTaxAmt   = findCol('ضريبة','vat','tax');
+    const colTotal    = findCol('إجمالي','اجمالي','total');
+    const colBranch   = findCol('فرع','branch');
+
+    console.log('Cols:', {colInvNo,colDate,colDay,colMonth,colSupplier,colSubtotal,colTaxAmt,colTotal});
+
+    _purchBulkParsed = [];
+    let _dupCount = 0;
+
+    // Dup check set
+    const _existCodes=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>(e.invoiceCode||'').toLowerCase()).filter(Boolean));
+    const _mkDupKey = inv=>[
+      (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase(),
+      Math.round((inv.total||inv.subtotal||0)*100),
+      (inv.supplier||'').trim().toLowerCase().slice(0,20)
+    ].join('|');
+    const _existDupKeys=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkDupKey({invoiceNo:e.invoiceNo||'',total:e.total||0,supplier:e.supplier||e.desc||''})));
+    const _seenKeys=new Set();
+
+    for(let i=headerRow+1; i<rows.length; i++){
+      const row = rows[i];
+      if(!row || row.every(c=>c===''||c===null||c===undefined)) continue;
+
+      // Build date
+      let dateStr = '';
+      if(colDate>=0 && row[colDate]){
+        const raw = String(row[colDate]).trim();
+        // Excel date serial number
+        if(/^\d+$/.test(raw) && parseInt(raw)>1000){
+          const d = new Date(Math.round((parseInt(raw)-25569)*86400*1000));
+          dateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        } else {
+          dateStr = _fixDate(raw);
+        }
+      } else if(colDay>=0 && colMonth>=0){
+        const day = String(row[colDay]).trim().padStart(2,'0');
+        const month = String(row[colMonth]).trim().padStart(2,'0');
+        if(day&&month) dateStr = '2026-'+month+'-'+day;
+      }
+
+      if(!dateStr || dateStr===today()) continue; // تخطي بدون تاريخ
+
+      const supplier = colSupplier>=0 ? String(row[colSupplier]).trim() : '';
+      const sub = _fixNum(colSubtotal>=0 ? row[colSubtotal] : 0);
+      const vat = _fixNum(colTaxAmt>=0 ? row[colTaxAmt] : 0);
+      const tot = _fixNum(colTotal>=0 ? row[colTotal] : 0) || sub+vat;
+      if(!tot && !sub) continue; // تخطي بدون مبلغ
+
+      const invNo  = colInvNo>=0 ? String(row[colInvNo]).trim() : '';
+      const invCode= colCode>=0  ? String(row[colCode]).trim() : '';
+      const branch = colBranch>=0? String(row[colBranch]).trim(): '';
+
+      const inv = {invoiceCode:invCode, invoiceNo:invNo, date:dateStr, supplier, branch,
+        subtotal:sub||tot-vat, taxAmt:vat, total:tot,
+        taxRate:sub>0&&vat>0?Math.round(vat/sub*100):0,
+        type:vat>0?'tax':'petty', payMethod:'cash'};
+
+      // Dup check
+      const dupKey = _mkDupKey(inv);
+      const code = (invCode||invNo||'').toLowerCase();
+      if(code&&_existCodes.has(code)){_dupCount++;continue;}
+      if(dupKey!=='||'&&(_existDupKeys.has(dupKey)||_seenKeys.has(dupKey))){_dupCount++;continue;}
+      if(code)_existCodes.add(code);
+      if(dupKey!=='||')_seenKeys.add(dupKey);
+      _purchBulkParsed.push(inv);
+    }
+
+    if(!_purchBulkParsed.length && _dupCount===0) throw new Error('لم يتم استخراج أي فاتورة — تأكد من أعمدة الملف');
+
+    const gTotal=_purchBulkParsed.reduce((a,i)=>a+(i.total||0),0);
+    const gVat=_purchBulkParsed.reduce((a,i)=>a+(i.taxAmt||0),0);
+
+    const preview=document.getElementById('pb-preview');
+    preview.style.display='block';
+    preview.innerHTML='<div style="font-size:12px;font-weight:700;color:#34d399;margin-bottom:8px">📗 '+_purchBulkParsed.length+' فاتورة جاهزة'+(_dupCount?'<span style="color:#fbbf24;font-weight:400"> · '+_dupCount+' مكررة تم تخطيها</span>':'')+'</div>'
+      +'<div style="max-height:260px;overflow-y:auto">'
+      +_purchBulkParsed.slice(0,50).map(inv=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px">'
+        +'<div><span style="font-weight:600">'+inv.supplier+'</span> <span style="color:rgba(255,255,255,.4)">'+(inv.invoiceNo||inv.invoiceCode||'—')+' · '+inv.date+'</span></div>'
+        +'<span style="color:#f87171;font-weight:700">'+fmt(inv.total)+' ﷼</span></div>').join('')
+      +(_purchBulkParsed.length>50?'<div style="color:rgba(255,255,255,.4);font-size:11px;padding:6px 0">... و'+(_purchBulkParsed.length-50)+' فاتورة أخرى</div>':'')
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(52,211,153,.08);border-radius:8px;margin-top:6px;font-size:13px">'
+      +'<span>إجمالي '+_purchBulkParsed.length+' فاتورة</span><span style="font-weight:700;color:#34d399">'+fmt(gTotal)+' ﷼</span></div>';
+
+    document.getElementById('pb-save-btn').style.display='block';
+    st.innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">✅ راجع وأكد الحفظ</div>';
+    document.getElementById('pb-icon').textContent='✅';
+  }catch(e){
+    st.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.12);border-radius:8px;font-size:12px;color:#f87171">❌ '+e.message+'</div>';
+    document.getElementById('pb-icon').textContent='❌';
+  }
+}
 async function pickPurchBulkFile(input){
   const file=input.files[0];if(!file)return;
   const isPdf=file.type==='application/pdf';
