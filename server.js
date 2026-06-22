@@ -79,7 +79,7 @@ function getFallback() {
 async function analyzeInvoice(b64, text, isPdf=false) {
   const { default: https } = await import('https');
   // If custom text/prompt provided, use it directly; otherwise use default invoice analysis prompt
-  const prompt = text ? text : `أنت خبير محاسبة سعودي متخصص في تصنيف الفواتير. مهمتك الأساسية التمييز بدقة بين نوعين من الفواتير.
+  const prompt = text ? text + ' أخرج JSON مضغوط بدون مسافات.' : `أنت خبير محاسبة سعودي متخصص في تصنيف الفواتير. مهمتك الأساسية التمييز بدقة بين نوعين من الفواتير.
 ## قاعدة التصنيف الأساسية:
 ### فاتورة ضريبية (tax): رقم ضريبي، A4 مطبوعة
 ### فاتورة نثرية (petty): إيصال صغير، بخط يد، بقالة
@@ -93,9 +93,9 @@ async function analyzeInvoice(b64, text, isPdf=false) {
     : [{ type: 'text', text: prompt }];
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      model: 'claude-opus-4-5',
-      max_tokens: 16000,
-      system: 'أنت محاسب خبير. مهمتك استخراج البيانات وإرجاعها كـ JSON نقي فقط بدون أي نص أو شرح.',
+      model: 'claude-sonnet-4-6',
+      max_tokens: 64000,
+      system: 'You are an expert accountant. Return ONLY minified JSON (no spaces/newlines). Include ALL rows without truncation. Format: {"invoices":[{...},{...}]}',
       messages: [{ role: 'user', content }]
     });
     const req = https.request({
