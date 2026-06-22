@@ -5407,17 +5407,26 @@ async function pickPurchBulkFile(input){
       if(!_purchBulkParsed.length)throw new Error('لم يتم استخراج أي فاتورة');
 
 
-      // فحص التكرار بكود الفاتورة أولاً
-      const _existCodes=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>(e.invoiceCode||'').toLowerCase()).filter(Boolean));
-      const _existKeys2=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>[(e.invoiceNo||''),(e.supplier||e.desc||''),Math.round((e.total||0)*100)].join('|').toLowerCase()));
-      const _seenC=new Set(),_seenK=new Set();
+      // فحص التكرار: رقم الفاتورة + المبلغ + اسم المورد
+      const _mkDupKey = inv => [
+        (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase(),
+        Math.round((inv.total||inv.subtotal||0)*100),
+        (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20)
+      ].join('|');
+      const _existDupKeys = new Set(
+        DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkDupKey({
+          invoiceNo:e.invoiceNo||e.invoiceCode||'',
+          total:e.total||0,
+          supplier:e.supplier||e.desc||''
+        })).filter(k=>k!=='||')
+      );
+      const _seenDupKeys = new Set();
       let _dupCount=0;
       _purchBulkParsed=_purchBulkParsed.filter(inv=>{
-        const c=(inv.invoiceCode||'').toLowerCase();
-        const k=[(inv.invoiceNo||''),(inv.supplier||''),Math.round((inv.total||0)*100)].join('|').toLowerCase();
-        if(c&&(_existCodes.has(c)||_seenC.has(c))){_dupCount++;return false;}
-        if(!c&&k&&(_existKeys2.has(k)||_seenK.has(k))){_dupCount++;return false;}
-        if(c)_seenC.add(c);else if(k)_seenK.add(k);
+        const k=_mkDupKey(inv);
+        if(k==='||') return true; // مفيش بيانات كافية — نحتفظ بها
+        if(_existDupKeys.has(k)||_seenDupKeys.has(k)){_dupCount++;return false;}
+        _seenDupKeys.add(k);
         return true;
       });
       const gTotal=_purchBulkParsed.reduce((a,i)=>a+(i.total||0),0);
@@ -5452,17 +5461,23 @@ async function savePurchBulk(){
   const sup=DB.supervisors.find(s=>s.id===supId);
   const btn=document.getElementById('pb-save-btn');
   btn.textContent='⏳ جاري الحفظ...';btn.disabled=true;
-  // فحص التكرار عند الحفظ
-  const _saveCodes=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>(e.invoiceCode||'').toLowerCase()).filter(Boolean));
-  const _saveKeys=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>[(e.invoiceNo||''),(e.supplier||e.desc||''),Math.round((e.total||0)*100)].join('|').toLowerCase()));
-  const _scRun=new Set(),_skRun=new Set();
+  // فحص التكرار عند الحفظ: رقم الفاتورة + المبلغ + اسم المورد
+  const _mkKey2 = inv => [
+    (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase(),
+    Math.round((inv.total||inv.subtotal||0)*100),
+    (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20)
+  ].join('|');
+  const _saveSet=new Set(
+    DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkKey2({
+      invoiceNo:e.invoiceNo||e.invoiceCode||'',total:e.total||0,supplier:e.supplier||e.desc||''
+    })).filter(k=>k!=='||')
+  );
+  const _seenSave=new Set();
   let added=0,skipped=0,failed=0;
   for(const inv of _purchBulkParsed){
-    const c=(inv.invoiceCode||'').toLowerCase();
-    const k=[(inv.invoiceNo||''),(inv.supplier||''),Math.round((inv.total||0)*100)].join('|').toLowerCase();
-    if(c&&(_saveCodes.has(c)||_scRun.has(c))){skipped++;continue;}
-    if(!c&&k&&(_saveKeys.has(k)||_skRun.has(k))){skipped++;continue;}
-    if(c)_scRun.add(c);else if(k)_skRun.add(k);
+    const _k=_mkKey2(inv);
+    if(_k!=='||'&&(_saveSet.has(_k)||_seenSave.has(_k))){skipped++;continue;}
+    if(_k!=='||')_seenSave.add(_k);
     try{
       const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type:inv.type,desc:inv.supplier||'مشتريات',invoiceNo:inv.invoiceNo||null,invoiceCode:inv.invoiceCode||null,supplier:inv.supplier||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true});
       if(res.error)failed++;else added++;
