@@ -651,7 +651,7 @@ let imgB64=null,imgSrc=null,parsed=null,fType='all';
 
 const SERVER='https://ahmed-ezz.onrender.com';
 async function api(p,m='GET',b=null){
-  const o={method:m,headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(25000)};
+  const o={method:m,headers:{'Content-Type':'application/json'}};
   if(b)o.body=JSON.stringify(b);
   const url=p.startsWith('http')?p:SERVER+p;
   const r=await fetch(url,o);
@@ -5255,17 +5255,42 @@ async function pickBulkPurchFile(input){
     return;
   }
   const isPdf = file.type==='application/pdf';
+  const isImg = file.type.startsWith('image/');
   const st = document.getElementById('pb-status');
   const icon = document.getElementById('pb-icon');
   st.style.display='block';
-  st.innerHTML='<div style="padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري تحليل الملف...</div>';
+  st.innerHTML='<div style="padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري معالجة الملف...</div>';
   icon.textContent='⏳';
   document.getElementById('pb-txt').textContent=file.name;
   _bulkPurchParsed=[];
 
-  const reader = new FileReader();
-  reader.onload = async ev => {
-    const b64 = ev.target.result.split(',')[1];
+  // Compress image before sending
+  const getB64 = (f) => new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      if(isImg){
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1600;
+          let w = img.width, h2 = img.height;
+          if(w > MAX){ h2 = Math.round(h2*MAX/w); w = MAX; }
+          const canvas = document.createElement('canvas');
+          canvas.width=w; canvas.height=h2;
+          canvas.getContext('2d').drawImage(img,0,0,w,h2);
+          res(canvas.toDataURL('image/jpeg',0.85).split(',')[1]);
+        };
+        img.src = ev.target.result;
+      } else {
+        res(ev.target.result.split(',')[1]);
+      }
+    };
+    reader.readAsDataURL(f);
+  });
+
+  const b64 = await getB64(file);
+  st.innerHTML='<div style="padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري تحليل الملف... قد يستغرق دقيقة</div>';
+
+  try {
     const typeHint = type==='tax'?'ضريبية مع VAT':type==='petty'?'نثرية بدون ضريبة':'قد تكون ضريبية أو نثرية';
     const prompt = 'أنت محاسب خبير. هذه وثيقة تحتوي على فواتير مشتريات '+typeHint+'. استخرج كل فاتورة كعنصر منفصل. لكل فاتورة: invoiceNo (رقم الفاتورة)، date (التاريخ كما هو بالضبط)، supplier (اسم المورد أو الوصف)، subtotal (المبلغ قبل الضريبة رقم بدون فواصل)، taxRate (نسبة الضريبة رقم، 0 إذا نثرية)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، payMethod (cash أو transfer). تجاهل صفوف الإجمالي والمجاميع. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","supplier":"","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"payMethod":"cash"}]}';
 
@@ -5355,8 +5380,11 @@ async function pickBulkPurchFile(input){
       st.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.12);border-radius:8px;font-size:12px;color:#f87171">❌ '+e.message+'</div>';
       icon.textContent='❌';
     }
-  };
-  reader.readAsDataURL(file);
+  } catch(outerErr){
+    const st2=document.getElementById('pb-status');
+    if(st2) st2.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.12);border-radius:8px;font-size:12px;color:#f87171">❌ '+outerErr.message+'</div>';
+    document.getElementById('pb-icon').textContent='❌';
+  }
 }
 
 async function saveBulkPurchases(){
