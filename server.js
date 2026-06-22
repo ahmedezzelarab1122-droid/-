@@ -78,13 +78,14 @@ function getFallback() {
 }
 async function analyzeInvoice(b64, text, isPdf=false) {
   const { default: https } = await import('https');
-  const prompt = `أنت خبير محاسبة سعودي متخصص في تصنيف الفواتير. مهمتك الأساسية التمييز بدقة بين نوعين من الفواتير.
+  // If custom text/prompt provided, use it directly; otherwise use default invoice analysis prompt
+  const prompt = text ? text : `أنت خبير محاسبة سعودي متخصص في تصنيف الفواتير. مهمتك الأساسية التمييز بدقة بين نوعين من الفواتير.
 ## قاعدة التصنيف الأساسية:
 ### فاتورة ضريبية (tax): رقم ضريبي، A4 مطبوعة
 ### فاتورة نثرية (petty): إيصال صغير، بخط يد، بقالة
 ## الإخراج JSON نقي فقط:
 {"desc":"اسم المورد","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم أو null","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":رقم,"taxAmt":رقم,"total":رقم,"items":[{"desc":"البند","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
-${text ? 'نص إضافي: ' + text : ''}`;
+`;
   const content = b64
     ? isPdf
       ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }]
@@ -103,10 +104,18 @@ ${text ? 'نص إضافي: ' + text : ''}`;
           const json = JSON.parse(data);
           if (json.error) return reject(new Error(json.error.message));
           const raw = json.content.map(x => x.text || '').join('');
-          // Match either {} object or [] array or {"invoices":[...]}
+          // Extract JSON - handle object, array, or nested invoices
           const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
           if (!match) return reject(new Error('لم يُستخرج JSON: ' + raw.slice(0,200)));
           let parsed = JSON.parse(match[0]);
+          // If response has invoices array, return it directly
+          if (parsed && parsed.invoices && Array.isArray(parsed.invoices)) {
+            return resolve(parsed);
+          }
+          // If response is an array, wrap it
+          if (Array.isArray(parsed)) {
+            return resolve({ invoices: parsed });
+          }
           const fixNum = v => { if (typeof v === 'string') { v = v.replace(/,/g, '.').replace(/[^0-9.]/g, ''); } return parseFloat(v) || 0; };
           parsed.subtotal = fixNum(parsed.subtotal);
           parsed.taxAmt = fixNum(parsed.taxAmt);
