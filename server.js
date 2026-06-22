@@ -121,15 +121,30 @@ async function analyzeInvoice(b64, text, isPdf=false) {
               else return reject(new Error('JSON parse failed: ' + e2.message));
             }
           }
+          const fixNum = v => { if (typeof v === 'string') { v = v.replace(/,/g, '.').replace(/[^0-9.]/g, ''); } return parseFloat(v) || 0; };
           // If response has invoices array, return it directly
           if (parsed && parsed.invoices && Array.isArray(parsed.invoices)) {
+            parsed.invoices = parsed.invoices.map(inv => ({
+              ...inv,
+              subtotal: fixNum(inv.subtotal),
+              taxAmt: fixNum(inv.taxAmt),
+              taxRate: fixNum(inv.taxRate),
+              total: fixNum(inv.total) || (fixNum(inv.subtotal) + fixNum(inv.taxAmt))
+            }));
             return resolve(parsed);
           }
           // If response is an array, wrap it
           if (Array.isArray(parsed)) {
-            return resolve({ invoices: parsed });
+            const invoices = parsed.map(inv => ({
+              ...inv,
+              subtotal: fixNum(inv.subtotal),
+              taxAmt: fixNum(inv.taxAmt),
+              taxRate: fixNum(inv.taxRate),
+              total: fixNum(inv.total) || (fixNum(inv.subtotal) + fixNum(inv.taxAmt))
+            }));
+            return resolve({ invoices });
           }
-          const fixNum = v => { if (typeof v === 'string') { v = v.replace(/,/g, '.').replace(/[^0-9.]/g, ''); } return parseFloat(v) || 0; };
+          // Single invoice response
           parsed.subtotal = fixNum(parsed.subtotal);
           parsed.taxAmt = fixNum(parsed.taxAmt);
           parsed.taxRate = fixNum(parsed.taxRate);
