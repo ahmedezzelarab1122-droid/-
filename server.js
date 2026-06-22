@@ -104,10 +104,23 @@ async function analyzeInvoice(b64, text, isPdf=false) {
           const json = JSON.parse(data);
           if (json.error) return reject(new Error(json.error.message));
           const raw = json.content.map(x => x.text || '').join('');
-          // Extract JSON - handle object, array, or nested invoices
-          const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-          if (!match) return reject(new Error('لم يُستخرج JSON: ' + raw.slice(0,200)));
-          let parsed = JSON.parse(match[0]);
+          // Try to extract JSON robustly
+          let parsed = null;
+          try {
+            // Try direct parse first
+            parsed = JSON.parse(raw.trim());
+          } catch(e1) {
+            // Try to extract JSON block
+            const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+            if (!match) return reject(new Error('لم يُستخرج JSON: ' + raw.slice(0,300)));
+            try { parsed = JSON.parse(match[0]); }
+            catch(e2) {
+              // Try to find innermost valid JSON
+              const m2 = raw.match(/\{"invoices":\s*\[[\s\S]*?\]\s*\}/);
+              if(m2) { try { parsed = JSON.parse(m2[0]); } catch(e3) { return reject(new Error('JSON parse failed: ' + e2.message)); } }
+              else return reject(new Error('JSON parse failed: ' + e2.message));
+            }
+          }
           // If response has invoices array, return it directly
           if (parsed && parsed.invoices && Array.isArray(parsed.invoices)) {
             return resolve(parsed);
@@ -436,7 +449,10 @@ const server = http.createServer(async (req, res) => {
       const { b64, text, isPdf } = await parseBody(req);
       const result = await analyzeInvoice(b64 || null, text || '', isPdf);
       return sendJSON(res, result);
-    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
+    } catch (e) {
+      console.error('❌ /api/analyze error:', e.message);
+      return sendJSON(res, { error: e.message }, 500);
+    }
   }
   if (pathname === '/api/workers' && req.method === 'POST') {
     const { name, jobTitle } = await parseBody(req);
