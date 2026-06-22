@@ -4699,12 +4699,19 @@ async function deleteAllSales(){
   const total = sales.length + returns.length;
   if(!total){ alert('لا توجد بيانات مبيعات'); return; }
   if(!confirm('سيتم حذف '+sales.length+' فاتورة مبيعات و'+returns.length+' مرتجع.\nهل أنت متأكد؟')) return;
-  localStorage.setItem('kayan_sales','[]');
-  localStorage.setItem('kayan_sales_returns','[]');
-  try{ await api('/api/sales','POST',{sales:[]}); }catch(e){}
-  try{ await api('/api/sales-returns','POST',{returns:[]}); }catch(e){}
-  alert('✅ تم حذف كل بيانات المبيعات');
-  rSales();
+
+  try{
+    // حذف من السيرفر أولاً
+    await api('/api/sales','POST',{sales:[]});
+    await api('/api/sales-returns','POST',{returns:[]});
+    // ثم من localStorage
+    localStorage.setItem('kayan_sales','[]');
+    localStorage.setItem('kayan_sales_returns','[]');
+    alert('✅ تم حذف كل بيانات المبيعات');
+    rSales();
+  }catch(e){
+    alert('❌ خطأ: '+e.message);
+  }
 }
 
 function exportSalesPDF(){
@@ -5549,13 +5556,15 @@ async function deleteHistoricalPurchases(){
   if(!confirm('سيتم حذف '+toDelete.length+' فاتورة مضافة يدوياً فقط.\nمشتريات المشرفين لن تتأثر.\nهل أنت متأكد؟')) return;
 
   let deleted=0, failed=0;
-  for(const e of toDelete){
-    try{
-      const res = await api('/api/entries/'+e.id,'DELETE');
-      if(res && res.ok!==false) deleted++;
-      else failed++;
-    }catch(ex){failed++;}
-  }
+  // نحذف كلهم بالتوازي أسرع
+  const results = await Promise.allSettled(
+    toDelete.map(e => api('/api/entries/'+e.id,'DELETE'))
+  );
+  results.forEach(r => {
+    if(r.status==='fulfilled' && r.value?.ok!==false) deleted++;
+    else failed++;
+  });
+
   DB = await api('/api/db');
   alert('✅ تم حذف '+deleted+' فاتورة'+(failed?' · فشل '+failed:''));
   rPurchases();
