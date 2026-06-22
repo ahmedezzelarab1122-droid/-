@@ -5434,24 +5434,54 @@ async function pickExcelDirect(input){
     console.log('Headers:', headers);
 
     // Map column names
+    // Print all headers for debugging
+    console.log('All headers:', headers);
+
     const findCol = (...names) => {
       for(const n of names){
-        const idx = headers.findIndex(h=>h.includes(n));
+        const idx = headers.findIndex(h=>String(h).replace(/\s+/g,'').includes(n.replace(/\s+/g,'')));
         if(idx>=0) return idx;
       }
       return -1;
     };
 
-    const colInvNo    = findCol('فاتورة','رقم','invoice','no');
-    const colCode     = findCol('كود','code');
-    const colDate     = findCol('تاريخ','date','يوم','شهر');
-    const colDay      = findCol('يوم','day');
-    const colMonth    = findCol('شهر','month');
-    const colSupplier = findCol('مورد','عميل','supplier','client','اسم');
-    const colSubtotal = findCol('صافي','بدون','subtotal','net');
-    const colTaxAmt   = findCol('ضريبة','vat','tax');
-    const colTotal    = findCol('إجمالي','اجمالي','total');
-    const colBranch   = findCol('فرع','branch');
+    // ترتيب الأعمدة: يوم، شهر، اسم المورد، رقم الفاتورة، المبلغ بدون ضريبة، المبلغ بالضريبة، قيمة الضريبة، الإجمالي، كود الفاتورة
+    // Try by name first, then by position
+    let colDay      = findCol('يوم','day');
+    let colMonth    = findCol('شهر','month');
+    let colSupplier = findCol('مورد','عميل','supplier','client','اسم');
+    let colInvNo    = findCol('رقم','فاتورة','invoice','no');
+    let colSubtotal = findCol('بدون','صافي','subtotal','net','قبل');
+    let colTaxBase  = findCol('بالضريبة','بضريبة','شامل'); // المبلغ بالضريبة
+    let colTaxAmt   = findCol('قيمة','ضريبة','vat','tax');
+    let colTotal    = findCol('إجمالي','اجمالي','total','مجموع');
+    let colCode     = findCol('كود','code','serial','مسلسل');
+    let colBranch   = findCol('فرع','branch');
+
+    // Fallback: if headers not detected, use positional detection
+    // Based on: يوم، شهر، اسم المورد، رقم الفاتورة، المبلغ بدون ضريبة، المبلغ بالضريبة، قيمة الضريبة، الإجمالي، كود الفاتورة
+    if(colDay===-1 && colMonth===-1 && colSupplier===-1){
+      console.log('Using positional column detection');
+      // Find first numeric column as day
+      for(let i=0;i<headers.length;i++){
+        const firstDataVal = rows[headerRow+1]?.[i];
+        if(firstDataVal && !isNaN(parseFloat(firstDataVal)) && parseFloat(firstDataVal)>=1 && parseFloat(firstDataVal)<=31){
+          colDay=i; break;
+        }
+      }
+      if(colDay>=0){
+        colMonth    = colDay+1;
+        colSupplier = colDay+2;
+        colInvNo    = colDay+3;
+        colSubtotal = colDay+4;
+        colTaxBase  = colDay+5;
+        colTaxAmt   = colDay+6;
+        colTotal    = colDay+7;
+        colCode     = colDay+8;
+      }
+    }
+
+    console.log('Detected cols:', {colDay,colMonth,colSupplier,colInvNo,colSubtotal,colTaxAmt,colTotal,colCode});
 
     console.log('Cols:', {colInvNo,colDate,colDay,colMonth,colSupplier,colSubtotal,colTaxAmt,colTotal});
 
@@ -5472,24 +5502,17 @@ async function pickExcelDirect(input){
       const row = rows[i];
       if(!row || row.every(c=>c===''||c===null||c===undefined)) continue;
 
-      // Build date
+      // Build date from day+month columns (year=2026)
       let dateStr = '';
-      if(colDate>=0 && row[colDate]){
-        const raw = String(row[colDate]).trim();
-        // Excel date serial number
-        if(/^\d+$/.test(raw) && parseInt(raw)>1000){
-          const d = new Date(Math.round((parseInt(raw)-25569)*86400*1000));
-          dateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-        } else {
-          dateStr = _fixDate(raw);
+      if(colDay>=0 && colMonth>=0 && row[colDay]!=='' && row[colMonth]!==''){
+        const dayVal   = String(row[colDay]).trim().replace(/[^0-9]/g,'');
+        const monthVal = String(row[colMonth]).trim().replace(/[^0-9]/g,'');
+        if(dayVal && monthVal && parseInt(dayVal)>=1 && parseInt(dayVal)<=31 && parseInt(monthVal)>=1 && parseInt(monthVal)<=12){
+          dateStr = '2026-'+monthVal.padStart(2,'0')+'-'+dayVal.padStart(2,'0');
         }
-      } else if(colDay>=0 && colMonth>=0){
-        const day = String(row[colDay]).trim().padStart(2,'0');
-        const month = String(row[colMonth]).trim().padStart(2,'0');
-        if(day&&month) dateStr = '2026-'+month+'-'+day;
       }
-
-      if(!dateStr || dateStr===today()) continue; // تخطي بدون تاريخ
+      // Skip rows without valid date or amount
+      if(!dateStr) continue;
 
       const supplier = colSupplier>=0 ? String(row[colSupplier]).trim() : '';
       const sub = _fixNum(colSubtotal>=0 ? row[colSubtotal] : 0);
