@@ -4606,8 +4606,10 @@ function rSales(){
       ${renderSalesList(sales, salesReturns, 'all')}
     </div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button onclick="exportSalesPDF()" style="flex:1;padding:12px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تقرير المبيعات PDF</button>
-      <button onclick="openSalesReturnForm()" style="flex:1;padding:12px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">↩️ إضافة مرتجع</button>
+      <button onclick="exportSalesPDF()" style="flex:1;padding:12px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تقرير PDF</button>
+      <button onclick="openSalesReturnForm()" style="flex:1;padding:12px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">↩️ مرتجع</button>
+      <button onclick="deleteAllSales()" style="padding:12px 14px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;cursor:pointer;font-family:'Tajawal',sans-serif" title="حذف كل المبيعات">🗑️</button>
+      <button onclick="deleteAllSales()" style="padding:12px 14px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif" title="حذف كل المبيعات">🗑️</button>
     </div>
     `}
   `;
@@ -4689,6 +4691,20 @@ function printSaleInvoice(id){
     +'<tr class="tot"><td>الإجمالي</td><td style="color:#166534;font-size:16px">'+fmt(s.total)+' ريال</td></tr>'
     +'</table></body></html>');
   w.document.close();setTimeout(()=>w.print(),600);
+}
+
+async function deleteAllSales(){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const returns = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  const total = sales.length + returns.length;
+  if(!total){ alert('لا توجد بيانات مبيعات'); return; }
+  if(!confirm('سيتم حذف '+sales.length+' فاتورة مبيعات و'+returns.length+' مرتجع.\nهل أنت متأكد؟')) return;
+  localStorage.setItem('kayan_sales','[]');
+  localStorage.setItem('kayan_sales_returns','[]');
+  try{ await api('/api/sales','POST',{sales:[]}); }catch(e){}
+  try{ await api('/api/sales-returns','POST',{returns:[]}); }catch(e){}
+  alert('✅ تم حذف كل بيانات المبيعات');
+  rSales();
 }
 
 function exportSalesPDF(){
@@ -5278,7 +5294,10 @@ function rPurchases(){
       <button onclick="filterPurch('tax',this)" class="ftab">ضريبية</button>
     </div>
     <div id="purch-list">${renderPurchList(purchases,'all')}</div>
-    <button onclick="exportPurchPDF()" style="width:100%;margin-top:10px;padding:12px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير المشتريات PDF</button>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="exportPurchPDF()" style="flex:1;padding:12px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير PDF</button>
+      <button onclick="deleteHistoricalPurchases()" style="padding:12px 14px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif" title="حذف المشتريات المضافة يدوياً فقط">🗑️</button>
+    </div>
     `}
   `;
 }
@@ -5518,6 +5537,28 @@ function filterPurch(type,btn){
   const entries=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
   const el=document.getElementById('purch-list');
   if(el)el.innerHTML=renderPurchList(entries,type);
+}
+
+async function deleteHistoricalPurchases(){
+  // الفواتير المضافة يدوياً فقط (historicalEntry: true)
+  const toDelete = DB.entries.filter(e=>e.historicalEntry===true);
+  if(!toDelete.length){
+    alert('لا توجد مشتريات مضافة يدوياً');
+    return;
+  }
+  if(!confirm('سيتم حذف '+toDelete.length+' فاتورة مضافة يدوياً فقط.\nمشتريات المشرفين لن تتأثر.\nهل أنت متأكد؟')) return;
+
+  let deleted=0, failed=0;
+  for(const e of toDelete){
+    try{
+      const res = await api('/api/entries/'+e.id,'DELETE');
+      if(res && res.ok!==false) deleted++;
+      else failed++;
+    }catch(ex){failed++;}
+  }
+  DB = await api('/api/db');
+  alert('✅ تم حذف '+deleted+' فاتورة'+(failed?' · فشل '+failed:''));
+  rPurchases();
 }
 
 function exportPurchPDF(){
