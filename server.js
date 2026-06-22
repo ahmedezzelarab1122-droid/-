@@ -92,7 +92,12 @@ async function analyzeInvoice(b64, text, isPdf=false) {
       : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
     : [{ type: 'text', text: prompt }];
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 8000, messages: [{ role: 'user', content }] });
+    const body = JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 16000,
+      system: 'أنت محاسب خبير. مهمتك استخراج البيانات وإرجاعها كـ JSON نقي فقط بدون أي نص أو شرح.',
+      messages: [{ role: 'user', content }]
+    });
     const req = https.request({
       hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) }
