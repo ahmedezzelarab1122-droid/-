@@ -5172,253 +5172,326 @@ function printSalesReturn(id){
 }
 
 // ── PURCHASES MODULE ──────────────────────────────
-let _bulkPurchParsed = [];
+let _purchSingleB64 = null;
+let _purchBulkParsed = [];
 
 function rPurchases(){
   const supOpts = DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   const projOpts = DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('');
+  const purchases = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
+  const totalPurch = purchases.reduce((a,e)=>a+(e.total||0),0);
+  const totalVat   = purchases.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const totalNet   = purchases.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
 
   document.getElementById('mc').innerHTML = `
-    <div class="ctitle">🛒 إضافة مشتريات قديمة</div>
-    <div style="background:rgba(112,181,255,.08);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#70B5FF;border-right:3px solid #70B5FF">
-      فواتير مشتريات سابقة — اختر المشرف والمشروع ثم ارفع الملف
+    <div class="sg" style="margin-bottom:12px">
+      <div class="stat"><div class="sl">إجمالي المشتريات</div><div class="sv" style="color:#f87171">${fmt(totalPurch)} ﷼</div></div>
+      <div class="stat"><div class="sl">VAT المدفوعة</div><div class="sv" style="color:#70B5FF">${fmt(totalVat)} ﷼</div></div>
+      <div class="stat"><div class="sl">صافي بدون ضريبة</div><div class="sv" style="color:#f5c842">${fmt(totalNet)} ﷼</div></div>
+      <div class="stat"><div class="sl">عدد الفواتير</div><div class="sv">${purchases.length}</div></div>
     </div>
 
     <div class="card">
-      <!-- المشرف والمشروع -->
-      <div class="fg2">
-        <div>
-          <label class="lbl">المشرف</label>
-          <select id="pb-sup" style="color:#fff;background:rgba(255,255,255,.08)">
-            <option value="">-- اختر المشرف --</option>
-            ${supOpts}
-          </select>
-        </div>
-        <div>
-          <label class="lbl">المشروع</label>
-          <select id="pb-proj" style="color:#fff;background:rgba(255,255,255,.08)">
-            <option value="">-- اختر المشروع --</option>
-            ${projOpts}
-          </select>
-        </div>
+      <div class="ctitle">➕ إضافة فاتورة مشتريات</div>
+
+      <!-- Mode selector - same as sales -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <button onclick="setPurchMode('single')" id="pmode-single"
+          style="padding:10px;border:2px solid rgba(245,200,66,.4);border-radius:10px;background:rgba(245,200,66,.15);color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:700;font-size:12px">
+          🧾 فاتورة واحدة
+        </button>
+        <button onclick="setPurchMode('bulk')" id="pmode-bulk"
+          style="padding:10px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:12px">
+          📊 تقرير مجمع
+        </button>
       </div>
 
-      <!-- نوع الفاتورة -->
-      <div class="fg">
-        <label class="lbl">نوع الفواتير</label>
-        <select id="pb-type" style="color:#fff;background:rgba(255,255,255,.08)">
-          <option value="petty">نثرية (بدون ضريبة)</option>
-          <option value="tax">ضريبية (مع ضريبة VAT)</option>
-          <option value="mixed">مختلطة (AI يحدد لكل فاتورة)</option>
-        </select>
+      <!-- Single invoice mode -->
+      <div id="purch-single-mode">
+        <div class="drop" onclick="document.getElementById('purch-file').click()" style="cursor:pointer;padding:14px">
+          <div style="font-size:26px;margin-bottom:4px" id="purch-icon">📷</div>
+          <div id="purch-txt" style="font-size:12px;color:rgba(255,255,255,.5)">ارفع صورة أو PDF للفاتورة</div>
+        </div>
+        <input type="file" id="purch-file" accept="image/*,.pdf" style="display:none" onchange="pickPurchSingleFile(this)">
+        <div id="purch-ai-status" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842"></div>
       </div>
 
-      <!-- رفع الملف -->
-      <div class="fg">
-        <label class="lbl">📊 ارفع ملف المشتريات</label>
-        <div class="drop" onclick="document.getElementById('pb-file').click()" style="cursor:pointer;padding:18px;border-color:rgba(248,113,113,.4)">
+      <!-- Bulk mode -->
+      <div id="purch-bulk-mode" style="display:none">
+        <div style="background:rgba(112,181,255,.08);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#70B5FF;border-right:3px solid #70B5FF">
+          ارفع تقرير Excel أو PDF يحتوي على قائمة فواتير — الذكاء يستخرج كل فاتورة منفردة
+        </div>
+        <div class="drop" onclick="document.getElementById('purch-bulk-file').click()" style="cursor:pointer;padding:18px;border-color:rgba(248,113,113,.4)">
           <div style="font-size:30px;margin-bottom:6px" id="pb-icon">📊</div>
-          <div id="pb-txt" style="font-size:12px;color:rgba(255,255,255,.5)">Excel أو PDF أو صورة جدول</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">الذكاء يستخرج كل فاتورة منفردة</div>
+          <div id="pb-txt" style="font-size:12px;color:rgba(255,255,255,.5)">ارفع تقرير Excel أو PDF أو صورة جدول</div>
         </div>
-        <input type="file" id="pb-file" accept="image/*,.pdf,.xlsx,.xls,.csv" style="display:none" onchange="pickBulkPurchFile(this)">
-      </div>
-
-      <div id="pb-status" style="display:none;margin-top:8px"></div>
-    </div>
-
-    <!-- Preview -->
-    <div id="pb-preview-section" style="display:none">
-      <div id="pb-preview"></div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button onclick="saveBulkPurchases()" id="pb-save-btn"
-          style="flex:1;padding:12px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
-          ✅ إضافة على المصروفات
-        </button>
-        <button onclick="rPurchases()"
-          style="padding:12px 16px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif">
-          ✕ إلغاء
+        <input type="file" id="purch-bulk-file" accept="image/*,.pdf,.xlsx,.xls,.csv" style="display:none" onchange="pickPurchBulkFile(this)">
+        <div id="pb-status" style="display:none;margin-top:8px"></div>
+        <div id="pb-preview" style="display:none;margin-top:10px"></div>
+        <button id="pb-save-btn" onclick="savePurchBulk()"
+          style="display:none;width:100%;margin-top:10px;padding:11px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
+          ✅ حفظ كل الفواتير
         </button>
       </div>
+
+      <!-- Divider -->
+      <div style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+        <span style="font-size:10px;color:rgba(255,255,255,.3)">أو أدخل يدوياً</span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+      </div>
+
+      <!-- Manual entry - with sup/proj selectors -->
+      <div class="fg2">
+        <div><label class="lbl">المشرف</label><select id="p-sup" style="color:#fff;background:rgba(255,255,255,.08)"><option value="">-- اختر --</option>${supOpts}</select></div>
+        <div><label class="lbl">المشروع</label><select id="p-proj" style="color:#fff;background:rgba(255,255,255,.08)"><option value="">-- اختر --</option>${projOpts}</select></div>
+      </div>
+      <div class="fg2">
+        <div><label class="lbl">التاريخ</label><input type="date" id="p-date" value="${today()}"></div>
+        <div><label class="lbl">النوع</label>
+          <select id="p-type" style="color:#fff;background:rgba(255,255,255,.08)">
+            <option value="petty">نثرية</option>
+            <option value="tax">ضريبية</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg"><label class="lbl">اسم المورد / الوصف</label><input id="p-desc" placeholder="اسم المورد أو وصف المشتريات"></div>
+      <div class="fg"><label class="lbl">رقم الفاتورة</label><input id="p-invno" placeholder="INV-001"></div>
+      <div class="fg2">
+        <div><label class="lbl">المبلغ قبل الضريبة</label><input type="number" id="p-sub" placeholder="0.00" oninput="calcPurchVat()"></div>
+        <div><label class="lbl">نسبة VAT %</label><input type="number" id="p-taxrate" value="0" placeholder="0" oninput="calcPurchVat()"></div>
+      </div>
+      <div style="padding:8px 12px;background:rgba(248,113,113,.08);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between">
+        <span>VAT: <strong id="p-vatamt" style="color:#70B5FF">0.00 ﷼</strong></span>
+        <span>الإجمالي: <strong id="p-total-disp" style="color:#f87171">0.00 ﷼</strong></span>
+      </div>
+      <div class="err" id="p-err" style="display:none"></div>
+      <button class="btn bp" onclick="savePurchSingle()" style="background:rgba(248,113,113,.2);border-color:rgba(248,113,113,.4);color:#f87171">💾 إضافة على المصروفات</button>
     </div>
+
+    <!-- List -->
+    ${purchases.length===0?'<div class="empty">لا توجد مشتريات بعد</div>':`
+    <div class="shdr">📋 فواتير المشتريات</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button onclick="filterPurch('all',this)" class="ftab on">الكل (${purchases.length})</button>
+      <button onclick="filterPurch('petty',this)" class="ftab">نثرية</button>
+      <button onclick="filterPurch('tax',this)" class="ftab">ضريبية</button>
+    </div>
+    <div id="purch-list">${renderPurchList(purchases,'all')}</div>
+    <button onclick="exportPurchPDF()" style="width:100%;margin-top:10px;padding:12px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير المشتريات PDF</button>
+    `}
   `;
 }
 
-async function pickBulkPurchFile(input){
-  const file = input.files[0]; if(!file) return;
-  const supId = parseInt(document.getElementById('pb-sup')?.value);
-  const project = document.getElementById('pb-proj')?.value;
-  const type = document.getElementById('pb-type')?.value;
-  if(!supId || !project){
-    alert('⚠️ اختر المشرف والمشروع أولاً');
-    input.value='';
-    return;
-  }
-  const isPdf = file.type==='application/pdf';
-  const isImg = file.type.startsWith('image/');
-  const st = document.getElementById('pb-status');
-  const icon = document.getElementById('pb-icon');
-  st.style.display='block';
-  st.innerHTML='<div style="padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري معالجة الملف...</div>';
-  icon.textContent='⏳';
-  document.getElementById('pb-txt').textContent=file.name;
-  _bulkPurchParsed=[];
+function setPurchMode(mode){
+  document.getElementById('purch-single-mode').style.display=mode==='single'?'block':'none';
+  document.getElementById('purch-bulk-mode').style.display=mode==='bulk'?'block':'none';
+  const s=document.getElementById('pmode-single'),b=document.getElementById('pmode-bulk');
+  if(s){s.style.border=mode==='single'?'2px solid rgba(245,200,66,.4)':'1px solid rgba(255,255,255,.15)';s.style.background=mode==='single'?'rgba(245,200,66,.15)':'transparent';s.style.color=mode==='single'?'#f5c842':'rgba(255,255,255,.6)';}
+  if(b){b.style.border=mode==='bulk'?'2px solid rgba(248,113,113,.4)':'1px solid rgba(255,255,255,.15)';b.style.background=mode==='bulk'?'rgba(248,113,113,.15)':'transparent';b.style.color=mode==='bulk'?'#f87171':'rgba(255,255,255,.6)';}
+}
 
-  // Compress image before sending
-  const getB64 = (f) => new Promise(res => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      if(isImg){
-        const img = new Image();
-        img.onload = () => {
-          const MAX = 1600;
-          let w = img.width, h2 = img.height;
-          if(w > MAX){ h2 = Math.round(h2*MAX/w); w = MAX; }
-          const canvas = document.createElement('canvas');
-          canvas.width=w; canvas.height=h2;
-          canvas.getContext('2d').drawImage(img,0,0,w,h2);
-          res(canvas.toDataURL('image/jpeg',0.85).split(',')[1]);
-        };
-        img.src = ev.target.result;
-      } else {
-        res(ev.target.result.split(',')[1]);
-      }
-    };
-    reader.readAsDataURL(f);
-  });
+function calcPurchVat(){
+  const sub=parseFloat(document.getElementById('p-sub')?.value)||0;
+  const rate=parseFloat(document.getElementById('p-taxrate')?.value)||0;
+  const vat=sub*rate/100;
+  const ve=document.getElementById('p-vatamt'),te=document.getElementById('p-total-disp');
+  if(ve)ve.textContent=fmt(vat)+' ﷼';
+  if(te)te.textContent=fmt(sub+vat)+' ﷼';
+}
 
-  const b64 = await getB64(file);
-  st.innerHTML='<div style="padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري تحليل الملف... قد يستغرق دقيقة</div>';
-
-  try {
-    const typeHint = type==='tax'?'ضريبية مع VAT':type==='petty'?'نثرية بدون ضريبة':'قد تكون ضريبية أو نثرية';
-    const prompt = 'أنت محاسب خبير. هذه وثيقة تحتوي على فواتير مشتريات '+typeHint+'. استخرج كل فاتورة كعنصر منفصل. لكل فاتورة: invoiceNo (رقم الفاتورة)، date (التاريخ كما هو بالضبط)، supplier (اسم المورد أو الوصف)، subtotal (المبلغ قبل الضريبة رقم بدون فواصل)، taxRate (نسبة الضريبة رقم، 0 إذا نثرية)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، payMethod (cash أو transfer). تجاهل صفوف الإجمالي والمجاميع. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","supplier":"","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"payMethod":"cash"}]}';
-
+async function pickPurchSingleFile(input){
+  const file=input.files[0];if(!file)return;
+  const isPdf=file.type==='application/pdf';
+  const st=document.getElementById('purch-ai-status');
+  document.getElementById('purch-icon').textContent='⏳';
+  st.style.display='block';st.textContent='⏳ جاري قراءة الفاتورة...';
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    _purchSingleB64=ev.target.result.split(',')[1];
     try{
-      const res = await api('/api/analyze','POST',{b64, isPdf, text: prompt});
-      if(res.error) throw new Error(res.error);
+      const res=await api('/api/analyze','POST',{b64:_purchSingleB64,isPdf,text:''});
+      if(res.error)throw new Error(res.error);
+      if(res.supplier||res.desc)document.getElementById('p-desc').value=res.supplier||res.desc||'';
+      if(res.invoiceNo)document.getElementById('p-invno').value=res.invoiceNo;
+      if(res.date)document.getElementById('p-date').value=_fixDate(res.date);
+      if(res.subtotal)document.getElementById('p-sub').value=res.subtotal;
+      if(res.taxRate!=null)document.getElementById('p-taxrate').value=res.taxRate;
+      if(res.type)document.getElementById('p-type').value=res.type==='tax'?'tax':'petty';
+      calcPurchVat();
+      st.innerHTML='<span style="color:#34d399">✅ تم استخراج البيانات — راجع وأكد</span>';
+      document.getElementById('purch-icon').textContent='✅';
+      document.getElementById('purch-txt').textContent=file.name;
+    }catch(e){
+      st.innerHTML='<span style="color:#f87171">❌ '+e.message+'</span>';
+      document.getElementById('purch-icon').textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
 
-      // Parse invoices
-      let list = res.invoices||res.data||res.items||[];
-      if(!list.length && (res.total||res.supplier)) list=[res];
+async function savePurchSingle(){
+  const supId=parseInt(document.getElementById('p-sup')?.value);
+  const project=document.getElementById('p-proj')?.value;
+  const date=document.getElementById('p-date')?.value;
+  const type=document.getElementById('p-type')?.value;
+  const desc=document.getElementById('p-desc')?.value.trim();
+  const invNo=document.getElementById('p-invno')?.value.trim();
+  const sub=parseFloat(document.getElementById('p-sub')?.value)||0;
+  const taxRate=parseFloat(document.getElementById('p-taxrate')?.value)||0;
+  const err=document.getElementById('p-err');
+  if(!supId||!project||!sub){err.style.display='block';err.textContent='⚠️ اختر المشرف والمشروع وأدخل المبلغ';return;}
+  const taxAmt=sub*taxRate/100;
+  const total=sub+taxAmt;
+  const sup=DB.supervisors.find(s=>s.id===supId);
+  try{
+    const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type,desc:desc||'مشتريات',invoiceNo:invNo||null,date,subtotal:sub,taxRate,taxAmt,total,historicalEntry:true});
+    if(res.error)throw new Error(res.error);
+    DB=await api('/api/db');
+    err.style.display='none';_purchSingleB64=null;
+    alert('✅ تمت الإضافة — '+fmt(total)+' ﷼');
+    rPurchases();
+  }catch(e){err.style.display='block';err.textContent='❌ '+e.message;}
+}
 
-      _bulkPurchParsed = list.map(inv=>{
-        const sub = _fixNum(inv.subtotal||0);
-        const rate = _fixNum(inv.taxRate||(type==='tax'?15:0));
-        const vat = _fixNum(inv.taxAmt||0)||(sub*rate/100);
-        const tot = _fixNum(inv.total||0)||(sub+vat);
-        return {
-          invoiceNo: String(inv.invoiceNo||'').trim(),
-          date: _fixDate(inv.date||''),
-          supplier: String(inv.supplier||inv.client||inv.vendor||inv.desc||'—').trim(),
-          subtotal: sub||tot-vat,
-          taxRate: rate, taxAmt: vat, total: tot||sub+vat,
-          payMethod: _fixPay(inv.payMethod||'cash'),
-          type: (rate>0||vat>0)?'tax':'petty'
-        };
+async function pickPurchBulkFile(input){
+  const file=input.files[0];if(!file)return;
+  const isPdf=file.type==='application/pdf';
+  const isImg=file.type.startsWith('image/');
+  const st=document.getElementById('pb-status');
+  const icon=document.getElementById('pb-icon');
+  st.style.display='block';
+  st.innerHTML='<div style="padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري تحليل التقرير...</div>';
+  icon.textContent='⏳';document.getElementById('pb-txt').textContent=file.name;
+  _purchBulkParsed=[];
+
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    let b64=ev.target.result.split(',')[1];
+    // Compress images
+    if(isImg){
+      await new Promise(res2=>{
+        const img=new Image();
+        img.onload=()=>{
+          const MAX=1600;let w=img.width,h2=img.height;
+          if(w>MAX){h2=Math.round(h2*MAX/w);w=MAX;}
+          const c=document.createElement('canvas');c.width=w;c.height=h2;
+          c.getContext('2d').drawImage(img,0,0,w,h2);
+          b64=c.toDataURL('image/jpeg',0.85).split(',')[1];res2();
+        };img.src=ev.target.result;
+      });
+    }
+    const prompt='أنت محاسب خبير. هذه وثيقة تحتوي على بيانات فواتير مشتريات أو مصروفات. استخرج كل فاتورة كعنصر منفصل. لكل فاتورة: invoiceNo (رقم الفاتورة)، date (التاريخ كما هو بالضبط بدون تغيير)، supplier (اسم المورد أو الوصف)، type (tax إذا فيها ضريبة وإلا petty)، subtotal (المبلغ قبل الضريبة رقم بدون فواصل)، taxRate (نسبة الضريبة رقم 0 إذا نثرية)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، payMethod (cash أو transfer). تجاهل صفوف الإجمالي. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","supplier":"","type":"petty","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"payMethod":"cash"}]}';
+    try{
+      const res=await api('/api/analyze','POST',{b64,isPdf,text:prompt});
+      if(res.error)throw new Error(res.error);
+      const raw=res.invoices||res.data||res.items||(Array.isArray(res)?res:[]);
+      _purchBulkParsed=raw.map(inv=>{
+        const sub=_fixNum(inv.subtotal||0);
+        const rate=_fixNum(inv.taxRate||0);
+        const vat=_fixNum(inv.taxAmt||0)||(sub*rate/100);
+        const tot=_fixNum(inv.total||0)||(sub+vat);
+        return{invoiceNo:String(inv.invoiceNo||'').trim(),date:_fixDate(inv.date||''),supplier:String(inv.supplier||inv.client||inv.desc||'—').trim(),type:(rate>0||vat>0)?'tax':'petty',subtotal:sub||tot-vat,taxRate:rate,taxAmt:vat,total:tot||sub+vat,payMethod:_fixPay(inv.payMethod||'cash')};
       }).filter(inv=>inv.total>0||inv.subtotal>0);
 
-      if(!_bulkPurchParsed.length) throw new Error('لم يتم استخراج أي فاتورة — تأكد من وضوح الملف');
+      if(!_purchBulkParsed.length)throw new Error('لم يتم استخراج أي فاتورة');
 
-      // Dup check against existing entries
-      const existKeys = new Set(
-        DB.entries.filter(e=>e.type==='petty'||e.type==='tax')
-          .map(e=>[e.invoiceNo||'',e.total||0,e.date||''].join('|'))
-      );
-      const dups = [];
-      _bulkPurchParsed = _bulkPurchParsed.filter(inv=>{
-        const k = [inv.invoiceNo,inv.total,inv.date].join('|');
-        if(inv.invoiceNo && existKeys.has(k)){dups.push(inv);return false;}
-        return true;
-      });
-
-      const sup = DB.supervisors.find(s=>s.id===supId);
-      const gTotal = _bulkPurchParsed.reduce((a,i)=>a+(i.total||0),0);
-      const gVat   = _bulkPurchParsed.reduce((a,i)=>a+(i.taxAmt||0),0);
-
-      const preview = document.getElementById('pb-preview');
-      const section = document.getElementById('pb-preview-section');
-      section.style.display='block';
-
-      preview.innerHTML =
-        '<div class="card" style="padding:12px">'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-        +'<div style="font-size:13px;font-weight:700;color:#f87171">🛒 '+_bulkPurchParsed.length+' فاتورة جاهزة</div>'
-        +(dups.length?'<div style="font-size:11px;color:#fbbf24">'+dups.length+' مكررة تم تخطيها</div>':'')
+      const gTotal=_purchBulkParsed.reduce((a,i)=>a+(i.total||0),0);
+      const gVat=_purchBulkParsed.reduce((a,i)=>a+(i.taxAmt||0),0);
+      const preview=document.getElementById('pb-preview');
+      preview.style.display='block';
+      preview.innerHTML='<div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:8px">🛒 تم استخراج '+_purchBulkParsed.length+' فاتورة</div>'
+        +'<div style="max-height:260px;overflow-y:auto">'
+        +_purchBulkParsed.map(inv=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+          +'<div><div style="font-size:12px;font-weight:600">'+inv.supplier+'</div><div style="font-size:10px;color:rgba(255,255,255,.4)">'+(inv.invoiceNo||'—')+' · '+inv.date+'</div></div>'
+          +'<div style="text-align:left"><div style="font-size:13px;font-weight:700;color:#f87171">'+fmt(inv.total)+' ﷼</div><div style="font-size:10px;color:rgba(255,255,255,.4)">VAT: '+fmt(inv.taxAmt)+' ﷼</div></div>'
+          +'</div>').join('')
         +'</div>'
-        // Summary
-        +'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px">'
-        +'<span style="font-size:12px;color:rgba(255,255,255,.6)">المشرف: <strong style="color:#f5c842">'+sup?.name+'</strong></span>'
-        +'<span style="font-size:12px;color:rgba(255,255,255,.6)">المشروع: <strong style="color:#f5c842">'+project+'</strong></span>'
-        +'</div>'
-        // Table header
-        +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;font-size:10px;color:rgba(255,255,255,.4);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08)">'
-        +'<span>المورد / رقم الفاتورة</span><span style="text-align:center">التاريخ</span><span style="text-align:center">VAT</span><span style="text-align:left">الإجمالي</span>'
-        +'</div>'
-        +'<div style="max-height:300px;overflow-y:auto">'
-        +_bulkPurchParsed.map(inv=>
-          '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:center">'
-          +'<div><div style="font-size:12px;font-weight:600">'+inv.supplier+'</div>'
-          +'<div style="font-size:10px;color:rgba(255,255,255,.4)">'+(inv.invoiceNo||'—')+' · '+(inv.type==='tax'?'<span style="color:#70B5FF">ضريبية</span>':'نثرية')+'</div></div>'
-          +'<div style="text-align:center;font-size:11px;color:rgba(255,255,255,.6)">'+inv.date+'</div>'
-          +'<div style="text-align:center;font-size:11px;color:#70B5FF">'+fmt(inv.taxAmt)+'</div>'
-          +'<div style="text-align:left;font-size:12px;font-weight:700;color:#f87171">'+fmt(inv.total)+' ﷼</div>'
-          +'</div>'
-        ).join('')
-        +'</div>'
-        // Totals
-        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">'
-        +'<div style="background:rgba(248,113,113,.08);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5)">إجمالي المشتريات</div><div style="font-size:14px;font-weight:800;color:#f87171">'+fmt(gTotal)+' ﷼</div></div>'
-        +'<div style="background:rgba(112,181,255,.08);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5)">VAT</div><div style="font-size:14px;font-weight:800;color:#70B5FF">'+fmt(gVat)+' ﷼</div></div>'
-        +'<div style="background:rgba(52,211,153,.08);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5)">عدد الفواتير</div><div style="font-size:14px;font-weight:800;color:#34d399">'+_bulkPurchParsed.length+'</div></div>'
-        +'</div>'
-        +'</div>';
-
-      st.innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">✅ راجع الفواتير وأكد الإضافة</div>';
+        +'<div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(248,113,113,.08);border-radius:8px;margin-top:6px;font-size:13px">'
+        +'<span>إجمالي '+_purchBulkParsed.length+' فاتورة</span><span style="font-weight:700;color:#f87171">'+fmt(gTotal)+' ﷼</span></div>';
+      document.getElementById('pb-save-btn').style.display='block';
+      st.innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">✅ راجع الفواتير وأكد الحفظ</div>';
       icon.textContent='✅';
     }catch(e){
       st.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.12);border-radius:8px;font-size:12px;color:#f87171">❌ '+e.message+'</div>';
       icon.textContent='❌';
     }
-  } catch(outerErr){
-    const st2=document.getElementById('pb-status');
-    if(st2) st2.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.12);border-radius:8px;font-size:12px;color:#f87171">❌ '+outerErr.message+'</div>';
-    document.getElementById('pb-icon').textContent='❌';
-  }
+  };
+  reader.readAsDataURL(file);
 }
 
-async function saveBulkPurchases(){
-  if(!_bulkPurchParsed.length){alert('لا توجد فواتير');return;}
-  const supId = parseInt(document.getElementById('pb-sup')?.value);
-  const project = document.getElementById('pb-proj')?.value;
-  if(!supId||!project){alert('⚠️ اختر المشرف والمشروع');return;}
-  const sup = DB.supervisors.find(s=>s.id===supId);
-  const btn = document.getElementById('pb-save-btn');
-  btn.textContent='⏳ جاري الإضافة...';
-  btn.disabled=true;
-  let added=0, failed=0;
-  for(const inv of _bulkPurchParsed){
+async function savePurchBulk(){
+  if(!_purchBulkParsed.length){alert('لا توجد فواتير');return;}
+  const supId=parseInt(document.getElementById('p-sup')?.value);
+  const project=document.getElementById('p-proj')?.value;
+  if(!supId||!project){alert('⚠️ اختر المشرف والمشروع أولاً من الأسفل');return;}
+  const sup=DB.supervisors.find(s=>s.id===supId);
+  const btn=document.getElementById('pb-save-btn');
+  btn.textContent='⏳ جاري الحفظ...';btn.disabled=true;
+  let added=0,failed=0;
+  for(const inv of _purchBulkParsed){
     try{
-      const res = await api('/api/entries','POST',{
-        supId, supName:sup?.name||'',
-        project, type:inv.type,
-        desc:inv.supplier||'مشتريات',
-        invoiceNo:inv.invoiceNo||null,
-        date:inv.date,
-        payMethod:inv.payMethod,
-        subtotal:inv.subtotal,
-        taxRate:inv.taxRate,
-        taxAmt:inv.taxAmt,
-        total:inv.total,
-        historicalEntry:true
-      });
-      if(res.error)failed++; else added++;
+      const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type:inv.type,desc:inv.supplier||'مشتريات',invoiceNo:inv.invoiceNo||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true});
+      if(res.error)failed++;else added++;
     }catch(e){failed++;}
   }
-  DB = await api('/api/db');
-  _bulkPurchParsed=[];
+  DB=await api('/api/db');
+  _purchBulkParsed=[];
+  ['pb-preview','pb-save-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('pb-icon').textContent='📊';
+  document.getElementById('pb-txt').textContent='ارفع تقرير Excel أو PDF أو صورة جدول';
+  document.getElementById('pb-status').innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">✅ تمت إضافة '+added+' فاتورة'+(failed?' · فشل '+failed:'')+'</div>';
   alert('✅ تمت إضافة '+added+' فاتورة على مصروفات '+sup?.name+' / '+project+(failed?' (فشل '+failed+')':''));
   rPurchases();
+}
+
+function renderPurchList(entries, filter='all'){
+  const filtered=filter==='all'?entries:entries.filter(e=>e.type===filter);
+  if(!filtered.length)return '<div class="empty">لا توجد نتائج</div>';
+  return filtered.slice().sort((a,b)=>b.id-a.id).map(e=>`
+    <div class="card" style="padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:13px;font-weight:700">${e.desc||e.supplier||'—'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.5)">${e.invoiceNo?e.invoiceNo+' · ':''}${e.date||''} · ${e.supName||''} · ${e.project||''}</div>
+          <span style="font-size:10px;background:rgba(${e.type==='tax'?'112,181,255':'255,255,255'},.1);color:${e.type==='tax'?'#70B5FF':'rgba(255,255,255,.5)'};padding:2px 7px;border-radius:99px">${e.type==='tax'?'ضريبية':'نثرية'}</span>
+        </div>
+        <div style="text-align:left;flex-shrink:0">
+          <div style="font-size:15px;font-weight:800;color:#f87171">${fmt(e.total)} ﷼</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">VAT: ${fmt(e.taxAmt||0)} ﷼</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function filterPurch(type,btn){
+  document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const entries=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
+  const el=document.getElementById('purch-list');
+  if(el)el.innerHTML=renderPurchList(entries,type);
+}
+
+function exportPurchPDF(){
+  const entries=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
+  if(!entries.length){alert('لا توجد بيانات');return;}
+  const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const total=entries.reduce((a,e)=>a+(e.total||0),0);
+  const vat=entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const net=entries.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المشتريات</title>'
+    +'<style>@import url(\'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap\');*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'Tajawal\',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}'
+    +'h1{font-size:20px;font-weight:900;margin-bottom:4px}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:3px;font-weight:600}.bv{font-size:17px;font-weight:900}'
+    +'table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:7px 8px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body>'
+    +'<h1>تقرير فواتير المشتريات</h1>'
+    +'<div style="font-size:12px;color:#555;margin-bottom:14px">شركة كيان وبناء للمقاولات · '+now+'</div>'
+    +'<div class="sum"><div class="box"><div class="bl">إجمالي المشتريات</div><div class="bv" style="color:#D93025">'+fmt(total)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">'+fmt(net)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">VAT المدفوعة</div><div class="bv" style="color:#1A50A8">'+fmt(vat)+' ﷼</div></div></div>'
+    +'<table><tr><th>التاريخ</th><th>المورد/الوصف</th><th>المشرف</th><th>المشروع</th><th>النوع</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>'
+    +entries.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>'<tr><td>'+e.date+'</td><td>'+(e.desc||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td><td>'+(e.type==='tax'?'ضريبية':'نثرية')+'</td><td>'+fmt(e.subtotal||0)+' ﷼</td><td>'+fmt(e.taxAmt||0)+' ﷼</td><td style="font-weight:700;color:#D93025">'+fmt(e.total)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="5">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td></tr></table></body></html>';
+  const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 
 // ── TRIAL BALANCE ──
