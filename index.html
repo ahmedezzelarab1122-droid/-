@@ -5381,7 +5381,7 @@ async function pickPurchBulkFile(input){
         };img.src=ev.target.result;
       });
     }
-    const prompt='أنت محاسب خبير. هذه وثيقة تحتوي على جدول فواتير مشتريات. الأعمدة بالترتيب: مسلسل، الفرع، فاتورة (رقم الفاتورة)، التاريخ، النوع، العميل (اسم المورد أو الشركة)، الإجمالي، الضريبة، الصافي (المبلغ قبل الضريبة). استخرج كل صف كعنصر منفصل. لكل صف: invoiceNo (عمود فاتورة)، date (عمود التاريخ كما هو بدون تغيير)، supplier (عمود العميل)، branch (عمود الفرع)، subtotal (عمود الصافي رقم بدون فواصل)، taxAmt (عمود الضريبة رقم)، total (عمود الإجمالي رقم)، taxRate (taxAmt/subtotal*100 أو 0)، type (tax إذا taxAmt>0 وإلا petty)، payMethod (cash). تجاهل صفوف الإجمالي والمجاميع والصفوف الفارغة. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","supplier":"","branch":"","type":"petty","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"payMethod":"cash"}]}'
+    const prompt='أنت محاسب خبير. هذه وثيقة تحتوي على جدول فواتير مشتريات لسنة 2026. الأعمدة: اليوم، الشهر، اسم المورد، رقم الفاتورة، المبلغ بدون ضريبة، المبلغ بالضريبة، قيمة الضريبة، الإجمالي، كود الفاتورة. استخرج كل صف. لكل صف: invoiceCode (كود الفاتورة)، invoiceNo (رقم الفاتورة)، date (2026-MM-DD)، supplier (اسم المورد)، subtotal (المبلغ بدون ضريبة)، taxAmt (قيمة الضريبة)، total (الإجمالي)، taxRate (15 إذا فيها ضريبة وإلا 0)، type (tax إذا taxAmt>0 وإلا petty). تجاهل صفوف الإجمالي. أخرج JSON مضغوط: {"invoices":[{"invoiceCode":"","invoiceNo":"","date":"","supplier":"","subtotal":0,"taxAmt":0,"total":0,"taxRate":0,"type":"petty","payMethod":"cash"}]}'
     try{
       const res=await api('/api/analyze','POST',{b64,isPdf,text:prompt});
       if(res.error)throw new Error(res.error);
@@ -5406,6 +5406,20 @@ async function pickPurchBulkFile(input){
 
       if(!_purchBulkParsed.length)throw new Error('لم يتم استخراج أي فاتورة');
 
+
+      // فحص التكرار بكود الفاتورة أولاً
+      const _existCodes=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>(e.invoiceCode||'').toLowerCase()).filter(Boolean));
+      const _existKeys2=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>[(e.invoiceNo||''),(e.supplier||e.desc||''),Math.round((e.total||0)*100)].join('|').toLowerCase()));
+      const _seenC=new Set(),_seenK=new Set();
+      let _dupCount=0;
+      _purchBulkParsed=_purchBulkParsed.filter(inv=>{
+        const c=(inv.invoiceCode||'').toLowerCase();
+        const k=[(inv.invoiceNo||''),(inv.supplier||''),Math.round((inv.total||0)*100)].join('|').toLowerCase();
+        if(c&&(_existCodes.has(c)||_seenC.has(c))){_dupCount++;return false;}
+        if(!c&&k&&(_existKeys2.has(k)||_seenK.has(k))){_dupCount++;return false;}
+        if(c)_seenC.add(c);else if(k)_seenK.add(k);
+        return true;
+      });
       const gTotal=_purchBulkParsed.reduce((a,i)=>a+(i.total||0),0);
       const gVat=_purchBulkParsed.reduce((a,i)=>a+(i.taxAmt||0),0);
       const preview=document.getElementById('pb-preview');
@@ -5438,10 +5452,19 @@ async function savePurchBulk(){
   const sup=DB.supervisors.find(s=>s.id===supId);
   const btn=document.getElementById('pb-save-btn');
   btn.textContent='⏳ جاري الحفظ...';btn.disabled=true;
-  let added=0,failed=0;
+  // فحص التكرار عند الحفظ
+  const _saveCodes=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>(e.invoiceCode||'').toLowerCase()).filter(Boolean));
+  const _saveKeys=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>[(e.invoiceNo||''),(e.supplier||e.desc||''),Math.round((e.total||0)*100)].join('|').toLowerCase()));
+  const _scRun=new Set(),_skRun=new Set();
+  let added=0,skipped=0,failed=0;
   for(const inv of _purchBulkParsed){
+    const c=(inv.invoiceCode||'').toLowerCase();
+    const k=[(inv.invoiceNo||''),(inv.supplier||''),Math.round((inv.total||0)*100)].join('|').toLowerCase();
+    if(c&&(_saveCodes.has(c)||_scRun.has(c))){skipped++;continue;}
+    if(!c&&k&&(_saveKeys.has(k)||_skRun.has(k))){skipped++;continue;}
+    if(c)_scRun.add(c);else if(k)_skRun.add(k);
     try{
-      const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type:inv.type,desc:(inv.supplier||'مشتريات')+(inv.branch?' - '+inv.branch:''),invoiceNo:inv.invoiceNo||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true});
+      const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type:inv.type,desc:inv.supplier||'مشتريات',invoiceNo:inv.invoiceNo||null,invoiceCode:inv.invoiceCode||null,supplier:inv.supplier||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true});
       if(res.error)failed++;else added++;
     }catch(e){failed++;}
   }
