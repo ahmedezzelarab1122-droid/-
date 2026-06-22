@@ -4885,10 +4885,16 @@ function setReturnMode(mode){
 const _fixNum = v => parseFloat(String(v||'0').replace(/,/g,'').replace(/[^0-9.]/g,''))||0;
 const _fixDate = d => {
   if(!d) return today();
-  const s = String(d);
-  const m = s.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);
-  if(m){const y=m[3].length===2?'20'+m[3]:m[3];return y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');}
-  return s.slice(0,10)||today();
+  const s = String(d).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m1=s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if(m1) return m1[1]+'-'+m1[2].padStart(2,'0')+'-'+m1[3].padStart(2,'0');
+  const m2=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if(m2) return m2[3]+'-'+m2[2].padStart(2,'0')+'-'+m2[1].padStart(2,'0');
+  const m3=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2})$/);
+  if(m3) return '20'+m3[3]+'-'+m3[2].padStart(2,'0')+'-'+m3[1].padStart(2,'0');
+  if(s.length>=10) return s.slice(0,10).replace(/\//g,'-');
+  return today();
 };
 const _fixPay = v => {
   const p=String(v||'').toLowerCase();
@@ -4947,7 +4953,7 @@ async function pickBulkFile(input){
   const reader=new FileReader();
   reader.onload=async ev=>{
     const b64=ev.target.result.split(',')[1];
-    const prompt='أنت محاسب خبير. هذه وثيقة تحتوي على بيانات فواتير مبيعات (جدول Excel أو PDF). مهمتك: استخرج كل صف أو فاتورة كعنصر منفصل. لكل فاتورة: invoiceNo (رقم الفاتورة)، date (التاريخ YYYY-MM-DD)، client (اسم العميل)، subtotal (المبلغ قبل الضريبة رقم بدون فواصل)، taxRate (نسبة الضريبة رقم افتراضي 15)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، payMethod (cash أو transfer أو deferred)، notes (ملاحظة). تجاهل صفوف الإجمالي. الأرقام 1,500=1500. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","client":"","subtotal":0,"taxRate":15,"taxAmt":0,"total":0,"payMethod":"cash","notes":""}]}';
+    const prompt='أنت محاسب خبير. هذه وثيقة تحتوي على بيانات فواتير مبيعات (جدول Excel أو PDF). مهمتك: استخرج كل صف أو فاتورة كعنصر منفصل. لكل فاتورة: invoiceNo (رقم الفاتورة)، date (التاريخ كما هو في المستند بالضبط بدون تحويل)، client (اسم العميل)، subtotal (المبلغ قبل الضريبة رقم بدون فواصل)، taxRate (نسبة الضريبة رقم افتراضي 15)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، payMethod (cash أو transfer أو deferred)، notes (ملاحظة). تجاهل صفوف الإجمالي. الأرقام 1,500=1500. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","client":"","subtotal":0,"taxRate":15,"taxAmt":0,"total":0,"payMethod":"cash","notes":""}]}';
     try{
       const res=await api('/api/analyze','POST',{b64,isPdf,text:prompt});
       if(res.error)throw new Error(res.error);
