@@ -5381,17 +5381,27 @@ async function pickPurchBulkFile(input){
         };img.src=ev.target.result;
       });
     }
-    const prompt='أنت محاسب خبير. هذه وثيقة تحتوي على بيانات فواتير مشتريات أو مصروفات. استخرج كل فاتورة كعنصر منفصل. لكل فاتورة: invoiceNo (رقم الفاتورة)، date (التاريخ كما هو بالضبط بدون تغيير)، supplier (اسم المورد أو الوصف)، type (tax إذا فيها ضريبة وإلا petty)، subtotal (المبلغ قبل الضريبة رقم بدون فواصل)، taxRate (نسبة الضريبة رقم 0 إذا نثرية)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، payMethod (cash أو transfer). تجاهل صفوف الإجمالي. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","supplier":"","type":"petty","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"payMethod":"cash"}]}';
+    const prompt='أنت محاسب خبير. هذه وثيقة تحتوي على جدول فواتير مشتريات. الأعمدة بالترتيب: مسلسل، الفرع، فاتورة (رقم الفاتورة)، التاريخ، النوع، العميل (اسم المورد أو الشركة)، الإجمالي، الضريبة، الصافي (المبلغ قبل الضريبة). استخرج كل صف كعنصر منفصل. لكل صف: invoiceNo (عمود فاتورة)، date (عمود التاريخ كما هو بدون تغيير)، supplier (عمود العميل)، branch (عمود الفرع)، subtotal (عمود الصافي رقم بدون فواصل)، taxAmt (عمود الضريبة رقم)، total (عمود الإجمالي رقم)، taxRate (taxAmt/subtotal*100 أو 0)، type (tax إذا taxAmt>0 وإلا petty)، payMethod (cash). تجاهل صفوف الإجمالي والمجاميع والصفوف الفارغة. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","supplier":"","branch":"","type":"petty","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"payMethod":"cash"}]}'
     try{
       const res=await api('/api/analyze','POST',{b64,isPdf,text:prompt});
       if(res.error)throw new Error(res.error);
       const raw=res.invoices||res.data||res.items||(Array.isArray(res)?res:[]);
       _purchBulkParsed=raw.map(inv=>{
-        const sub=_fixNum(inv.subtotal||0);
-        const rate=_fixNum(inv.taxRate||0);
-        const vat=_fixNum(inv.taxAmt||0)||(sub*rate/100);
-        const tot=_fixNum(inv.total||0)||(sub+vat);
-        return{invoiceNo:String(inv.invoiceNo||'').trim(),date:_fixDate(inv.date||''),supplier:String(inv.supplier||inv.client||inv.desc||'—').trim(),type:(rate>0||vat>0)?'tax':'petty',subtotal:sub||tot-vat,taxRate:rate,taxAmt:vat,total:tot||sub+vat,payMethod:_fixPay(inv.payMethod||'cash')};
+        const sub=_fixNum(inv.subtotal||inv.net||inv.صافي||0);
+        const vat=_fixNum(inv.taxAmt||inv.tax||inv.ضريبة||0);
+        const tot=_fixNum(inv.total||inv.إجمالي||0)||(sub+vat);
+        const rate=_fixNum(inv.taxRate||0)||(sub>0&&vat>0?Math.round(vat/sub*100):0);
+        return{
+          invoiceNo:String(inv.invoiceNo||inv.invoice||inv.فاتورة||'').trim(),
+          date:_fixDate(inv.date||inv.تاريخ||''),
+          supplier:String(inv.supplier||inv.client||inv.عميل||inv.مورد||inv.desc||'—').trim(),
+          branch:String(inv.branch||inv.فرع||'').trim(),
+          type:(rate>0||vat>0)?'tax':'petty',
+          subtotal:sub||tot-vat,
+          taxRate:rate,taxAmt:vat,
+          total:tot||sub+vat,
+          payMethod:_fixPay(inv.payMethod||'cash')
+        };
       }).filter(inv=>inv.total>0||inv.subtotal>0);
 
       if(!_purchBulkParsed.length)throw new Error('لم يتم استخراج أي فاتورة');
@@ -5403,7 +5413,7 @@ async function pickPurchBulkFile(input){
       preview.innerHTML='<div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:8px">🛒 تم استخراج '+_purchBulkParsed.length+' فاتورة</div>'
         +'<div style="max-height:260px;overflow-y:auto">'
         +_purchBulkParsed.map(inv=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
-          +'<div><div style="font-size:12px;font-weight:600">'+inv.supplier+'</div><div style="font-size:10px;color:rgba(255,255,255,.4)">'+(inv.invoiceNo||'—')+' · '+inv.date+'</div></div>'
+          +'<div><div style="font-size:12px;font-weight:600">'+inv.supplier+(inv.branch?' <span style="font-size:10px;color:#f5c842">('+inv.branch+')</span>':'')+'</div><div style="font-size:10px;color:rgba(255,255,255,.4)">'+(inv.invoiceNo||'—')+' · '+inv.date+'</div></div>'
           +'<div style="text-align:left"><div style="font-size:13px;font-weight:700;color:#f87171">'+fmt(inv.total)+' ﷼</div><div style="font-size:10px;color:rgba(255,255,255,.4)">VAT: '+fmt(inv.taxAmt)+' ﷼</div></div>'
           +'</div>').join('')
         +'</div>'
@@ -5431,7 +5441,7 @@ async function savePurchBulk(){
   let added=0,failed=0;
   for(const inv of _purchBulkParsed){
     try{
-      const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type:inv.type,desc:inv.supplier||'مشتريات',invoiceNo:inv.invoiceNo||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true});
+      const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type:inv.type,desc:(inv.supplier||'مشتريات')+(inv.branch?' - '+inv.branch:''),invoiceNo:inv.invoiceNo||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true});
       if(res.error)failed++;else added++;
     }catch(e){failed++;}
   }
