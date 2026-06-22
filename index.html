@@ -893,6 +893,7 @@ function showApp(){
     { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
     { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
     { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
+    { label:'المشتريات', items:[['purchases','🛒','إضافة مشتريات']] },
     { label:'المبيعات', items:[['sales','🧾','فواتير المبيعات'],['trial-balance','⚖️','ميزان المراجعة']] },
   ] : ROLE==='owner' ? [
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
@@ -960,17 +961,17 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'إضافة مشتريات','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'sales':rSales,'trial-balance':rTrialBalance};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
   map[id]?.();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'sales':rSales,'trial-balance':rTrialBalance};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
   map[id]?.();
 }
 
@@ -5168,6 +5169,228 @@ function printSalesReturn(id){
     +'<div style="margin-top:20px;padding:12px;border:1px dashed #ccc;border-radius:6px;font-size:11px;color:#555">هذا الإشعار يُلغي الفاتورة الأصلية جزئياً أو كلياً حسب المبلغ المذكور أعلاه.</div>'
     +'</body></html>';
   const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),600);
+}
+
+// ── PURCHASES MODULE ──────────────────────────────
+let _bulkPurchParsed = [];
+
+function rPurchases(){
+  const supOpts = DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  const projOpts = DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('');
+
+  document.getElementById('mc').innerHTML = `
+    <div class="ctitle">🛒 إضافة مشتريات قديمة</div>
+    <div style="background:rgba(112,181,255,.08);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#70B5FF;border-right:3px solid #70B5FF">
+      فواتير مشتريات سابقة — اختر المشرف والمشروع ثم ارفع الملف
+    </div>
+
+    <div class="card">
+      <!-- المشرف والمشروع -->
+      <div class="fg2">
+        <div>
+          <label class="lbl">المشرف</label>
+          <select id="pb-sup" style="color:#fff;background:rgba(255,255,255,.08)">
+            <option value="">-- اختر المشرف --</option>
+            ${supOpts}
+          </select>
+        </div>
+        <div>
+          <label class="lbl">المشروع</label>
+          <select id="pb-proj" style="color:#fff;background:rgba(255,255,255,.08)">
+            <option value="">-- اختر المشروع --</option>
+            ${projOpts}
+          </select>
+        </div>
+      </div>
+
+      <!-- نوع الفاتورة -->
+      <div class="fg">
+        <label class="lbl">نوع الفواتير</label>
+        <select id="pb-type" style="color:#fff;background:rgba(255,255,255,.08)">
+          <option value="petty">نثرية (بدون ضريبة)</option>
+          <option value="tax">ضريبية (مع ضريبة VAT)</option>
+          <option value="mixed">مختلطة (AI يحدد لكل فاتورة)</option>
+        </select>
+      </div>
+
+      <!-- رفع الملف -->
+      <div class="fg">
+        <label class="lbl">📊 ارفع ملف المشتريات</label>
+        <div class="drop" onclick="document.getElementById('pb-file').click()" style="cursor:pointer;padding:18px;border-color:rgba(248,113,113,.4)">
+          <div style="font-size:30px;margin-bottom:6px" id="pb-icon">📊</div>
+          <div id="pb-txt" style="font-size:12px;color:rgba(255,255,255,.5)">Excel أو PDF أو صورة جدول</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:4px">الذكاء يستخرج كل فاتورة منفردة</div>
+        </div>
+        <input type="file" id="pb-file" accept="image/*,.pdf,.xlsx,.xls,.csv" style="display:none" onchange="pickBulkPurchFile(this)">
+      </div>
+
+      <div id="pb-status" style="display:none;margin-top:8px"></div>
+    </div>
+
+    <!-- Preview -->
+    <div id="pb-preview-section" style="display:none">
+      <div id="pb-preview"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="saveBulkPurchases()" id="pb-save-btn"
+          style="flex:1;padding:12px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
+          ✅ إضافة على المصروفات
+        </button>
+        <button onclick="rPurchases()"
+          style="padding:12px 16px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif">
+          ✕ إلغاء
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+async function pickBulkPurchFile(input){
+  const file = input.files[0]; if(!file) return;
+  const supId = parseInt(document.getElementById('pb-sup')?.value);
+  const project = document.getElementById('pb-proj')?.value;
+  const type = document.getElementById('pb-type')?.value;
+  if(!supId || !project){
+    alert('⚠️ اختر المشرف والمشروع أولاً');
+    input.value='';
+    return;
+  }
+  const isPdf = file.type==='application/pdf';
+  const st = document.getElementById('pb-status');
+  const icon = document.getElementById('pb-icon');
+  st.style.display='block';
+  st.innerHTML='<div style="padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842">⏳ جاري تحليل الملف...</div>';
+  icon.textContent='⏳';
+  document.getElementById('pb-txt').textContent=file.name;
+  _bulkPurchParsed=[];
+
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const b64 = ev.target.result.split(',')[1];
+    const typeHint = type==='tax'?'ضريبية مع VAT':type==='petty'?'نثرية بدون ضريبة':'قد تكون ضريبية أو نثرية';
+    const prompt = 'أنت محاسب خبير. هذه وثيقة تحتوي على فواتير مشتريات '+typeHint+'. استخرج كل فاتورة كعنصر منفصل. لكل فاتورة: invoiceNo (رقم الفاتورة)، date (التاريخ كما هو بالضبط)، supplier (اسم المورد أو الوصف)، subtotal (المبلغ قبل الضريبة رقم بدون فواصل)، taxRate (نسبة الضريبة رقم، 0 إذا نثرية)، taxAmt (مبلغ الضريبة رقم)، total (الإجمالي رقم)، payMethod (cash أو transfer). تجاهل صفوف الإجمالي والمجاميع. أخرج JSON نقي فقط: {"invoices":[{"invoiceNo":"","date":"","supplier":"","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"payMethod":"cash"}]}';
+
+    try{
+      const res = await api('/api/analyze','POST',{b64, isPdf, text: prompt});
+      if(res.error) throw new Error(res.error);
+
+      // Parse invoices
+      let list = res.invoices||res.data||res.items||[];
+      if(!list.length && (res.total||res.supplier)) list=[res];
+
+      _bulkPurchParsed = list.map(inv=>{
+        const sub = _fixNum(inv.subtotal||0);
+        const rate = _fixNum(inv.taxRate||(type==='tax'?15:0));
+        const vat = _fixNum(inv.taxAmt||0)||(sub*rate/100);
+        const tot = _fixNum(inv.total||0)||(sub+vat);
+        return {
+          invoiceNo: String(inv.invoiceNo||'').trim(),
+          date: _fixDate(inv.date||''),
+          supplier: String(inv.supplier||inv.client||inv.vendor||inv.desc||'—').trim(),
+          subtotal: sub||tot-vat,
+          taxRate: rate, taxAmt: vat, total: tot||sub+vat,
+          payMethod: _fixPay(inv.payMethod||'cash'),
+          type: (rate>0||vat>0)?'tax':'petty'
+        };
+      }).filter(inv=>inv.total>0||inv.subtotal>0);
+
+      if(!_bulkPurchParsed.length) throw new Error('لم يتم استخراج أي فاتورة — تأكد من وضوح الملف');
+
+      // Dup check against existing entries
+      const existKeys = new Set(
+        DB.entries.filter(e=>e.type==='petty'||e.type==='tax')
+          .map(e=>[e.invoiceNo||'',e.total||0,e.date||''].join('|'))
+      );
+      const dups = [];
+      _bulkPurchParsed = _bulkPurchParsed.filter(inv=>{
+        const k = [inv.invoiceNo,inv.total,inv.date].join('|');
+        if(inv.invoiceNo && existKeys.has(k)){dups.push(inv);return false;}
+        return true;
+      });
+
+      const sup = DB.supervisors.find(s=>s.id===supId);
+      const gTotal = _bulkPurchParsed.reduce((a,i)=>a+(i.total||0),0);
+      const gVat   = _bulkPurchParsed.reduce((a,i)=>a+(i.taxAmt||0),0);
+
+      const preview = document.getElementById('pb-preview');
+      const section = document.getElementById('pb-preview-section');
+      section.style.display='block';
+
+      preview.innerHTML =
+        '<div class="card" style="padding:12px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+        +'<div style="font-size:13px;font-weight:700;color:#f87171">🛒 '+_bulkPurchParsed.length+' فاتورة جاهزة</div>'
+        +(dups.length?'<div style="font-size:11px;color:#fbbf24">'+dups.length+' مكررة تم تخطيها</div>':'')
+        +'</div>'
+        // Summary
+        +'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px">'
+        +'<span style="font-size:12px;color:rgba(255,255,255,.6)">المشرف: <strong style="color:#f5c842">'+sup?.name+'</strong></span>'
+        +'<span style="font-size:12px;color:rgba(255,255,255,.6)">المشروع: <strong style="color:#f5c842">'+project+'</strong></span>'
+        +'</div>'
+        // Table header
+        +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;font-size:10px;color:rgba(255,255,255,.4);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08)">'
+        +'<span>المورد / رقم الفاتورة</span><span style="text-align:center">التاريخ</span><span style="text-align:center">VAT</span><span style="text-align:left">الإجمالي</span>'
+        +'</div>'
+        +'<div style="max-height:300px;overflow-y:auto">'
+        +_bulkPurchParsed.map(inv=>
+          '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:center">'
+          +'<div><div style="font-size:12px;font-weight:600">'+inv.supplier+'</div>'
+          +'<div style="font-size:10px;color:rgba(255,255,255,.4)">'+(inv.invoiceNo||'—')+' · '+(inv.type==='tax'?'<span style="color:#70B5FF">ضريبية</span>':'نثرية')+'</div></div>'
+          +'<div style="text-align:center;font-size:11px;color:rgba(255,255,255,.6)">'+inv.date+'</div>'
+          +'<div style="text-align:center;font-size:11px;color:#70B5FF">'+fmt(inv.taxAmt)+'</div>'
+          +'<div style="text-align:left;font-size:12px;font-weight:700;color:#f87171">'+fmt(inv.total)+' ﷼</div>'
+          +'</div>'
+        ).join('')
+        +'</div>'
+        // Totals
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">'
+        +'<div style="background:rgba(248,113,113,.08);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5)">إجمالي المشتريات</div><div style="font-size:14px;font-weight:800;color:#f87171">'+fmt(gTotal)+' ﷼</div></div>'
+        +'<div style="background:rgba(112,181,255,.08);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5)">VAT</div><div style="font-size:14px;font-weight:800;color:#70B5FF">'+fmt(gVat)+' ﷼</div></div>'
+        +'<div style="background:rgba(52,211,153,.08);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:rgba(255,255,255,.5)">عدد الفواتير</div><div style="font-size:14px;font-weight:800;color:#34d399">'+_bulkPurchParsed.length+'</div></div>'
+        +'</div>'
+        +'</div>';
+
+      st.innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">✅ راجع الفواتير وأكد الإضافة</div>';
+      icon.textContent='✅';
+    }catch(e){
+      st.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.12);border-radius:8px;font-size:12px;color:#f87171">❌ '+e.message+'</div>';
+      icon.textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveBulkPurchases(){
+  if(!_bulkPurchParsed.length){alert('لا توجد فواتير');return;}
+  const supId = parseInt(document.getElementById('pb-sup')?.value);
+  const project = document.getElementById('pb-proj')?.value;
+  if(!supId||!project){alert('⚠️ اختر المشرف والمشروع');return;}
+  const sup = DB.supervisors.find(s=>s.id===supId);
+  const btn = document.getElementById('pb-save-btn');
+  btn.textContent='⏳ جاري الإضافة...';
+  btn.disabled=true;
+  let added=0, failed=0;
+  for(const inv of _bulkPurchParsed){
+    try{
+      const res = await api('/api/entries','POST',{
+        supId, supName:sup?.name||'',
+        project, type:inv.type,
+        desc:inv.supplier||'مشتريات',
+        invoiceNo:inv.invoiceNo||null,
+        date:inv.date,
+        payMethod:inv.payMethod,
+        subtotal:inv.subtotal,
+        taxRate:inv.taxRate,
+        taxAmt:inv.taxAmt,
+        total:inv.total,
+        historicalEntry:true
+      });
+      if(res.error)failed++; else added++;
+    }catch(e){failed++;}
+  }
+  DB = await api('/api/db');
+  _bulkPurchParsed=[];
+  alert('✅ تمت إضافة '+added+' فاتورة على مصروفات '+sup?.name+' / '+project+(failed?' (فشل '+failed+')':''));
+  rPurchases();
 }
 
 // ── TRIAL BALANCE ──
