@@ -2901,23 +2901,24 @@ function setInvoiceType(type){
 }
 
 function showResult(){
-  // ── Quality check ──
-  const hasSupplier = !!(parsed.supplier && parsed.supplier.trim());
-  const hasTotal = !!(parsed.total && parsed.total > 0);
-  const hasDate = !!(parsed.date);
-  const qualityOk = hasSupplier && hasTotal && hasDate;
+  // ── Quality check — only if image was uploaded ──
+  if(imgB64){
+    const hasSupplier = !!(parsed.supplier && parsed.supplier.trim());
+    const hasTotal = !!(parsed.total && parsed.total > 0);
+    const hasDate = !!(parsed.date);
+    const qualityOk = hasSupplier && hasTotal && hasDate;
 
-  if(!qualityOk){
-    // Poor quality - ask to re-upload
-    document.getElementById('ss1').style.display='block';
-    const err = document.getElementById('serr');
-    err.style.display='block';
-    let missing = [];
-    if(!hasSupplier) missing.push('اسم المورد');
-    if(!hasTotal) missing.push('المبلغ');
-    if(!hasDate) missing.push('التاريخ');
-    err.textContent='⚠️ الصورة غير واضحة — تعذر قراءة: '+missing.join('، ')+' — يرجى رفع صورة أوضح';
-    return;
+    if(!qualityOk){
+      document.getElementById('ss1').style.display='block';
+      const err = document.getElementById('serr');
+      err.style.display='block';
+      let missing = [];
+      if(!hasSupplier) missing.push('اسم المورد');
+      if(!hasTotal) missing.push('المبلغ');
+      if(!hasDate) missing.push('التاريخ');
+      err.textContent='⚠️ الصورة غير واضحة — تعذر قراءة: '+missing.join('، ')+' — يرجى رفع صورة أوضح';
+      return;
+    }
   }
 
   // ── Date check for supervisor ──
