@@ -4679,7 +4679,7 @@ function rSales(){
       ${renderSalesList(sales, salesReturns, 'all')}
     </div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button onclick="exportSalesPDF()" style="flex:1;padding:12px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تقرير PDF</button>
+      <button onclick="openSalesReport()" style="flex:1;padding:12px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تقرير PDF</button>
       <button onclick="openSalesReturnForm()" style="flex:1;padding:12px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">↩️ مرتجع</button>
       <button onclick="deleteAllSales()" style="padding:12px 14px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;cursor:pointer;font-family:'Tajawal',sans-serif" title="حذف كل المبيعات">🗑️</button>
       <button onclick="deleteAllSales()" style="padding:12px 14px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif" title="حذف كل المبيعات">🗑️</button>
@@ -4785,6 +4785,123 @@ async function deleteAllSales(){
   }catch(e){
     alert('❌ خطأ: '+e.message);
   }
+}
+
+
+// ── DATE RANGE REPORT MODAL ──
+function openReportModal(type, title, color, onExport){
+  const modal = document.getElementById('report-modal');
+  if(modal) modal.remove();
+  const year = new Date().getFullYear();
+  const m = document.createElement('div');
+  m.id='report-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px';
+  m.innerHTML=`
+    <div style="background:rgba(15,10,40,.97);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:360px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:700;color:${color}">📄 ${title}</div>
+        <button onclick="document.getElementById('report-modal').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:18px">✕</button>
+      </div>
+      <div class="fg2" style="margin-bottom:12px">
+        <div><label class="lbl" style="font-size:11px">من تاريخ</label><input type="date" id="rep-from" value="${year}-01-01"></div>
+        <div><label class="lbl" style="font-size:11px">إلى تاريخ</label><input type="date" id="rep-to" value="${year}-12-31"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
+        ${[['Q1','01-01','03-31'],['Q2','04-01','06-30'],['Q3','07-01','09-30'],['Q4','10-01','12-31']].map(([q,f,t])=>
+          `<button onclick="document.getElementById('rep-from').value='${year}-${f}';document.getElementById('rep-to').value='${year}-${t}'"
+            style="padding:7px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:12px">${q} ${year}</button>`
+        ).join('')}
+        <button onclick="document.getElementById('rep-from').value='${year}-01-01';document.getElementById('rep-to').value='${year}-12-31'"
+          style="padding:7px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:12px;grid-column:span 2">📆 السنة كاملة ${year}</button>
+      </div>
+      <button onclick="document.getElementById('report-modal').remove();(${onExport})(document.getElementById('rep-from').value,document.getElementById('rep-to').value)"
+        style="width:100%;padding:11px;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
+        📄 تصدير التقرير
+      </button>
+    </div>
+  `;
+  document.body.appendChild(m);
+}
+
+function openSalesReport(){
+  openReportModal('sales','تقرير المبيعات','#34d399','exportSalesPDFRange');
+}
+
+function openPurchReport(){
+  openReportModal('purch','تقرير المشتريات','#f87171','exportPurchPDFRange');
+}
+
+function exportSalesPDFRange(from, to){
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const salesReturns = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  const fSales = sales.filter(s=>(!from||s.date>=from)&&(!to||s.date<=to));
+  const fReturns = salesReturns.filter(r=>(!from||r.date>=from)&&(!to||r.date<=to));
+  if(!fSales.length&&!fReturns.length){alert('لا توجد بيانات في هذه الفترة');return;}
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const total = fSales.reduce((a,s)=>a+(s.total||0),0);
+  const vat = fSales.reduce((a,s)=>a+(s.taxAmt||0),0);
+  const net = fSales.reduce((a,s)=>a+(s.subtotal||0),0);
+  const retTotal = fReturns.reduce((a,r)=>a+(r.total||0),0);
+  const payLabel = {cash:'كاش',transfer:'تحويل',deferred:'آجل'};
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المبيعات</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}'
+    +'h1{font-size:18px;font-weight:900;margin-bottom:2px}.period{font-size:12px;color:#555;margin-bottom:14px}'
+    +'.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}'
+    +'.box{background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center}'
+    +'.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}'
+    +'table{width:100%;border-collapse:collapse;font-size:11px}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}'
+    +'h2{font-size:13px;font-weight:800;margin:14px 0 6px;border-bottom:2px solid #000;padding-bottom:3px}</style></head><body>'
+    +'<h1>تقرير المبيعات</h1>'
+    +'<div class="period">شركة كيان وبناء للمقاولات · '+now+' · الفترة: '+(from||'البداية')+' → '+(to||'النهاية')+'</div>'
+    +'<div class="sum">'
+    +'<div class="box"><div class="bl">إجمالي المبيعات</div><div class="bv" style="color:#166534">'+fmt(total)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">'+fmt(net)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">VAT المحصّلة</div><div class="bv" style="color:#1d4ed8">'+fmt(vat)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">المرتجعات</div><div class="bv" style="color:#D93025">'+fmt(retTotal)+' ﷼</div></div>'
+    +'</div>'
+    +'<h2>فواتير المبيعات ('+fSales.length+')</h2>'
+    +'<table><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>الدفع</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>'
+    +fSales.sort((a,b)=>a.date.localeCompare(b.date)).map(s=>'<tr><td>'+s.date+'</td><td>'+(s.invoiceNo||'—')+'</td><td>'+s.client+'</td><td>'+(payLabel[s.payMethod]||'—')+'</td><td>'+fmt(s.subtotal)+' ﷼</td><td>'+fmt(s.taxAmt)+' ﷼</td><td style="font-weight:700;color:#166534">'+fmt(s.total)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="4">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td></tr></table>'
+    +(fReturns.length?'<h2>مرتجعات المبيعات ('+fReturns.length+')</h2>'
+      +'<table><tr><th>التاريخ</th><th>رقم المرتجع</th><th>العميل</th><th>الفاتورة الأصلية</th><th>الإجمالي</th></tr>'
+      +fReturns.map(r=>'<tr><td>'+r.date+'</td><td>'+(r.invoiceNo||'—')+'</td><td>'+r.client+'</td><td>'+(r.origInvoiceNo||'—')+'</td><td style="color:#D93025;font-weight:700">-'+fmt(r.total)+' ﷼</td></tr>').join('')
+      +'<tr class="tr"><td colspan="4">إجمالي المرتجعات</td><td style="color:#D93025">-'+fmt(retTotal)+' ﷼</td></tr>'
+      +'<tr class="tr"><td colspan="4">صافي المبيعات بعد المرتجعات</td><td style="color:#166534">'+fmt(total-retTotal)+' ﷼</td></tr></table>':'')
+    +'</body></html>';
+  const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
+}
+
+function exportPurchPDFRange(from, to){
+  const entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
+  if(!entries.length){alert('لا توجد بيانات في هذه الفترة');return;}
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const total = entries.reduce((a,e)=>a+(e.total||0),0);
+  const vat = entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const net = entries.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المشتريات</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}'
+    +'h1{font-size:18px;font-weight:900;margin-bottom:2px}.period{font-size:12px;color:#555;margin-bottom:14px}'
+    +'.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}'
+    +'.box{background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center}'
+    +'.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}'
+    +'table{width:100%;border-collapse:collapse;font-size:11px}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body>'
+    +'<h1>تقرير المشتريات</h1>'
+    +'<div class="period">شركة كيان وبناء للمقاولات · '+now+' · الفترة: '+(from||'البداية')+' → '+(to||'النهاية')+'</div>'
+    +'<div class="sum">'
+    +'<div class="box"><div class="bl">إجمالي المشتريات</div><div class="bv" style="color:#D93025">'+fmt(total)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">'+fmt(net)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">VAT المدفوعة</div><div class="bv" style="color:#1d4ed8">'+fmt(vat)+' ﷼</div></div>'
+    +'</div>'
+    +'<table><tr><th>التاريخ</th><th>المورد/الوصف</th><th>رقم الفاتورة</th><th>المشرف</th><th>المشروع</th><th>النوع</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>'
+    +entries.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>'<tr><td>'+(e.date||'—')+'</td><td>'+(e.desc||e.supplier||'—')+'</td><td>'+(e.invoiceNo||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td><td>'+(e.type==='tax'?'ضريبية':'نثرية')+'</td><td>'+fmt(e.subtotal||0)+' ﷼</td><td>'+fmt(e.taxAmt||0)+' ﷼</td><td style="font-weight:700;color:#D93025">'+fmt(e.total||0)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="6">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td></tr>'
+    +'</table></body></html>';
+  const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 
 function exportSalesPDF(){
@@ -5389,7 +5506,7 @@ function rPurchases(){
     </div>
     <div id="purch-list">${renderPurchList(purchases,'all')}</div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button onclick="exportPurchPDF()" style="flex:1;padding:12px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير PDF</button>
+      <button onclick="openPurchReport()" style="flex:1;padding:12px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تقرير PDF</button>
       <button onclick="deleteHistoricalPurchases()" style="padding:12px 14px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif" title="حذف المشتريات المضافة يدوياً فقط">🗑️</button>
     </div>
     `}
