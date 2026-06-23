@@ -285,13 +285,14 @@ const server = http.createServer(async (req, res) => {
     const normalize = s => (s || '').toString().trim().toLowerCase().replace(/\s+/g, '');
     // Skip duplicate check for returns
     if (body.type !== 'return') {
-      if (body.invoiceNo && body.invoiceNo.trim()) {
-        const dup = data.entries.find(e => e.invoiceNo && normalize(e.invoiceNo) === normalize(body.invoiceNo));
-        if (dup) return sendJSON(res, { error: `⚠️ الفاتورة رقم ${body.invoiceNo} مسجلة مسبقاً بتاريخ ${dup.date}` });
-      }
-      if (body.supplier && body.total && body.date) {
-        const dup2 = data.entries.find(e => normalize(e.supplier) === normalize(body.supplier) && Math.abs((e.total||0)-(body.total||0)) < 0.1 && e.date === body.date);
-        if (dup2) return sendJSON(res, { error: `⚠️ يبدو أن هذه الفاتورة مسجلة مسبقاً — نفس المورد والمبلغ والتاريخ` });
+      // التكرار: رقم الفاتورة + المبلغ + المورد (التاريخ لا يؤثر)
+      if (body.invoiceNo && body.invoiceNo.trim() && body.total) {
+        const dup = data.entries.find(e =>
+          e.invoiceNo && normalize(e.invoiceNo) === normalize(body.invoiceNo) &&
+          Math.abs((e.total||0)-(body.total||0)) < 0.5 &&
+          normalize(e.supplier||e.desc||'') === normalize(body.supplier||body.desc||'')
+        );
+        if (dup) return sendJSON(res, { error: `⚠️ الفاتورة رقم ${body.invoiceNo} بنفس المبلغ والمورد مسجلة مسبقاً` });
       }
     }
     const entry = { ...body, id: data.nextId++ };
