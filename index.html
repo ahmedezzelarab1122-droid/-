@@ -5492,12 +5492,14 @@ async function pickExcelDirect(input){
 
     // Dup check set
     const _existCodes=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>(e.invoiceCode||'').toLowerCase()).filter(Boolean));
-    const _mkDupKey = inv=>[
-      (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase(),
-      Math.round((inv.total||inv.subtotal||0)*100),
-      (inv.supplier||'').trim().toLowerCase().slice(0,20)
-    ].join('|');
-    const _existDupKeys=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkDupKey({invoiceNo:e.invoiceNo||'',total:e.total||0,supplier:e.supplier||e.desc||''})));
+    const _mkDupKey = inv => {
+      const invNo=(inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase();
+      const amt=Math.round((inv.total||inv.subtotal||0)*100);
+      const sup=(inv.supplier||'').trim().toLowerCase().slice(0,20);
+      if(!invNo&&!amt) return '';
+      return invNo+'|'+amt+'|'+sup;
+    };
+    const _existDupKeys=new Set(DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkDupKey({invoiceNo:e.invoiceNo||'',total:e.total||0,supplier:e.supplier||e.desc||''})).filter(Boolean));
     const _seenKeys=new Set();
 
     for(let i=headerRow+1; i<rows.length; i++){
@@ -5620,17 +5622,20 @@ async function pickPurchBulkFile(input){
 
 
       // فحص التكرار: رقم الفاتورة + المبلغ + اسم المورد
-      const _mkDupKey = inv => [
-        (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase(),
-        Math.round((inv.total||inv.subtotal||0)*100),
-        (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20)
-      ].join('|');
+      // مفتاح التكرار: رقم الفاتورة + المبلغ + اسم المورد (بدون تاريخ)
+      const _mkDupKey = inv => {
+        const invNo = (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase();
+        const amt   = Math.round((inv.total||inv.subtotal||0)*100);
+        const sup   = (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20);
+        if(!invNo && !amt) return ''; // مفيش بيانات كافية
+        return invNo+'|'+amt+'|'+sup;
+      };
       const _existDupKeys = new Set(
         DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkDupKey({
           invoiceNo:e.invoiceNo||e.invoiceCode||'',
           total:e.total||0,
           supplier:e.supplier||e.desc||''
-        })).filter(k=>k!=='||')
+        })).filter(Boolean)
       );
       const _seenDupKeys = new Set();
       let _dupCount=0;
@@ -5673,12 +5678,14 @@ async function savePurchBulk(){
   const sup=DB.supervisors.find(s=>s.id===supId);
   const btn=document.getElementById('pb-save-btn');
   btn.textContent='⏳ جاري الحفظ...';btn.disabled=true;
-  // فحص التكرار عند الحفظ: رقم الفاتورة + المبلغ + اسم المورد
-  const _mkKey2 = inv => [
-    (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase(),
-    Math.round((inv.total||inv.subtotal||0)*100),
-    (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20)
-  ].join('|');
+  // فحص التكرار: رقم الفاتورة + المبلغ + اسم المورد (بدون تاريخ)
+  const _mkKey2 = inv => {
+    const invNo = (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase();
+    const amt   = Math.round((inv.total||inv.subtotal||0)*100);
+    const sup   = (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20);
+    if(!invNo && !amt) return '';
+    return invNo+'|'+amt+'|'+sup;
+  };
   const _saveSet=new Set(
     DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkKey2({
       invoiceNo:e.invoiceNo||e.invoiceCode||'',total:e.total||0,supplier:e.supplier||e.desc||''
@@ -5688,8 +5695,8 @@ async function savePurchBulk(){
   let added=0,skipped=0,failed=0;
   for(const inv of _purchBulkParsed){
     const _k=_mkKey2(inv);
-    if(_k!=='||'&&(_saveSet.has(_k)||_seenSave.has(_k))){skipped++;continue;}
-    if(_k!=='||')_seenSave.add(_k);
+    if(_k&&(_saveSet.has(_k)||_seenSave.has(_k))){skipped++;continue;}
+    if(_k)_seenSave.add(_k);
     try{
       const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type:inv.type,desc:inv.supplier||'مشتريات',invoiceNo:inv.invoiceNo||null,invoiceCode:inv.invoiceCode||null,supplier:inv.supplier||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true});
       if(res.error)failed++;else added++;
