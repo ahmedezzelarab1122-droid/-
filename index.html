@@ -4603,7 +4603,27 @@ function rSales(){
     </div>
 
     <div class="card">
-      <div class="ctitle">➕ فاتورة مبيعات جديدة</div>
+      <!-- فلتر التقرير -->
+    <div class="card" style="margin-bottom:12px;padding:12px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:8px">📅 استخراج تقرير بالفترة</div>
+      <div class="fg2" style="margin-bottom:8px">
+        <div><label class="lbl" style="font-size:11px">من</label><input type="date" id="sales-rep-from" value="${new Date().getFullYear()+'-01-01'}"></div>
+        <div><label class="lbl" style="font-size:11px">إلى</label><input type="date" id="sales-rep-to" value="${new Date().getFullYear()+'-12-31'}"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button onclick="setSalesRepQ(1)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q1</button>
+        <button onclick="setSalesRepQ(2)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q2</button>
+        <button onclick="setSalesRepQ(3)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q3</button>
+        <button onclick="setSalesRepQ(4)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q4</button>
+        <button onclick="setSalesRepQ(0)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">السنة كاملة</button>
+      </div>
+      <button onclick="exportSalesPDFRange(document.getElementById('sales-rep-from').value,document.getElementById('sales-rep-to').value)"
+        style="width:100%;padding:10px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
+        📄 تصدير تقرير المبيعات PDF
+      </button>
+    </div>
+
+    <div class="ctitle">➕ فاتورة مبيعات جديدة</div>
       <!-- Mode selector -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <button onclick="setSalesMode('single')" id="mode-single" style="padding:10px;border:2px solid rgba(245,200,66,.4);border-radius:10px;background:rgba(245,200,66,.15);color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:700;font-size:12px">🧾 فاتورة واحدة</button>
@@ -4904,6 +4924,19 @@ function exportPurchPDFRange(from, to){
   const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 
+
+function setPurchRepQ(q){
+  const y=new Date().getFullYear();
+  const dates={1:[y+'-01-01',y+'-03-31'],2:[y+'-04-01',y+'-06-30'],3:[y+'-07-01',y+'-09-30'],4:[y+'-10-01',y+'-12-31'],0:[y+'-01-01',y+'-12-31']};
+  const f=document.getElementById('purch-rep-from'),t=document.getElementById('purch-rep-to');
+  if(f&&t){f.value=dates[q][0];t.value=dates[q][1];}
+}
+function setSalesRepQ(q){
+  const y=new Date().getFullYear();
+  const dates={1:[y+'-01-01',y+'-03-31'],2:[y+'-04-01',y+'-06-30'],3:[y+'-07-01',y+'-09-30'],4:[y+'-10-01',y+'-12-31'],0:[y+'-01-01',y+'-12-31']};
+  const f=document.getElementById('sales-rep-from'),t=document.getElementById('sales-rep-to');
+  if(f&&t){f.value=dates[q][0];t.value=dates[q][1];}
+}
 function exportSalesPDF(){
   const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
   if(!sales.length){alert('لا توجد فواتير');return;}
@@ -5402,6 +5435,26 @@ function rPurchases(){
       <div class="stat"><div class="sl">VAT المدفوعة</div><div class="sv" style="color:#70B5FF">${fmt(totalVat)} ﷼</div></div>
       <div class="stat"><div class="sl">صافي بدون ضريبة</div><div class="sv" style="color:#f5c842">${fmt(totalNet)} ﷼</div></div>
       <div class="stat"><div class="sl">عدد الفواتير</div><div class="sv">${purchases.length}</div></div>
+    </div>
+
+    <!-- فلتر التقرير -->
+    <div class="card" style="margin-bottom:12px;padding:12px">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:8px">📅 تقرير المشتريات بالفترة</div>
+      <div class="fg2" style="margin-bottom:8px">
+        <div><label class="lbl" style="font-size:11px">من</label><input type="date" id="purch-rep-from" value="${new Date().getFullYear()+'-01-01'}"></div>
+        <div><label class="lbl" style="font-size:11px">إلى</label><input type="date" id="purch-rep-to" value="${new Date().getFullYear()+'-12-31'}"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button onclick="setPurchRepQ(1)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q1</button>
+        <button onclick="setPurchRepQ(2)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q2</button>
+        <button onclick="setPurchRepQ(3)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q3</button>
+        <button onclick="setPurchRepQ(4)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q4</button>
+        <button onclick="setPurchRepQ(0)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">السنة كاملة</button>
+      </div>
+      <button onclick="exportPurchPDFRange(document.getElementById('purch-rep-from').value,document.getElementById('purch-rep-to').value)"
+        style="width:100%;padding:10px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
+        📄 تصدير تقرير المشتريات
+      </button>
     </div>
 
     <div class="card">
