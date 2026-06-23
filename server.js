@@ -79,12 +79,11 @@ function getFallback() {
 async function analyzeInvoice(b64, text, isPdf=false) {
   const { default: https } = await import('https');
   // If custom text/prompt provided, use it directly; otherwise use default invoice analysis prompt
-  const prompt = text ? text + ' أخرج JSON مضغوط بدون مسافات.' : `أنت خبير محاسبة سعودي متخصص في تصنيف الفواتير. مهمتك الأساسية التمييز بدقة بين نوعين من الفواتير.
-## قاعدة التصنيف الأساسية:
-### فاتورة ضريبية (tax): رقم ضريبي، A4 مطبوعة
-### فاتورة نثرية (petty): إيصال صغير، بخط يد، بقالة
-## الإخراج JSON نقي فقط:
-{"desc":"اسم المورد","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم أو null","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":رقم,"taxRate":رقم,"taxAmt":رقم,"total":رقم,"items":[{"desc":"البند","qty":رقم,"unit":"الوحدة","unitPrice":رقم,"total":رقم}]}
+  const prompt = text ? text : `أنت خبير محاسبة سعودي. انظر لهذه الفاتورة واستخرج بياناتها بدقة مهما كانت جودة الصورة.
+استخرج كل ما تستطيع رؤيته وأكمل الباقي بتقدير منطقي.
+أخرج JSON نقي فقط بهذا الشكل:
+{"desc":"اسم المورد","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم أو null","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"items":[]}
+قواعد: type=tax إذا فيها رقم ضريبي أو VAT، وإلا petty. إذا لم تجد subtotal احسبها = total - taxAmt.
 `;
   const content = b64
     ? isPdf
@@ -95,7 +94,7 @@ async function analyzeInvoice(b64, text, isPdf=false) {
     const body = JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 64000,
-      system: 'You are an expert accountant. Return ONLY minified JSON (no spaces/newlines). Include ALL rows without truncation. Format: {"invoices":[{...},{...}]}',
+      system: 'You are an expert Saudi accountant. Always return ONLY valid JSON. For single invoice return a JSON object. For bulk/list return {"invoices":[...]}. No explanation, no markdown, no extra text.',
       messages: [{ role: 'user', content }]
     });
     const req = https.request({
