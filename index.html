@@ -6049,44 +6049,44 @@ function rTrialBalance(){
 }
 function _renderTrialBalance(){
   var year = new Date().getFullYear();
-  // Load data
+
+  // ── تحميل البيانات ──
   var sales    = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
   var salesRet = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
-  var contracts= JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
 
-  // Filter by date range
-  var fS  = filterByDate(sales, _tbFrom, _tbTo);
-  var fSR = filterByDate(salesRet, _tbFrom, _tbTo);
-  var fP  = filterByDate(DB.entries.filter(function(e){return(e.type==='petty'||e.type==='tax')&&!e.rejected;}), _tbFrom, _tbTo);
-  var fL  = filterByDate(DB.entries.filter(function(e){return e.type==='labor';}), _tbFrom, _tbTo);
-  var fRet= filterByDate(DB.entries.filter(function(e){return e.type==='return';}), _tbFrom, _tbTo);
-  var fT  = contracts.flatMap(function(c){return(c.transfers||[]).map(function(t){return Object.assign({},t,{contractName:c.clientName});});})
-              .filter(function(t){return(!_tbFrom||t.date>=_tbFrom)&&(!_tbTo||t.date<=_tbTo);});
+  // ── فلتر الفترة ──
+  var fS   = filterByDate(sales,    _tbFrom, _tbTo);
+  var fSR  = filterByDate(salesRet, _tbFrom, _tbTo);
+  var fP   = filterByDate(DB.entries.filter(function(e){return(e.type==='petty'||e.type==='tax')&&!e.rejected;}), _tbFrom, _tbTo);
+  var fRet = filterByDate(DB.entries.filter(function(e){return e.type==='return';}), _tbFrom, _tbTo);
 
-  // ── حسابات الإيرادات ──
-  var salesTotal = fS.reduce(function(a,s){return a+(s.total||0);},0);    // إجمالي المبيعات شامل VAT
-  var salesNet   = fS.reduce(function(a,s){return a+(s.subtotal||0);},0); // صافي المبيعات
-  var salesVat   = fS.reduce(function(a,s){return a+(s.taxAmt||0);},0);   // VAT المبيعات
-  var retSalesT  = fSR.reduce(function(a,r){return a+(r.total||0);},0);   // مرتجعات المبيعات
-  var retSalesV  = fSR.reduce(function(a,r){return a+(r.taxAmt||0);},0);  // VAT المرتجعات
-  var cRec       = fT.reduce(function(a,t){return a+(t.amount||0);},0);   // حوالات العملاء
-  var retPurchT  = fRet.reduce(function(a,e){return a+(e.total||0);},0);  // مرتجعات المشتريات
+  // ── المبيعات ──
+  var salesTotal  = fS.reduce(function(a,s){return a+(s.total||0);},0);
+  var salesVat    = fS.reduce(function(a,s){return a+(s.taxAmt||0);},0);
+  var salesNet    = fS.reduce(function(a,s){return a+(s.subtotal||0);},0);
 
-  // ── حسابات المصروفات ──
-  var purchTotal = fP.reduce(function(a,e){return a+(e.total||0);},0);    // إجمالي المشتريات
-  var purchNet   = fP.reduce(function(a,e){return a+(e.subtotal||e.total||0);},0); // صافي المشتريات
-  var purchVat   = fP.reduce(function(a,e){return a+(e.taxAmt||0);},0);   // VAT المشتريات
-  var laborCost  = fL.reduce(function(a,e){return a+(e.laborDetails&&e.laborDetails.laborTotal||0);},0);
+  // ── مرتجعات المبيعات ──
+  var retSalesT   = fSR.reduce(function(a,r){return a+(r.total||0);},0);
+  var retSalesV   = fSR.reduce(function(a,r){return a+(r.taxAmt||0);},0);
 
-  // ── VAT صافي ──
-  var vatCollected = salesVat - retSalesV;   // VAT محصلة (بعد خصم مرتجعات)
-  var vatPaid      = purchVat;               // VAT مدفوعة
-  var vatDue       = vatCollected - vatPaid; // المستحق للهيئة
+  // ── المشتريات ──
+  var purchTotal  = fP.reduce(function(a,e){return a+(e.total||0);},0);
+  var purchVat    = fP.reduce(function(a,e){return a+(e.taxAmt||0);},0);
+  var purchNet    = fP.reduce(function(a,e){return a+(e.subtotal||e.total||0);},0);
 
-  // ── صافي الربح ──
-  var totalRevenue  = salesTotal - retSalesT + cRec + retPurchT;
-  var totalExpenses = purchTotal + laborCost;
-  var netProfit     = totalRevenue - totalExpenses;
+  // ── مرتجعات المشتريات ──
+  var retPurchT   = fRet.reduce(function(a,e){return a+(e.total||0);},0);
+  var retPurchV   = fRet.reduce(function(a,e){return a+(e.taxAmt||0);},0);
+
+  // ── الحسابات الرئيسية ──
+  var netSales    = salesTotal  - retSalesT;   // صافي المبيعات بعد المرتجعات
+  var netPurch    = purchTotal  - retPurchT;   // صافي المشتريات بعد المرتجعات
+  var diff        = netSales    - netPurch;    // الفرق
+
+  // ── VAT ──
+  var vatCollected = salesVat  - retSalesV;   // VAT محصّلة (بعد المرتجعات)
+  var vatPaid      = purchVat  - retPurchV;   // VAT مدفوعة (بعد المرتجعات)
+  var vatDue       = vatCollected - vatPaid;  // المستحق للهيئة
 
   // ── Period selector ──
   var periods=[['q0','Q1 يناير-مارس'],['q1','Q2 أبريل-يونيو'],['q2','Q3 يوليو-سبتمبر'],['q3','Q4 أكتوبر-ديسمبر'],['year','السنة كاملة '+year],['custom','تاريخ مخصص']];
@@ -6097,72 +6097,63 @@ function _renderTrialBalance(){
   else if(_tbFrom===year+'-10-01'&&_tbTo===year+'-12-31') selVal='q3';
   else if(_tbFrom===year+'-01-01'&&_tbTo===year+'-12-31') selVal='year';
 
-  function tbR(label,val,color,sub){
-    if(!val&&val!==0)return'';
-    return'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)">'
+  function row(label,val,color,sub){
+    return'<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
       +'<span style="font-size:12px;color:rgba(255,255,255,.8)">'+label+(sub?' <small style="color:rgba(255,255,255,.4);font-size:10px">'+sub+'</small>':'')+'</span>'
-      +'<strong style="color:'+color+';font-size:13px">'+fmt(Math.abs(val))+' ﷼</strong></div>';
+      +'<strong style="color:'+color+';font-size:13px">'+fmt(val)+' ﷼</strong></div>';
   }
 
-  var mc=document.getElementById('mc');
-  mc.innerHTML=
+  document.getElementById('mc').innerHTML =
     '<div style="margin-bottom:10px"><div style="font-size:15px;font-weight:800;color:#f5c842">⚖️ ميزان المراجعة</div></div>'
 
-    // ── فلتر الفترة ──
+    // فلتر الفترة
     +'<div class="card" style="padding:12px;margin-bottom:10px">'
     +'<select onchange="onTBSelect(this.value)" style="width:100%;padding:9px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);font-family:Tajawal,sans-serif;font-size:13px;margin-bottom:8px">'
     +periods.map(function(p){return'<option value="'+p[0]+'"'+(selVal===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')
     +'</select>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="tb-custom-dates" style="display:'+(selVal==='custom'?'grid':'none')+'">'
+    +'<div id="tb-custom-dates" style="display:'+(selVal==='custom'?'grid':'none')+';grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">'
     +'<div><label class="lbl" style="font-size:11px">من</label><input type="date" id="tb-from" value="'+_tbFrom+'" onchange="_tbFrom=this.value;_renderTrialBalance()"></div>'
     +'<div><label class="lbl" style="font-size:11px">إلى</label><input type="date" id="tb-to" value="'+_tbTo+'" onchange="_tbTo=this.value;_renderTrialBalance()"></div>'
     +'</div>'
-    +'<div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.4);text-align:center">'+(_tbFrom||'—')+' → '+(_tbTo||'—')+' · '+fS.length+' مبيعات · '+fP.length+' مشتريات</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center">'+(_tbFrom||'—')+' → '+(_tbTo||'—')+' · '+fS.length+' مبيعة · '+fP.length+' مشترى</div>'
     +'</div>'
 
-    // ── الإيرادات ──
+    // المبيعات
     +'<div class="card" style="margin-bottom:8px">'
-    +'<div class="ctitle" style="color:#34d399;margin-bottom:6px">📈 الإيرادات</div>'
-    +tbR('إجمالي المبيعات (شامل VAT)', salesTotal, '#34d399', fS.length+' فاتورة')
-    +tbR('— VAT المبيعات', salesVat, '#70B5FF', '')
-    +tbR('— صافي المبيعات بدون VAT', salesNet, 'rgba(255,255,255,.6)', '')
-    +(retSalesT?tbR('مرتجعات المبيعات (خصم)', retSalesT, '#f87171', fSR.length+' مرتجع'):'')
-    +(cRec?tbR('حوالات واردة من عملاء', cRec, '#34d399', fT.length+' حوالة'):'')
-    +(retPurchT?tbR('مرتجعات مشتريات (إضافة)', retPurchT, '#34d399', ''):'')
+    +'<div class="ctitle" style="color:#34d399;margin-bottom:8px">📈 المبيعات</div>'
+    +row('إجمالي المبيعات (شامل VAT)', salesTotal, '#34d399', fS.length+' فاتورة')
+    +row('مرتجعات المبيعات', retSalesT, '#f87171', fSR.length+' مرتجع')
     +'<div style="display:flex;justify-content:space-between;padding:8px 0 2px;border-top:2px solid rgba(52,211,153,.3);margin-top:4px">'
-    +'<strong style="color:#34d399">إجمالي الإيرادات</strong>'
-    +'<strong style="color:#34d399;font-size:15px">'+fmt(totalRevenue)+' ﷼</strong></div></div>'
+    +'<strong style="color:#34d399">صافي المبيعات</strong>'
+    +'<strong style="color:#34d399;font-size:16px">'+fmt(netSales)+' ﷼</strong></div></div>'
 
-    // ── المصروفات ──
+    // المشتريات
     +'<div class="card" style="margin-bottom:8px">'
-    +'<div class="ctitle" style="color:#f87171;margin-bottom:6px">📉 المصروفات</div>'
-    +tbR('إجمالي المشتريات (شامل VAT)', purchTotal, '#f87171', fP.length+' فاتورة')
-    +tbR('— VAT المشتريات', purchVat, '#70B5FF', '')
-    +tbR('— صافي المشتريات بدون VAT', purchNet, 'rgba(255,255,255,.6)', '')
-    +(laborCost?tbR('تكلفة العمالة', laborCost, '#f87171', fL.length+' يوم'):'')
+    +'<div class="ctitle" style="color:#f87171;margin-bottom:8px">📉 المشتريات</div>'
+    +row('إجمالي المشتريات (شامل VAT)', purchTotal, '#f87171', fP.length+' فاتورة')
+    +row('مرتجعات المشتريات', retPurchT, '#34d399', fRet.length+' مرتجع')
     +'<div style="display:flex;justify-content:space-between;padding:8px 0 2px;border-top:2px solid rgba(248,113,113,.3);margin-top:4px">'
-    +'<strong style="color:#f87171">إجمالي المصروفات</strong>'
-    +'<strong style="color:#f87171;font-size:15px">'+fmt(totalExpenses)+' ﷼</strong></div></div>'
+    +'<strong style="color:#f87171">صافي المشتريات</strong>'
+    +'<strong style="color:#f87171;font-size:16px">'+fmt(netPurch)+' ﷼</strong></div></div>'
 
-    // ── VAT ──
-    +'<div class="card" style="margin-bottom:8px">'
-    +'<div class="ctitle" style="color:#70B5FF;margin-bottom:6px">🧾 تسوية VAT</div>'
-    +tbR('VAT محصّلة من المبيعات', vatCollected, '#34d399', '')
-    +tbR('VAT مدفوعة على المشتريات', vatPaid, '#f87171', '')
+    // الفرق
+    +'<div style="background:'+(diff>=0?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)')+';border:1.5px solid '+(diff>=0?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)')+';border-radius:12px;padding:14px;text-align:center;margin-bottom:10px">'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:4px">الفرق (صافي المبيعات − صافي المشتريات)</div>'
+    +'<div style="font-size:32px;font-weight:900;color:'+(diff>=0?'#34d399':'#f87171')+'">'+(diff>=0?'+':'')+fmt(diff)+' ﷼</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px">'+fmt(netSales)+' − '+fmt(netPurch)+'</div></div>'
+
+    // VAT
+    +'<div class="card" style="margin-bottom:10px">'
+    +'<div class="ctitle" style="color:#70B5FF;margin-bottom:8px">🧾 تسوية VAT</div>'
+    +row('VAT المبيعات (بعد المرتجعات)', vatCollected, '#34d399', '')
+    +row('VAT المشتريات (بعد المرتجعات)', vatPaid, '#f87171', '')
     +'<div style="padding:10px 12px;background:rgba('+(vatDue>=0?'248,113,113':'52,211,153')+',.1);border-radius:8px;margin-top:6px;display:flex;justify-content:space-between;align-items:center">'
-    +'<div><div style="font-size:12px;font-weight:700;color:'+(vatDue>=0?'#f87171':'#34d399')+'">'+(vatDue>=0?'💳 مستحقة للهيئة':'✅ مسترجعة')+'</div>'
-    +'<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">'+fmt(vatCollected)+' − '+fmt(vatPaid)+'</div></div>'
+    +'<div style="font-size:12px;font-weight:700;color:'+(vatDue>=0?'#f87171':'#34d399')+'">'+(vatDue>=0?'💳 VAT مستحقة للهيئة':'✅ VAT مسترجعة')+'</div>'
     +'<strong style="font-size:18px;color:'+(vatDue>=0?'#f87171':'#34d399')+'">'+fmt(Math.abs(vatDue))+' ﷼</strong></div></div>'
 
-    // ── صافي الربح ──
-    +'<div style="background:'+(netProfit>=0?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)')+';border:1.5px solid '+(netProfit>=0?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)')+';border-radius:12px;padding:14px;text-align:center;margin-bottom:12px">'
-    +'<div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:4px">'+(netProfit>=0?'✅ صافي الربح':'❌ صافي الخسارة')+' — '+(_tbFrom||'—')+' → '+(_tbTo||'—')+'</div>'
-    +'<div style="font-size:30px;font-weight:900;color:'+(netProfit>=0?'#34d399':'#f87171')+'">'+(netProfit>=0?'+':'')+fmt(netProfit)+' ﷼</div>'
-    +'<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px">الإيرادات '+fmt(totalRevenue)+' − المصروفات '+fmt(totalExpenses)+'</div></div>'
-
-    // ── أزرار تصدير ──
+    // تصدير
     +'<div style="display:flex;gap:8px">'
-    +'<button onclick="exportTrialBalancePDF()" style="flex:1;padding:11px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">📄 ميزان المراجعة PDF</button>'
+    +'<button onclick="exportTrialBalancePDF()" style="flex:1;padding:11px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">📄 تصدير PDF</button>'
     +'<button onclick="exportVatReturn()" style="flex:1;padding:11px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🧾 إقرار VAT</button>'
     +'</div>';
 }
