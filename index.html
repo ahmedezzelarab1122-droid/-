@@ -5421,14 +5421,17 @@ async function pickExcelDirect(input){
 
     if(!rows.length) throw new Error('الملف فارغ');
 
-    // Auto-detect header row
+    // Auto-detect header row - find row with most keyword matches
     let headerRow = 0;
-    for(let i=0;i<Math.min(5,rows.length);i++){
-      const r = rows[i].map(c=>String(c).trim());
-      if(r.some(c=>c.includes('فاتورة')||c.includes('مورد')||c.includes('تاريخ')||c.includes('مبلغ')||c.includes('invoice')||c.includes('date'))){
-        headerRow=i; break;
-      }
+    let bestScore = 0;
+    const keywords = ['يوم','شهر','مورد','فاتورة','مبلغ','ضريبة','إجمالي','اجمالي','كود','نوع','رقم','invoice','date','total','tax'];
+    for(let i=0;i<Math.min(10,rows.length);i++){
+      const r = rows[i].map(c=>String(c).trim().toLowerCase());
+      const score = r.reduce((acc,cell)=>acc+(keywords.some(k=>cell.includes(k))?1:0),0);
+      if(score>bestScore){bestScore=score;headerRow=i;}
     }
+    console.log('Header row detected at index:', headerRow, 'score:', bestScore);
+    console.log('Header values:', rows[headerRow]);
 
     const headers = rows[headerRow].map(c=>String(c).trim().toLowerCase());
     console.log('Headers:', headers);
@@ -5439,7 +5442,7 @@ async function pickExcelDirect(input){
 
     const findCol = (...names) => {
       for(const n of names){
-        const idx = headers.findIndex(h=>String(h).replace(/\s+/g,'').includes(n.replace(/\s+/g,'')));
+        const idx = headers.findIndex(h2=>String(h2).replace(/\s+/g,'').includes(n.replace(/\s+/g,'')));
         if(idx>=0) return idx;
       }
       return -1;
@@ -5458,28 +5461,36 @@ async function pickExcelDirect(input){
     let colCode     = findCol('كود','code','serial','مسلسل');
     let colBranch   = findCol('فرع','branch');
 
-    // Fallback: if headers not detected, use positional detection
-    // Based on: يوم، شهر، اسم المورد، رقم الفاتورة، المبلغ بدون ضريبة، المبلغ بالضريبة، قيمة الضريبة، الإجمالي، كود الفاتورة
+    // Fallback: positional detection
     if(colDay===-1 && colMonth===-1 && colSupplier===-1){
       console.log('Using positional column detection');
-      // Find first numeric column as day
+      // Skip empty columns at start, find first col with day-like value (1-31)
+      let startCol = 0;
       for(let i=0;i<headers.length;i++){
         const firstDataVal = rows[headerRow+1]?.[i];
-        if(firstDataVal && !isNaN(parseFloat(firstDataVal)) && parseFloat(firstDataVal)>=1 && parseFloat(firstDataVal)<=31){
-          colDay=i; break;
+        const v = parseFloat(String(firstDataVal||'').replace(/[^0-9.]/g,''));
+        if(!isNaN(v) && v>=1 && v<=31 && String(firstDataVal).trim()!==''){
+          startCol=i; break;
         }
       }
-      if(colDay>=0){
-        colMonth    = colDay+1;
-        colSupplier = colDay+2;
-        colInvNo    = colDay+3;
-        colSubtotal = colDay+4;
-        colTaxBase  = colDay+5;
-        colTaxAmt   = colDay+6;
-        colTotal    = colDay+7;
-        colCode     = colDay+8;
-      }
+      colDay      = startCol;
+      colMonth    = startCol+1;
+      colSupplier = startCol+2;
+      colInvNo    = startCol+3;
+      colSubtotal = startCol+4;
+      colTaxBase  = startCol+5;
+      colTaxAmt   = startCol+6;
+      colTotal    = startCol+7;
+      colCode     = startCol+8;
+      console.log('Positional start col:', startCol);
     }
+    // If still not found by name, try by header content
+    if(colDay===-1) colDay = headers.findIndex(h2=>h2.trim()==='يوم'||h2.trim()==='day');
+    if(colMonth===-1) colMonth = headers.findIndex(h2=>h2.trim()==='شهر'||h2.trim()==='month');
+    if(colSupplier===-1) colSupplier = headers.findIndex(h2=>h2.includes('مورد')||h2.includes('اسم'));
+    if(colInvNo===-1) colInvNo = headers.findIndex(h2=>h2.includes('رقم')||h2.includes('فاتورة'));
+    if(colSubtotal===-1) colSubtotal = headers.findIndex(h2=>h2.includes('مبلغ')||h2.includes('صافي'));
+    if(colTotal===-1) colTotal = headers.findIndex(h2=>h2.includes('إجمالي')||h2.includes('اجمالي')||h2.includes('total'));
 
     console.log('Detected cols:', {colDay,colMonth,colSupplier,colInvNo,colSubtotal,colTaxAmt,colTotal,colCode,colBranch});
 
