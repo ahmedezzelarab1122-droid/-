@@ -5591,19 +5591,23 @@ async function pickExcelDirect(input){
       if(!dateStr) continue;
 
       const supplier = colSupplier>=0 ? String(row[colSupplier]).trim() : '';
-      const sub = _fixNum(colSubtotal>=0 ? row[colSubtotal] : 0);
+      const rawAmt = _fixNum(colSubtotal>=0 ? row[colSubtotal] : 0);
       const vat = _fixNum(colTaxAmt>=0 ? row[colTaxAmt] : 0);
-      const tot = _fixNum(colTotal>=0 ? row[colTotal] : 0) || sub+vat;
-      if(!tot && !sub) continue; // تخطي بدون مبلغ
+      // لو مفيش عمود إجمالي منفصل، المبلغ هو الإجمالي شامل الضريبة
+      const tot = colTotal>=0 ? (_fixNum(row[colTotal])||rawAmt) : (colTaxAmt>=0 ? rawAmt+vat : rawAmt);
+      const sub = vat>0 ? tot-vat : tot; // الصافي = الإجمالي - الضريبة
+      if(!tot) continue; // تخطي بدون مبلغ
 
       const invNo  = colInvNo>=0 ? String(row[colInvNo]).trim() : '';
       const invCode= colCode>=0  ? String(row[colCode]).trim() : '';
       const branch = colBranch>=0? String(row[colBranch]).trim(): '';
 
-      const inv = {invoiceCode:invCode, invoiceNo:invNo, date:dateStr, supplier, branch,
-        subtotal:sub||tot-vat, taxAmt:vat, total:tot,
+      const inv = {
+        invoiceCode:invCode, invoiceNo:invNo, date:dateStr, supplier, branch,
+        subtotal:sub, taxAmt:vat, total:tot,
         taxRate:sub>0&&vat>0?Math.round(vat/sub*100):0,
-        type:vat>0?'tax':'petty', payMethod:'cash'};
+        type:vat>0?'tax':'petty', payMethod:'cash'
+      };
 
       // Dup check
       const dupKey = _mkDupKey(inv);
