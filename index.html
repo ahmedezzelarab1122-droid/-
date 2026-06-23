@@ -5700,7 +5700,7 @@ async function pickExcelDirect(input){
       console.log('Using positional column detection');
       // Skip empty columns at start, find first col with day-like value (1-31)
       let startCol = 0;
-      for(let i=0;i<headers.length;i++){
+      for(let i=0;i<colHeaders.length;i++){
         const firstDataVal = rows[headerRow+1]?.[i];
         const v = parseFloat(String(firstDataVal||'').replace(/[^0-9.]/g,''));
         if(!isNaN(v) && v>=1 && v<=31 && String(firstDataVal).trim()!==''){
