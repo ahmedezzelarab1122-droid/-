@@ -3054,11 +3054,7 @@ async function saveEntry(){
     }
   }
   if(entry.supplier && entry.total && entry.date){
-    const dup2 = DB.entries.find(e=>
-      normalize(e.supplier)===normalize(entry.supplier) &&
-      Math.abs((e.total||0)-(entry.total||0))<0.1 &&
-      e.date===entry.date
-    );
+    const dup2 = null; // تم دمج هذا الفحص مع الفحص الأول
     if(dup2){
       const dupSup2 = DB.supervisors.find(s=>s.id==dup2.supId)?.name||'مشرف آخر';
       alert('⚠️ فاتورة مكررة! نفس المورد والمبلغ والتاريخ مسجلة مسبقاً عند '+dupSup2); return;
