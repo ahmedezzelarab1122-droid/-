@@ -1760,6 +1760,32 @@ function rCostCenter(){
         </div>`).join('')}
     </div>` : ''}
 
+    <!-- ملخص ربعي مبيعات/مشتريات -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:10px">📊 ملخص المبيعات والمشتريات</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+        ${(()=>{
+          const yr=new Date().getFullYear();
+          const qs=[['Q1 يناير-مارس',yr+'-01-01',yr+'-03-31'],['Q2 أبريل-يونيو',yr+'-04-01',yr+'-06-30'],['Q3 يوليو-سبتمبر',yr+'-07-01',yr+'-09-30'],['Q4 أكتوبر-ديسمبر',yr+'-10-01',yr+'-12-31']];
+          const sal=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+          return qs.map(([ql,qF,qT])=>{
+            const tS=sal.filter(s=>s.date>=qF&&s.date<=qT).reduce((a,s)=>a+(s.total||0),0);
+            const tP=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&e.date>=qF&&e.date<=qT).reduce((a,e)=>a+(e.total||0),0);
+            const diff=tS-tP;
+            const dColor=diff>=0?'#34d399':'#f87171';
+            return '<div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px;border:1px solid rgba(255,255,255,.08)">'
+              +'<div style="font-size:11px;font-weight:700;color:#f5c842;margin-bottom:6px">'+ql+'</div>'
+              +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:rgba(255,255,255,.6)">مبيعات</span><span style="color:#34d399;font-weight:600">'+fmt(tS)+' ﷼</span></div>'
+              +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px"><span style="color:rgba(255,255,255,.6)">مشتريات</span><span style="color:#f87171;font-weight:600">'+fmt(tP)+' ﷼</span></div>'
+              +'<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:6px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;color:rgba(255,255,255,.5)">المستحق</span>'
+              +'<span style="font-size:13px;font-weight:800;color:'+dColor+'">'+(diff>=0?'+':'')+fmt(diff)+' ﷼</span></div>'
+              +'</div>';
+          }).join('');
+        })()}
+      </div>
+      <button onclick="exportQuarterlyPL()" style="width:100%;padding:9px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير المبيعات والمشتريات PDF</button>
+    </div>
+
     <div class="card">
       <div class="ctitle">➕ عقد جديد</div>
       
@@ -1969,6 +1995,57 @@ function rCostCenter(){
   `;
 }
 
+
+function exportQuarterlyPL(){
+  const year = new Date().getFullYear();
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const quarters = [
+    {key:'q0',label:'Q1 — يناير إلى مارس',from:year+'-01-01',to:year+'-03-31'},
+    {key:'q1',label:'Q2 — أبريل إلى يونيو',from:year+'-04-01',to:year+'-06-30'},
+    {key:'q2',label:'Q3 — يوليو إلى سبتمبر',from:year+'-07-01',to:year+'-09-30'},
+    {key:'q3',label:'Q4 — أكتوبر إلى ديسمبر',from:year+'-10-01',to:year+'-12-31'},
+  ];
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  let rows = '';
+  let totalSalesAll=0, totalPurchAll=0;
+  quarters.forEach(q=>{
+    const qSales = sales.filter(s=>s.date>=q.from&&s.date<=q.to);
+    const qPurch = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&e.date>=q.from&&e.date<=q.to);
+    const tS = qSales.reduce((a,s)=>a+(s.total||0),0);
+    const tP = qPurch.reduce((a,e)=>a+(e.total||0),0);
+    const diff = tS - tP;
+    totalSalesAll+=tS; totalPurchAll+=tP;
+    rows += '<tr>'
+      +'<td style="font-weight:700">'+q.label+'</td>'
+      +'<td style="color:#166534;font-weight:700">'+fmt(tS)+' ﷼</td>'
+      +'<td style="color:#D93025;font-weight:700">'+fmt(tP)+' ﷼</td>'
+      +'<td style="font-weight:800;color:'+(diff>=0?'#166534':'#D93025')+'">'+(diff>=0?'+':'')+fmt(diff)+' ﷼</td>'
+      +'</tr>';
+  });
+  const totalDiff = totalSalesAll - totalPurchAll;
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المبيعات والمشتريات</title>'
+    '<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'+
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}'
+    +'h1{font-size:20px;font-weight:900;margin-bottom:4px}'
+    +'table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}'
+    +'th{background:#000;color:#fff;padding:10px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:9px 10px;border:1px solid #ddd}'
+    +'tr:nth-child(even)td{background:#f9f9f9}'
+    +'.total td{background:#000;color:#fff;font-weight:800;font-size:14px}</style></head><body>'
+    +'<h1>تقرير المبيعات والمشتريات</h1>'
+    +'<div style="font-size:12px;color:#555;margin-bottom:16px">شركة كيان وبناء للمقاولات · '+now+' · السنة '+year+'</div>'
+    +'<table>'
+    +'<tr><th>الربع</th><th>إجمالي المبيعات (شامل VAT)</th><th>إجمالي المشتريات (شامل VAT)</th><th>الفرق (المستحق)</th></tr>'
+    +rows
+    +'<tr class="total"><td>الإجمالي السنوي</td><td>'+fmt(totalSalesAll)+' ﷼</td><td>'+fmt(totalPurchAll)+' ﷼</td><td>'+(totalDiff>=0?'+':'')+fmt(totalDiff)+' ﷼</td></tr>'
+    +'</table>'
+    +'<div style="margin-top:20px;padding:14px;border-radius:8px;border:2px solid '+(totalDiff>=0?'#166534':'#D93025')+';text-align:center">'
+    +'<div style="font-size:13px;color:#555;margin-bottom:6px">صافي السنة كاملة</div>'
+    +'<div style="font-size:28px;font-weight:900;color:'+(totalDiff>=0?'#166534':'#D93025')+'">'+(totalDiff>=0?'+':'')+fmt(totalDiff)+' ﷼</div>'
+    +'</div>'
+    +'</body></html>';
+  const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
+}
 
 // ── AI TRANSFER READER ──
 const _trParsed = {};
