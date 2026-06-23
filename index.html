@@ -5442,8 +5442,8 @@ async function pickExcelDirect(input){
 
     const findCol = (...names) => {
       for(const n of names){
-        const idx = headers.findIndex(h2=>String(h2).replace(/\s+/g,'').includes(n.replace(/\s+/g,'')));
-        if(idx>=0) return idx;
+        const found = headers.findIndex(hdr=>String(hdr).trim().includes(n));
+        if(found>=0) return found;
       }
       return -1;
     };
@@ -5485,12 +5485,12 @@ async function pickExcelDirect(input){
       console.log('Positional start col:', startCol);
     }
     // If still not found by name, try by header content
-    if(colDay===-1) colDay = headers.findIndex(h2=>h2.trim()==='يوم'||h2.trim()==='day');
-    if(colMonth===-1) colMonth = headers.findIndex(h2=>h2.trim()==='شهر'||h2.trim()==='month');
-    if(colSupplier===-1) colSupplier = headers.findIndex(h2=>h2.includes('مورد')||h2.includes('اسم'));
-    if(colInvNo===-1) colInvNo = headers.findIndex(h2=>h2.includes('رقم')||h2.includes('فاتورة'));
-    if(colSubtotal===-1) colSubtotal = headers.findIndex(h2=>h2.includes('مبلغ')||h2.includes('صافي'));
-    if(colTotal===-1) colTotal = headers.findIndex(h2=>h2.includes('إجمالي')||h2.includes('اجمالي')||h2.includes('total'));
+    if(colDay===-1) colDay = headers.findIndex(hdr=>hdr.trim()==='يوم'||hdr.trim()==='day');
+    if(colMonth===-1) colMonth = headers.findIndex(hdr=>hdr.trim()==='شهر'||hdr.trim()==='month');
+    if(colSupplier===-1) colSupplier = headers.findIndex(hdr=>hdr.includes('مورد')||hdr.includes('اسم'));
+    if(colInvNo===-1) colInvNo = headers.findIndex(hdr=>hdr.includes('رقم')||hdr.includes('فاتورة'));
+    if(colSubtotal===-1) colSubtotal = headers.findIndex(hdr=>hdr.includes('مبلغ')||hdr.includes('صافي'));
+    if(colTotal===-1) colTotal = headers.findIndex(hdr=>hdr.includes('إجمالي')||hdr.includes('اجمالي')||hdr.includes('total'));
 
     console.log('Detected cols:', {colDay,colMonth,colSupplier,colInvNo,colSubtotal,colTaxAmt,colTotal,colCode,colBranch});
 
