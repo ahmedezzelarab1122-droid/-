@@ -5502,9 +5502,7 @@ async function pickExcelDirect(input){
     // Map column names
     // Print all headers for debugging
     console.log('All headers:', colHeaders);
-    console.log('First data row (headerRow+1):', rows[headerRow+1]);
-    console.log('Second data row (headerRow+2):', rows[headerRow+2]);
-    console.log('colDay='+colDay+' colMonth='+colMonth+' colSupplier='+colSupplier+' colInvNo='+colInvNo+' colSubtotal='+colSubtotal);
+
 
     const findCol = (...names) => {
       for(const n of names){
@@ -5591,10 +5589,7 @@ async function pickExcelDirect(input){
         }
       }
       // Skip rows without valid date or amount
-      if(!dateStr){
-        console.log('Skipped row '+i+' (no date):', JSON.stringify(row.slice(0,10)));
-        continue;
-      }
+      if(!dateStr) continue;
 
       const supplier = colSupplier>=0 ? String(row[colSupplier]).trim() : '';
       const rawAmt = _fixNum(colSubtotal>=0 ? row[colSubtotal] : 0);
