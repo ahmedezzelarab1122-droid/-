@@ -5687,11 +5687,13 @@ async function pickExcelDirect(input){
     let colDay      = findCol('يوم','day');
     let colMonth    = findCol('شهر','month');
     let colSupplier = findCol('مورد','عميل','supplier','client','اسم');
-    let colInvNo    = findCol('رقم','فاتورة','invoice','no');
+    let colInvNo    = findCol('رقم','invoice','no');
+    let colTotal    = findCol('إجمالي','اجمالي','total','مجموع','المبلغ');
     let colSubtotal = findCol('بدون','صافي','subtotal','net','قبل');
-    let colTaxBase  = findCol('بالضريبة','بضريبة','شامل'); // المبلغ بالضريبة
     let colTaxAmt   = findCol('قيمة','ضريبة','vat','tax');
-    let colTotal    = findCol('إجمالي','اجمالي','total','مجموع');
+    let colTaxBase  = findCol('بالضريبة','بضريبة','شامل');
+    let colNotes    = findCol('ملاحظة','ملاحظات','notes','note','بيان');
+    let colType     = findCol('نوع','type');
     let colCode     = findCol('كود','code','serial','مسلسل');
     let colBranch   = findCol('فرع','branch');
 
@@ -5749,17 +5751,16 @@ async function pickExcelDirect(input){
       const row = rows[i];
       if(!row || row.every(c=>c===''||c===null||c===undefined)) continue;
 
-      // Build date from day+month columns (year=2026)
+      // Build date from day+month — السنة دائماً 2026
       let dateStr = '';
-      if(colDay>=0 && colMonth>=0 && row[colDay]!=='' && row[colMonth]!==''){
-        const dayVal   = String(row[colDay]).trim().replace(/[^0-9]/g,'');
-        const monthVal = String(row[colMonth]).trim().replace(/[^0-9]/g,'');
-        if(dayVal && monthVal && parseInt(dayVal)>=1 && parseInt(dayVal)<=31 && parseInt(monthVal)>=1 && parseInt(monthVal)<=12){
+      if(colDay>=0 && colMonth>=0){
+        const dayVal   = String(row[colDay]||'').trim().replace(/[^0-9]/g,'');
+        const monthVal = String(row[colMonth]||'').trim().replace(/[^0-9]/g,'');
+        if(dayVal && monthVal && +dayVal>=1 && +dayVal<=31 && +monthVal>=1 && +monthVal<=12){
           dateStr = '2026-'+monthVal.padStart(2,'0')+'-'+dayVal.padStart(2,'0');
         }
       }
-      // Skip rows without valid date or amount
-      if(!dateStr) continue;
+      if(!dateStr) continue; // تخطي صفوف بدون تاريخ
 
       const supplier = colSupplier>=0 ? String(row[colSupplier]).trim() : '';
       const rawAmt = _fixNum(colSubtotal>=0 ? row[colSubtotal] : 0);
@@ -5773,11 +5774,29 @@ async function pickExcelDirect(input){
       const invCode= colCode>=0  ? String(row[colCode]).trim() : '';
       const branch = colBranch>=0? String(row[colBranch]).trim(): '';
 
+      // استخراج المشروع من الملاحظة
+      const notesVal = colNotes>=0 ? String(row[colNotes]||'').trim() : '';
+      // مطابقة اسم المشروع — لو فاضي → فواتير كل المقاولين
+      const matchedProject = notesVal
+        ? (DB.projects.find(p=>notesVal.includes(p)) || 'فواتير كل المقاولين')
+        : 'فواتير كل المقاولين';
+
+      // استخراج نوع الفاتورة
+      const typeVal = colType>=0 ? String(row[colType]||'').trim() : '';
+      const invType = typeVal.includes('ضريبي')||typeVal.toLowerCase().includes('tax') ? 'tax'
+                    : typeVal.includes('نثري')||typeVal.toLowerCase().includes('petty') ? 'petty'
+                    : typeVal ? 'petty'
+                    // لو النوع فاضي: < 100 نثري، >= 100 ضريبي
+                    : tot < 100 ? 'petty' : 'tax';
+
       const inv = {
-        invoiceCode:invCode, invoiceNo:invNo, date:dateStr, supplier, branch,
+        invoiceCode:invCode, invoiceNo:invNo, date:dateStr,
+        supplier, branch,
+        project: matchedProject,
+        notes: notesVal,
         subtotal:sub, taxAmt:vat, total:tot,
         taxRate:sub>0&&vat>0?Math.round(vat/sub*100):0,
-        type:vat>0?'tax':'petty', payMethod:'cash'
+        type:invType, payMethod:'cash'
       };
 
       // Dup check
@@ -5945,7 +5964,9 @@ async function savePurchBulk(){
     if(_k&&(_saveSet.has(_k)||_seenSave.has(_k))){skipped++;continue;}
     if(_k)_seenSave.add(_k);
     try{
-      const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project,type:inv.type,desc:inv.supplier||'مشتريات',invoiceNo:inv.invoiceNo||null,invoiceCode:inv.invoiceCode||null,supplier:inv.supplier||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true});
+      // استخدم المشروع من الفاتورة لو متاح، وإلا المشروع المختار
+      const entryProject = inv.project || project;
+      const res=await api('/api/entries','POST',{supId,supName:sup?.name||'',project:entryProject,type:inv.type,desc:inv.supplier||'مشتريات',invoiceNo:inv.invoiceNo||null,invoiceCode:inv.invoiceCode||null,supplier:inv.supplier||null,date:inv.date,payMethod:inv.payMethod,subtotal:inv.subtotal,taxRate:inv.taxRate,taxAmt:inv.taxAmt,total:inv.total,historicalEntry:true,notes:inv.notes||null});
       if(res.error)failed++;else added++;
     }catch(e){failed++;}
   }
