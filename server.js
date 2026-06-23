@@ -92,7 +92,7 @@ async function analyzeInvoice(b64, text, isPdf=false) {
     : [{ type: 'text', text: prompt }];
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 64000,
       system: 'You are an expert Saudi accountant. Always return ONLY valid JSON. For single invoice return a JSON object. For bulk/list return {"invoices":[...]}. No explanation, no markdown, no extra text.',
       messages: [{ role: 'user', content }]
@@ -454,7 +454,7 @@ const server = http.createServer(async (req, res) => {
       const prompt = 'هذا إيصال حوالة بنكية أو تحويل مالي. استخرج فقط: المبلغ المحول (total كرقم)، تاريخ التحويل (date بصيغة YYYY-MM-DD)، رقم المرجع (invoiceNo)، اسم البنك (supplier). أخرج JSON نقي فقط.';
       const content = b64 ? (isPdf ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }] : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]) : [{ type: 'text', text: prompt }];
       const result = await new Promise((resolve, reject) => {
-        const body = JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 300, messages: [{ role: 'user', content }] });
+        const body = JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 300, messages: [{ role: 'user', content }] });
         const r2 = https.request({ hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'pdfs-2024-09-25', 'Content-Length': Buffer.byteLength(body) } }, res2 => {
           let data = ''; res2.on('data', d => data += d);
           res2.on('end', () => { try { const json = JSON.parse(data); if (json.error) return reject(new Error(json.error.message)); const raw = json.content.map(x => x.text || '').join(''); const match = raw.match(/\{[\s\S]*\}/); if (!match) return reject(new Error('لم يُستخرج JSON')); const parsed = JSON.parse(match[0]); parsed.total = parseFloat(String(parsed.total || '0').replace(/[^0-9.]/g, '')) || 0; if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0]; resolve(parsed); } catch (e) { reject(e); } });
@@ -471,6 +471,16 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, result);
     } catch (e) {
       console.error('❌ /api/analyze error:', e.message);
+      // Retry once on overload
+      if(e.message && e.message.includes('Overloaded')){
+        try{
+          await new Promise(r=>setTimeout(r,3000));
+          const result2 = await analyzeInvoice(b64||null, text||'', isPdf);
+          return sendJSON(res, result2);
+        }catch(e2){
+          return sendJSON(res, { error: 'السيرفر مشغول — حاول مرة أخرى بعد قليل' }, 503);
+        }
+      }
       return sendJSON(res, { error: e.message }, 500);
     }
   }
