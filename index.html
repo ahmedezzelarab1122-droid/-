@@ -595,46 +595,10 @@ select {
         <div><label class="lbl">المشروع</label><select id="sproj"></select></div>
       </div>
       <div class="err" id="serr"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button class="btn bp" onclick="runAI()">
-          <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          تحليل بالذكاء
-        </button>
-        <button class="btn" onclick="showManualForm()" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)">
-          ✏️ إدخال يدوي
-        </button>
-      </div>
-
-      <!-- فورم الإدخال اليدوي المباشر -->
-      <div id="manual-form" style="display:none;margin-top:10px;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">
-        <div class="fg"><label class="lbl">اسم المورد / الوصف <span style="color:#f87171">*</span></label>
-          <input id="mf-desc" placeholder="مثال: مواد بناء، أكل عمال..."></div>
-        <div class="fg2">
-          <div><label class="lbl">المبلغ الإجمالي <span style="color:#f87171">*</span></label>
-            <input type="number" id="mf-total" placeholder="0.00" oninput="mfCalc()" step="0.01"></div>
-          <div><label class="lbl">نسبة VAT %</label>
-            <input type="number" id="mf-rate" placeholder="0" value="0" oninput="mfCalc()"></div>
-        </div>
-        <div id="mf-summary" style="display:none;padding:6px 10px;background:rgba(245,200,66,.08);border-radius:8px;font-size:11px;display:flex;justify-content:space-between;margin-bottom:8px">
-          <span>قبل الضريبة: <strong id="mf-sub">0</strong> ﷼</span>
-          <span>VAT: <strong id="mf-vat">0</strong> ﷼</span>
-          <span>الإجمالي: <strong id="mf-tot" style="color:#34d399">0</strong> ﷼</span>
-        </div>
-        <div class="fg2">
-          <div><label class="lbl">رقم الفاتورة</label>
-            <input id="mf-invno" placeholder="INV-001 (اختياري)"></div>
-          <div><label class="lbl">التاريخ</label>
-            <input type="date" id="mf-date"></div>
-        </div>
-        <div class="fg"><label class="lbl">النوع</label>
-          <select id="mf-type" style="color:#fff;background:rgba(255,255,255,.08)">
-            <option value="petty">نثرية (بدون ضريبة)</option>
-            <option value="tax">ضريبية (مع ضريبة VAT)</option>
-          </select></div>
-        <button class="btn bp" onclick="saveManualDirect()" style="width:100%;margin-top:4px">
-          💾 حفظ الفاتورة
-        </button>
-      </div>
+      <button class="btn bp" onclick="runAI()">
+        <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        تحليل بالذكاء الاصطناعي
+      </button>
     </div>
     <div class="ldg" id="sldg"><div class="spin"></div><p id="ltxt" style="color:rgba(255,255,255,.85);font-size:13px">جاري التحليل...</p></div>
     <div id="ss2" style="display:none">
@@ -660,26 +624,6 @@ select {
       <div class="fg2">
         <div><label class="lbl">المشرف</label><select id="csup"></select></div>
         <div><label class="lbl">المشروع</label><select id="cproj"></select></div>
-      </div>
-      <!-- حقول الإدخال اليدوي -->
-      <div id="manual-fields" style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">✏️ تعديل أو إدخال يدوي</div>
-        <div class="fg2">
-          <div><label class="lbl" style="font-size:11px">المبلغ قبل الضريبة</label>
-            <input type="number" id="m-subtotal" placeholder="0.00" oninput="updateManual()" step="0.01"></div>
-          <div><label class="lbl" style="font-size:11px">نسبة VAT %</label>
-            <input type="number" id="m-taxrate" placeholder="0" value="0" oninput="updateManual()"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px">
-          <span style="color:rgba(255,255,255,.6)">VAT: <strong id="m-vatamt" style="color:#70B5FF">0.00 ﷼</strong></span>
-          <span style="color:rgba(255,255,255,.6)">الإجمالي: <strong id="m-total" style="color:#34d399">0.00 ﷼</strong></span>
-        </div>
-        <div><label class="lbl" style="font-size:11px">رقم الفاتورة (اختياري)</label>
-          <input type="text" id="m-invno" placeholder="INV-001"></div>
-        <div><label class="lbl" style="font-size:11px">اسم المورد (اختياري)</label>
-          <input type="text" id="m-supplier" placeholder="اسم المورد"></div>
-        <div><label class="lbl" style="font-size:11px">التاريخ</label>
-          <input type="date" id="m-date"></div>
       </div>
       <div class="brow">
         <button class="btn bp" onclick="saveEntry()"><svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>حفظ</button>
@@ -3073,7 +3017,6 @@ async function runAI(){
   }catch(e){
     ldg.style.display='none';
     document.getElementById('ss1').style.display='block';
-  setTimeout(function(){var d=document.getElementById('m-date');if(d&&!d.value)d.value=today();},50);
     err.style.display='block';
     err.textContent='خطأ: '+(e.message||'حاول مرة أخرى');
   }
@@ -3111,44 +3054,7 @@ function setInvoiceType(type){
   }
 }
 
-function updateManual(){
-  const sub = parseFloat(document.getElementById('m-subtotal')?.value)||0;
-  const rate = parseFloat(document.getElementById('m-taxrate')?.value)||0;
-  const vat = sub*rate/100;
-  const tot = sub+vat;
-  const ve = document.getElementById('m-vatamt');
-  const te = document.getElementById('m-total');
-  if(ve) ve.textContent = fmt(vat)+' ﷼';
-  if(te) te.textContent = fmt(tot)+' ﷼';
-  // Update parsed with manual values if entered
-  if(sub>0){
-    parsed.subtotal = sub;
-    parsed.taxRate  = rate;
-    parsed.taxAmt   = vat;
-    parsed.total    = tot;
-  }
-  const invno = document.getElementById('m-invno')?.value.trim();
-  const supp  = document.getElementById('m-supplier')?.value.trim();
-  const date  = document.getElementById('m-date')?.value;
-  if(invno) parsed.invoiceNo = invno;
-  if(supp)  parsed.supplier  = supp;
-  if(date)  parsed.date      = date;
-}
 
-function initManualFields(){
-  // Pre-fill manual fields with parsed values if available
-  const sub = document.getElementById('m-subtotal');
-  const rate = document.getElementById('m-taxrate');
-  const invno = document.getElementById('m-invno');
-  const supp = document.getElementById('m-supplier');
-  const date = document.getElementById('m-date');
-  if(sub && parsed.subtotal) sub.value = parsed.subtotal;
-  if(rate && parsed.taxRate) rate.value = parsed.taxRate;
-  if(invno && parsed.invoiceNo) invno.value = parsed.invoiceNo;
-  if(supp && parsed.supplier) supp.value = parsed.supplier;
-  if(date) date.value = parsed.date || today();
-  updateManual();
-}
 
 function showResult(){
   // ── Quality check — only if image was uploaded ──
@@ -3160,7 +3066,6 @@ function showResult(){
 
     if(!qualityOk){
       document.getElementById('ss1').style.display='block';
-  setTimeout(function(){var d=document.getElementById('m-date');if(d&&!d.value)d.value=today();},50);
       const err = document.getElementById('serr');
       err.style.display='block';
       let missing = [];
@@ -3177,7 +3082,6 @@ function showResult(){
     const todayStr = today();
     if(parsed.date && parsed.date !== todayStr){
       document.getElementById('ss1').style.display='block';
-  setTimeout(function(){var d=document.getElementById('m-date');if(d&&!d.value)d.value=today();},50);
       const err = document.getElementById('serr');
       err.style.display='block';
       err.textContent='⚠️ لا يمكن قبول الفاتورة — تاريخ الفاتورة ('+parsed.date+') لا يطابق تاريخ اليوم ('+todayStr+') — يُسمح فقط بفواتير تاريخ اليوم';
@@ -3240,23 +3144,7 @@ async function saveEntry(){
     }
   }
   // تطبيق الحقول اليدوية
-  const mSub  = parseFloat(document.getElementById('m-subtotal')?.value)||0;
-  const mRate = parseFloat(document.getElementById('m-taxrate')?.value)||0;
-  const mVat  = mSub*mRate/100;
-  const mTot  = mSub+mVat;
-  const mInv  = document.getElementById('m-invno')?.value.trim()||'';
-  const mSupp = document.getElementById('m-supplier')?.value.trim()||'';
-  const mDate = document.getElementById('m-date')?.value||'';
-  if(mSub>0){ parsed.subtotal=mSub; parsed.taxRate=mRate; parsed.taxAmt=mVat; parsed.total=mTot; }
-  if(mInv)  parsed.invoiceNo=mInv;
-  if(mSupp) parsed.supplier=mSupp;
-  if(mDate) parsed.date=mDate;
-  // التحقق من المبلغ
-  if(!parsed.total && !parsed.subtotal){
-    const err=document.getElementById('serr');
-    if(err){err.style.display='block';err.textContent='⚠️ يرجى إدخال المبلغ في حقل المبلغ';}
-    return;
-  }
+  
   const supName=DB.supervisors.find(s=>s.id==supId)?.name||'';
   const uploadTs = new Date().toISOString();
   const entry={supId,supName,project,type:parsed.type||'petty',desc:parsed.desc||'فاتورة',supplier:parsed.supplier||'',invoiceNo:parsed.invoiceNo||'',date:parsed.date||today(),payMethod:parsed.payMethod||'cash',subtotal:parsed.subtotal||0,taxRate:parsed.taxRate||0,taxAmt:parsed.taxAmt||0,total:parsed.total||parsed.subtotal||0,items:parsed.items||[],uploadedAt:uploadTs};
@@ -3368,7 +3256,6 @@ function resetScan(){
   document.getElementById('serr').style.display='none';
   document.getElementById('icard').style.display='none';
   document.getElementById('ss1').style.display='block';
-  setTimeout(function(){var d=document.getElementById('m-date');if(d&&!d.value)d.value=today();},50);
   document.getElementById('ss2').style.display='none';
   document.getElementById('sldg').style.display='none';
   document.getElementById('sdone').style.display='none';
