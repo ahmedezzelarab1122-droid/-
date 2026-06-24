@@ -648,6 +648,7 @@ select {
 const COLORS=['#b8860b','#1d4ed8','#9333ea','#0a7c5c','#dc2626','#0891b2'];
 let DB={supervisors:[],projects:[],entries:[]};
 let CU=null,ROLE=null,SR=null;
+let _tbFrom='',_tbTo='';
 let imgB64=null,imgSrc=null,parsed=null,fType='all';
 
 const SERVER='https://ahmed-ezz.onrender.com';
@@ -6238,7 +6239,6 @@ function exportPurchPDF(){
 }
 
 // ── TRIAL BALANCE ──
-let _tbFrom='', _tbTo='';
 function getQuarterDates(q,year){
   var s=['01-01','04-01','07-01','10-01'],e=['03-31','06-30','09-30','12-31'];
   return{from:year+'-'+s[q],to:year+'-'+e[q]};
