@@ -6061,20 +6061,126 @@ async function savePurchBulk(){
   rPurchases();
 }
 
+
+function editPurchEntry(entryId){
+  const e = DB.entries.find(x=>x.id===entryId);
+  if(!e){alert('لم يتم العثور على الفاتورة');return;}
+  const supOpts = DB.supervisors.map(s=>`<option value="${s.id}" ${s.id==e.supId?'selected':''}>${s.name}</option>`).join('');
+  const projOpts = DB.projects.map(p=>`<option ${p===e.project?'selected':''}>${p}</option>`).join('');
+
+  // Remove existing modal
+  const old = document.getElementById('edit-modal');
+  if(old) old.remove();
+
+  const m = document.createElement('div');
+  m.id = 'edit-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = `
+    <div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:700;color:#f5c842">✏️ تعديل الفاتورة</div>
+        <button onclick="document.getElementById('edit-modal').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button>
+      </div>
+      <div class="fg"><label class="lbl">الوصف / المورد</label>
+        <input id="ed-desc" value="${e.desc||e.supplier||''}"></div>
+      <div class="fg"><label class="lbl">رقم الفاتورة</label>
+        <input id="ed-invno" value="${e.invoiceNo||''}"></div>
+      <div class="fg2">
+        <div><label class="lbl">التاريخ</label>
+          <input type="date" id="ed-date" value="${e.date||''}"></div>
+        <div><label class="lbl">النوع</label>
+          <select id="ed-type" style="color:#fff;background:rgba(255,255,255,.08)">
+            <option value="petty" ${e.type==='petty'?'selected':''}>نثرية</option>
+            <option value="tax" ${e.type==='tax'?'selected':''}>ضريبية</option>
+          </select></div>
+      </div>
+      <div class="fg"><label class="lbl">المشرف</label>
+        <select id="ed-sup" style="color:#fff;background:rgba(255,255,255,.08)">${supOpts}</select></div>
+      <div class="fg"><label class="lbl">المشروع</label>
+        <select id="ed-proj" style="color:#fff;background:rgba(255,255,255,.08)">${projOpts}</select></div>
+      <div class="fg2">
+        <div><label class="lbl">المبلغ قبل الضريبة</label>
+          <input type="number" id="ed-sub" value="${e.subtotal||0}" oninput="calcEditVat()"></div>
+        <div><label class="lbl">نسبة VAT %</label>
+          <input type="number" id="ed-rate" value="${e.taxRate||0}" oninput="calcEditVat()"></div>
+      </div>
+      <div style="padding:8px 12px;background:rgba(248,113,113,.08);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between">
+        <span>VAT: <strong id="ed-vatamt" style="color:#70B5FF">${fmt(e.taxAmt||0)} ﷼</strong></span>
+        <span>الإجمالي: <strong id="ed-total" style="color:#f87171">${fmt(e.total||0)} ﷼</strong></span>
+      </div>
+      <div class="err" id="ed-err" style="display:none"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="savePurchEdit(${entryId})" style="flex:1;padding:11px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 حفظ التعديل</button>
+        <button onclick="document.getElementById('edit-modal').remove()" style="padding:11px 14px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+function calcEditVat(){
+  const sub  = parseFloat(document.getElementById('ed-sub')?.value)||0;
+  const rate = parseFloat(document.getElementById('ed-rate')?.value)||0;
+  const vat  = sub*rate/100;
+  const tot  = sub+vat;
+  const ve = document.getElementById('ed-vatamt');
+  const te = document.getElementById('ed-total');
+  if(ve) ve.textContent = fmt(vat)+' ﷼';
+  if(te) te.textContent = fmt(tot)+' ﷼';
+}
+
+async function savePurchEdit(entryId){
+  const desc    = document.getElementById('ed-desc')?.value.trim();
+  const invNo   = document.getElementById('ed-invno')?.value.trim();
+  const date    = document.getElementById('ed-date')?.value;
+  const type    = document.getElementById('ed-type')?.value;
+  const supId   = parseInt(document.getElementById('ed-sup')?.value);
+  const project = document.getElementById('ed-proj')?.value;
+  const sub     = parseFloat(document.getElementById('ed-sub')?.value)||0;
+  const rate    = parseFloat(document.getElementById('ed-rate')?.value)||0;
+  const vat     = sub*rate/100;
+  const tot     = sub+vat;
+  const err     = document.getElementById('ed-err');
+  const sup     = DB.supervisors.find(s=>s.id===supId);
+
+  if(!date||!sub){
+    err.style.display='block';
+    err.textContent='⚠️ التاريخ والمبلغ مطلوبان';
+    return;
+  }
+
+  try{
+    const res = await api('/api/entries/'+entryId,'PATCH',{
+      desc, invoiceNo:invNo||null, date, type,
+      supId, supName:sup?.name||'', project,
+      subtotal:sub, taxRate:rate, taxAmt:vat, total:tot
+    });
+    if(res.error) throw new Error(res.error);
+    DB = await api('/api/db');
+    document.getElementById('edit-modal').remove();
+    rPurchases();
+  }catch(e){
+    err.style.display='block';
+    err.textContent='❌ '+e.message;
+  }
+}
+
 function renderPurchList(entries, filter='all'){
   const filtered=filter==='all'?entries:entries.filter(e=>e.type===filter);
   if(!filtered.length)return '<div class="empty">لا توجد نتائج</div>';
   return filtered.slice().sort((a,b)=>b.id-a.id).map(e=>`
     <div class="card" style="padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
+        <div style="flex:1">
           <div style="font-size:13px;font-weight:700">${e.desc||e.supplier||'—'}</div>
           <div style="font-size:11px;color:rgba(255,255,255,.5)">${e.invoiceNo?e.invoiceNo+' · ':''}${e.date||''} · ${e.supName||''} · ${e.project||''}</div>
           <span style="font-size:10px;background:rgba(${e.type==='tax'?'112,181,255':'255,255,255'},.1);color:${e.type==='tax'?'#70B5FF':'rgba(255,255,255,.5)'};padding:2px 7px;border-radius:99px">${e.type==='tax'?'ضريبية':'نثرية'}</span>
         </div>
-        <div style="text-align:left;flex-shrink:0">
-          <div style="font-size:15px;font-weight:800;color:#f87171">${fmt(e.total)} ﷼</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.5)">VAT: ${fmt(e.taxAmt||0)} ﷼</div>
+        <div style="text-align:left;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#f87171">${fmt(e.total)} ﷼</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5)">VAT: ${fmt(e.taxAmt||0)} ﷼</div>
+          </div>
+          ${ROLE==='manager'?`<button onclick="editPurchEntry(${e.id})" style="padding:4px 10px;border:1px solid rgba(245,200,66,.4);border-radius:7px;background:rgba(245,200,66,.1);color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">✏️ تعديل</button>`:''}
         </div>
       </div>
     </div>`).join('');
