@@ -5501,8 +5501,6 @@ let _purchSingleB64 = null;
 let _purchBulkParsed = [];
 
 function rPurchases(){
-  const supOpts = DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-  const projOpts = DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('');
   const purchases = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
   const totalPurch = purchases.reduce((a,e)=>a+(e.total||0),0);
   const totalVat   = purchases.reduce((a,e)=>a+(e.taxAmt||0),0);
@@ -5536,101 +5534,7 @@ function rPurchases(){
       </button>
     </div>
 
-    <div class="card">
-      <div class="ctitle">➕ إضافة فاتورة مشتريات</div>
-
-      <!-- Mode selector - same as sales -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <button onclick="setPurchMode('single')" id="pmode-single"
-          style="padding:10px;border:2px solid rgba(245,200,66,.4);border-radius:10px;background:rgba(245,200,66,.15);color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:700;font-size:12px">
-          🧾 فاتورة واحدة
-        </button>
-        <button onclick="setPurchMode('bulk')" id="pmode-bulk"
-          style="padding:10px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:12px">
-          📊 تقرير مجمع
-        </button>
-      </div>
-
-      <!-- Single invoice mode -->
-      <div id="purch-single-mode">
-        <div class="drop" onclick="document.getElementById('purch-file').click()" style="cursor:pointer;padding:14px">
-          <div style="font-size:26px;margin-bottom:4px" id="purch-icon">📷</div>
-          <div id="purch-txt" style="font-size:12px;color:rgba(255,255,255,.5)">ارفع صورة أو PDF للفاتورة</div>
-        </div>
-        <input type="file" id="purch-file" accept="image/*,.pdf" style="display:none" onchange="pickPurchSingleFile(this)">
-        <div id="purch-ai-status" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px;font-size:12px;color:#f5c842"></div>
-      </div>
-
-      <!-- Bulk mode -->
-      <div id="purch-bulk-mode" style="display:none">
-        <div style="background:rgba(112,181,255,.08);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#70B5FF;border-right:3px solid #70B5FF">
-          ارفع تقرير Excel أو PDF يحتوي على قائمة فواتير — الذكاء يستخرج كل فاتورة منفردة
-        </div>
-        <!-- Excel مباشر بدون AI -->
-        <div style="background:rgba(52,211,153,.08);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#34d399;border-right:3px solid #34d399">
-          📊 ملف Excel كبير (+100 فاتورة)؟ استخدم الرفع المباشر بدون AI — أسرع وأدق
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-          <div class="drop" onclick="document.getElementById('purch-excel-file').click()" style="cursor:pointer;padding:14px;border-color:rgba(52,211,153,.4)">
-            <div style="font-size:24px;margin-bottom:4px">📗</div>
-            <div style="font-size:11px;color:#34d399;font-weight:700">Excel مباشر</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.4)">بدون AI — سريع</div>
-          </div>
-          <div class="drop" onclick="document.getElementById('purch-bulk-file').click()" style="cursor:pointer;padding:14px;border-color:rgba(248,113,113,.4)">
-            <div style="font-size:24px;margin-bottom:4px" id="pb-icon">🤖</div>
-            <div style="font-size:11px;color:#f87171;font-weight:700">AI يقرأ</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.4)">PDF أو صورة</div>
-          </div>
-        </div>
-        <div id="pb-txt" style="display:none"></div>
-        <input type="file" id="purch-excel-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="pickExcelDirect(this)">
-        <input type="file" id="purch-bulk-file" accept="image/*,.pdf" style="display:none" onchange="pickPurchBulkFile(this)">
-        <div id="pb-status" style="display:none;margin-top:8px"></div>
-        <div id="pb-preview" style="display:none;margin-top:10px"></div>
-        <button id="pb-save-btn" onclick="savePurchBulk()"
-          style="display:none;width:100%;margin-top:10px;padding:11px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
-          ✅ حفظ كل الفواتير
-        </button>
-      </div>
-
-      <!-- Divider -->
-      <div style="display:flex;align-items:center;gap:8px;margin:10px 0">
-        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
-        <span style="font-size:10px;color:rgba(255,255,255,.3)">أو أدخل يدوياً</span>
-        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
-      </div>
-
-      <!-- Manual entry - with sup/proj selectors -->
-      <div class="fg2">
-        <div><label class="lbl">المشرف</label><select id="p-sup" style="color:#fff;background:rgba(255,255,255,.08)"><option value="">-- اختر --</option>${supOpts}</select></div>
-        <div><label class="lbl">المشروع</label><select id="p-proj" style="color:#fff;background:rgba(255,255,255,.08)"><option value="">-- اختر --</option>${projOpts}</select></div>
-      </div>
-      <div class="fg2">
-        <div><label class="lbl">التاريخ</label><input type="date" id="p-date" value="${today()}"></div>
-        <div><label class="lbl">النوع</label>
-          <select id="p-type" style="color:#fff;background:rgba(255,255,255,.08)">
-            <option value="petty">نثرية</option>
-            <option value="tax">ضريبية</option>
-          </select>
-        </div>
-      </div>
-      <div class="fg"><label class="lbl">اسم المورد / الوصف</label><input id="p-desc" placeholder="اسم المورد أو وصف المشتريات"></div>
-      <div class="fg"><label class="lbl">رقم الفاتورة</label><input id="p-invno" placeholder="INV-001"></div>
-      <div class="fg2">
-        <div><label class="lbl">المبلغ قبل الضريبة</label><input type="number" id="p-sub" placeholder="0.00" oninput="calcPurchVat()"></div>
-        <div><label class="lbl">نسبة VAT %</label><input type="number" id="p-taxrate" value="0" placeholder="0" oninput="calcPurchVat()"></div>
-      </div>
-      <div style="padding:8px 12px;background:rgba(248,113,113,.08);border-radius:8px;margin-bottom:10px;font-size:12px;display:flex;justify-content:space-between">
-        <span>VAT: <strong id="p-vatamt" style="color:#70B5FF">0.00 ﷼</strong></span>
-        <span>الإجمالي: <strong id="p-total-disp" style="color:#f87171">0.00 ﷼</strong></span>
-      </div>
-      <div class="err" id="p-err" style="display:none"></div>
-      <button class="btn bp" onclick="savePurchSingle()" style="background:rgba(248,113,113,.2);border-color:rgba(248,113,113,.4);color:#f87171">💾 إضافة على المصروفات</button>
-    </div>
-
-    <!-- List -->
-    ${purchases.length===0?'<div class="empty">لا توجد مشتريات بعد</div>':`
-    <div class="shdr">📋 فواتير المشتريات</div>
+    ${purchases.length===0?'<div class="empty">لا توجد فواتير مشتريات</div>':`
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button onclick="filterPurch('all',this)" class="ftab on">الكل (${purchases.length})</button>
       <button onclick="filterPurch('petty',this)" class="ftab">نثرية</button>
@@ -5638,12 +5542,13 @@ function rPurchases(){
     </div>
     <div id="purch-list">${renderPurchList(purchases,'all')}</div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button onclick="openPurchReport()" style="flex:1;padding:12px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تقرير PDF</button>
-      <button onclick="deleteHistoricalPurchases()" style="padding:12px 14px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif" title="حذف المشتريات المضافة يدوياً فقط">🗑️</button>
+      <button onclick="exportPurchPDF()" style="flex:1;padding:12px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير PDF</button>
+      <button onclick="deleteHistoricalPurchases()" style="padding:12px 14px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif" title="حذف المشتريات المضافة يدوياً">🗑️</button>
     </div>
     `}
   `;
 }
+
 
 function setPurchMode(mode){
   document.getElementById('purch-single-mode').style.display=mode==='single'?'block':'none';
