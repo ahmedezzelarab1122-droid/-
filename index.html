@@ -6255,10 +6255,142 @@ function _renderTrialBalance(){
     +'<strong style="font-size:18px;color:'+(vatDue>=0?'#f87171':'#34d399')+'">'+fmt(Math.abs(vatDue))+' ﷼</strong></div></div>'
 
     // تصدير
-    +'<div style="display:flex;gap:8px">'
-    +'<button onclick="exportTrialBalancePDF()" style="flex:1;padding:11px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">📄 تصدير PDF</button>'
+    +'<div style="display:flex;gap:8px;margin-bottom:10px">'
+    +'<button onclick="exportTrialBalancePDF()" style="flex:1;padding:11px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">📄 ميزان المراجعة</button>'
     +'<button onclick="exportVatReturn()" style="flex:1;padding:11px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">🧾 إقرار VAT</button>'
-    +'</div>';
+    +'</div>'
+    // أزرار التقارير التفصيلية للأرباع
+    +'<div style="margin-top:2px"><div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:6px;font-weight:600">📋 تقارير تفصيلية للأرباع — اضغط لتحميل PDF</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
+    +_buildQuarterBtns()
+    +'</div></div>';
+}
+
+
+function _buildQuarterBtns(){
+  var yr=new Date().getFullYear();
+  var qs=[['Q1',yr+'-01-01',yr+'-03-31'],['Q2',yr+'-04-01',yr+'-06-30'],['Q3',yr+'-07-01',yr+'-09-30'],['Q4',yr+'-10-01',yr+'-12-31']];
+  var sal=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  return qs.map(function(q,i){
+    var qS=filterByDate(sal,q[1],q[2]);
+    var qP=filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}),q[1],q[2]);
+    var tS=qS.reduce(function(a,s){return a+(s.total||0);},0);
+    var tP=qP.reduce(function(a,e){return a+(e.total||0);},0);
+    var diff=tS-tP;
+    var hasData=tS>0||tP>0;
+    return '<button onclick="_exportQ('+i+')"'
+      +' style="padding:10px 8px;border:1px solid rgba(255,255,255,'+(hasData?'.2':'.08')+');border-radius:8px;background:rgba(255,255,255,'+(hasData?'.06':'.02')+');color:rgba(255,255,255,'+(hasData?'.9':'.4')+');cursor:pointer;font-family:Tajawal,sans-serif;font-size:11px;text-align:right">'
+      +'<div style="font-weight:700;color:#f5c842;margin-bottom:4px">'+q[0]+' '+yr+'</div>'
+      +(hasData
+        ?'<div style="color:#34d399;font-size:10px">مبيعات: '+fmt(tS)+' ﷼</div>'
+         +'<div style="color:#f87171;font-size:10px">مشتريات: '+fmt(tP)+' ﷼</div>'
+         +'<div style="font-size:10px;font-weight:700;color:'+(diff>=0?'#34d399':'#f87171')+'">فرق: '+(diff>=0?'+':'')+fmt(diff)+' ﷼</div>'
+        :'<div style="font-size:10px">لا توجد بيانات</div>')
+      +'</button>';
+  }).join('');
+}
+function _exportQ(i){
+  var yr=new Date().getFullYear();
+  var qs=[['Q1',yr+'-01-01',yr+'-03-31'],['Q2',yr+'-04-01',yr+'-06-30'],['Q3',yr+'-07-01',yr+'-09-30'],['Q4',yr+'-10-01',yr+'-12-31']];
+  var q=qs[i];
+  exportQuarterDetail(q[1],q[2],q[0]);
+}
+
+function exportQuarterDetail(from, to, qLabel){
+  var sales    = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  var salesRet = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  var fS   = filterByDate(sales, from, to);
+  var fSR  = filterByDate(salesRet, from, to);
+  var fP   = filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}), from, to);
+  var fPet = filterByDate(DB.entries.filter(function(e){return e.type==='petty'&&!e.rejected;}), from, to);
+  var tS   = fS.reduce(function(a,s){return a+(s.total||0);},0);
+  var tSR  = fSR.reduce(function(a,r){return a+(r.total||0);},0);
+  var tP   = fP.reduce(function(a,e){return a+(e.total||0);},0);
+  var tPet = fPet.reduce(function(a,e){return a+(e.total||0);},0);
+  var netS = tS-tSR;
+  var diff = netS-tP;
+  var vatS = fS.reduce(function(a,s){return a+(s.taxAmt||0);},0)-fSR.reduce(function(a,r){return a+(r.taxAmt||0);},0);
+  var vatP = fP.reduce(function(a,e){return a+(e.taxAmt||0);},0);
+  var vatDue = vatS-vatP;
+  var now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  var pl = {cash:'كاش',transfer:'تحويل',deferred:'آجل'};
+  var yr = new Date().getFullYear();
+
+  function tbl(title, color, bg, rows, headers, totRow){
+    if(!rows.length) return '';
+    return '<h2 style="background:'+bg+';color:'+color+';padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">'+title+' ('+rows.length+')</h2>'
+      +'<table><tr>'+headers.map(function(h2){return'<th>'+h2+'</th>';}).join('')+'</tr>'
+      +rows+'<tr class="tr">'+totRow+'</tr></table>';
+  }
+
+  var html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير '+qLabel+' '+yr+'</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:20px;font-size:11px}'
+    +'h1{font-size:18px;font-weight:900;margin-bottom:2px}h2{font-size:12px;font-weight:800}'
+    +'.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}'
+    +'.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:7px;text-align:center}'
+    +'.bl{font-size:9px;color:#555;margin-bottom:2px}.bv{font-size:13px;font-weight:800}'
+    +'table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px}'
+    +'th{background:#000;color:#fff;padding:5px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:4px 5px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}'
+    +'.tr td{background:#111;color:#fff;font-weight:800}'
+    +'.diff{padding:10px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body>'
+
+    +'<h1>تقرير '+qLabel+' '+yr+' التفصيلي</h1>'
+    +'<div style="font-size:11px;color:#555;margin-bottom:10px">شركة كيان وبناء للمقاولات · '+now+' · '+from+' ← '+to+'</div>'
+
+    +'<div class="sum">'
+    +'<div class="box"><div class="bl">صافي المبيعات</div><div class="bv" style="color:#166534">'+fmt(netS)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">المشتريات (ضريبية)</div><div class="bv" style="color:#D93025">'+fmt(tP)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">الفرق</div><div class="bv" style="color:'+(diff>=0?'#166534':'#D93025')+'">'+(diff>=0?'+':'')+fmt(diff)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">VAT للهيئة</div><div class="bv" style="color:#1d4ed8">'+fmt(Math.abs(vatDue))+' ﷼</div></div>'
+    +'</div>'
+
+    // مبيعات
+    +tbl('📈 فواتير المبيعات','#166534','#dcfce7',
+      fS.sort(function(a,b){return a.date.localeCompare(b.date);}).map(function(s){
+        return'<tr><td>'+s.date+'</td><td>'+(s.invoiceNo||'—')+'</td><td>'+(s.client||'—')+'</td><td>'+(pl[s.payMethod]||'—')+'</td><td>'+fmt(s.subtotal)+'</td><td>'+fmt(s.taxAmt)+'</td><td style="font-weight:700;color:#166534">'+fmt(s.total)+' ﷼</td></tr>';
+      }).join(''),
+      ['التاريخ','رقم الفاتورة','العميل','الدفع','صافي','VAT','الإجمالي'],
+      '<td colspan="4">الإجمالي</td><td>'+fmt(fS.reduce(function(a,s){return a+(s.subtotal||0);},0))+'</td><td>'+fmt(fS.reduce(function(a,s){return a+(s.taxAmt||0);},0))+'</td><td>'+fmt(tS)+' ﷼</td>'
+    )
+
+    // مرتجعات مبيعات
+    +(fSR.length?'<h2 style="background:#fee2e2;color:#991b1b;padding:5px 8px;border-radius:4px;font-size:12px;margin:14px 0 6px">↩️ مرتجعات المبيعات ('+fSR.length+')</h2>'
+    +'<table><tr><th>التاريخ</th><th>رقم المرتجع</th><th>العميل</th><th>الإجمالي</th></tr>'
+    +fSR.map(function(r){return'<tr><td>'+r.date+'</td><td>'+(r.invoiceNo||'—')+'</td><td>'+(r.client||'—')+'</td><td style="color:#D93025;font-weight:700">-'+fmt(r.total)+' ﷼</td></tr>';}).join('')
+    +'<tr class="tr"><td colspan="3">إجمالي المرتجعات</td><td>-'+fmt(tSR)+' ﷼</td></tr></table>':'')
+
+    // مشتريات ضريبية
+    +tbl('📉 المشتريات الضريبية','#991b1b','#fee2e2',
+      fP.sort(function(a,b){return(a.date||'').localeCompare(b.date||'');}).map(function(e){
+        return'<tr><td>'+(e.date||'—')+'</td><td>'+(e.supplier||e.desc||'—')+'</td><td>'+(e.invoiceNo||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td><td>'+fmt(e.subtotal||0)+'</td><td>'+fmt(e.taxAmt||0)+'</td><td style="font-weight:700;color:#D93025">'+fmt(e.total)+' ﷼</td></tr>';
+      }).join(''),
+      ['التاريخ','المورد','رقم الفاتورة','المشرف','المشروع','صافي','VAT','الإجمالي'],
+      '<td colspan="5">الإجمالي</td><td>'+fmt(fP.reduce(function(a,e){return a+(e.subtotal||0);},0))+'</td><td>'+fmt(vatP)+'</td><td>'+fmt(tP)+' ﷼</td>'
+    )
+
+    // مشتريات نثرية
+    +(fPet.length?tbl('📋 المشتريات النثرية (معلومات)','#0369a1','#f0f9ff',
+      fPet.sort(function(a,b){return(a.date||'').localeCompare(b.date||'');}).map(function(e){
+        return'<tr><td>'+(e.date||'—')+'</td><td>'+(e.desc||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td><td>'+fmt(e.total)+' ﷼</td></tr>';
+      }).join(''),
+      ['التاريخ','الوصف','المشرف','المشروع','الإجمالي'],
+      '<td colspan="4">الإجمالي النثري (غير محسوب في الفرق)</td><td>'+fmt(tPet)+' ﷼</td>'
+    ):'')
+
+    // الفرق
+    +'<div class="diff" style="background:'+(diff>=0?'#dcfce7':'#fee2e2')+';border-color:'+(diff>=0?'#166534':'#D93025')+'">'
+    +'<div style="font-size:11px;color:#555;margin-bottom:4px">صافي المبيعات '+fmt(netS)+' ← المشتريات الضريبية '+fmt(tP)+' = الفرق</div>'
+    +'<div style="font-size:22px;font-weight:900;color:'+(diff>=0?'#166534':'#D93025')+'">'+(diff>=0?'+':'')+fmt(diff)+' ﷼</div>'
+    +'<div style="font-size:10px;margin-top:4px;color:#666">VAT '+(vatDue>=0?'مستحقة للهيئة':'مسترجعة')+': '+fmt(Math.abs(vatDue))+' ﷼</div>'
+    +'</div>'
+    +'</body></html>';
+
+  var w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(function(){w.print();},700);
 }
 
 
