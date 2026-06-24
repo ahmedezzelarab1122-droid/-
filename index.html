@@ -2312,7 +2312,6 @@ ${c.payments?.length?`
 }
 
 
-
 function deletePayment(contractId, idx){
   if(!confirm('حذف هذه الدفعة؟')) return;
   const cs=getContracts();
@@ -3262,31 +3261,7 @@ function resetScan(){
 }
 
 
-
-function hideAddBudget(){
-  document.getElementById('add-budget-form').style.display = 'none';
-  currentBudgetSupId = null;
-}
-
-async function doAddBudget(){
-  const amt = parseFloat(document.getElementById('ab-amount').value);
-  const err = document.getElementById('ab-err');
-  if(!amt || amt <= 0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
-  err.style.display='none';
-  try{
-    const res = await api('/api/supervisors/'+_budgetSupId+'/budget','POST',{amount:amt});
-    if(res.error){err.style.display='block';err.textContent=res.error;return;}
-    DB = await api('/api/db');
-    document.getElementById('add-budget-form').style.display='none';
-    rSetup();
-    // Show success
-    const ok = document.createElement('div');
-    ok.className='ok';ok.style.marginTop='8px';
-    ok.innerHTML=`<svg width="15" height="15" fill="none" stroke="var(--primary)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>تم إضافة ${fmt(amt)} ﷼`;
-    document.querySelector('#mc .card').appendChild(ok);
-    setTimeout(()=>ok.remove(),2500);
-  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
-}
+async 
 
 // ── ADD BUDGET ─────────────────────────
 let _budgetSupId=null;
@@ -3474,7 +3449,6 @@ async function doSTransfer(){
     err.style.display='block';err.textContent='خطأ في الاتصال';
   }
 }
-
 
 
 // ── LABOR REPORT ───────────────────────
@@ -3917,7 +3891,6 @@ async function deleteWorker(id){
 let waitExtCount = 0;
 
 
-
 function buildSupWorkersList(workers){
   if(!workers||!workers.length) return '<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px">لم يُضف عمال من المدير بعد</div>';
   const registered = getRegisteredToday();
@@ -4262,9 +4235,9 @@ function rOwnerLabor(){
   const allLabor=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').slice().reverse();
   const fromDate=window._laborFrom||'';
   const toDate=window._laborTo||'';
-  console.log('Labor filter:', fromDate, '->', toDate, 'total entries:', allLabor.length);
+  
   const laborEntries=fromDate||toDate ? allLabor.filter(e=>(!fromDate||e.date>=fromDate)&&(!toDate||e.date<=toDate)) : allLabor;
-  console.log('After filter:', laborEntries.length, 'entries');
+  
   const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
   const totalComp=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
   const totalExt=laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
@@ -4291,7 +4264,6 @@ function rOwnerLabor(){
     </div>
     ${buildLaborTable(laborEntries, window._laborFrom||'', window._laborTo||'')}`;
 }
-
 
 
 // ── PDF EXPORT ─────────────────────────
@@ -5744,15 +5716,15 @@ async function pickExcelDirect(input){
       const score = r.reduce((acc,cell)=>acc+(keywords.some(k=>cell.includes(k))?1:0),0);
       if(score>bestScore){bestScore=score;headerRow=i;}
     }
-    console.log('Header row detected at index:', headerRow, 'score:', bestScore);
-    console.log('Header values:', rows[headerRow]);
+    
+    
 
     const colHeaders = rows[headerRow].map(c=>String(c).trim().toLowerCase());
-    console.log('Headers:', colHeaders);
+    
 
     // Map column names
     // Print all headers for debugging
-    console.log('All headers:', colHeaders);
+    
 
 
     const findCol = (...names) => {
@@ -5780,7 +5752,7 @@ async function pickExcelDirect(input){
 
     // Fallback: positional detection
     if(colDay===-1 && colMonth===-1 && colSupplier===-1){
-      console.log('Using positional column detection');
+      
       // Skip empty columns at start, find first col with day-like value (1-31)
       let startCol = 0;
       for(let i=0;i<colHeaders.length;i++){
@@ -5799,7 +5771,7 @@ async function pickExcelDirect(input){
       colTaxAmt   = startCol+6;
       colTotal    = startCol+7;
       colCode     = startCol+8;
-      console.log('Positional start col:', startCol);
+      
     }
     // If still not found by name, try by header content
     if(colDay===-1) colDay = colHeaders.findIndex(hdr=>hdr.trim()==='يوم'||hdr.trim()==='day');
@@ -5811,7 +5783,7 @@ async function pickExcelDirect(input){
 
     console.log('Detected cols:', {colDay,colMonth,colSupplier,colInvNo,colSubtotal,colTaxAmt,colTotal,colCode,colBranch});
 
-    console.log('Cols:', {colInvNo,colDay,colMonth,colSupplier,colSubtotal,colTaxAmt,colTotal});
+    
 
     _purchBulkParsed = [];
     let _dupCount = 0;
@@ -6475,7 +6447,6 @@ function exportQuarterDetail(from, to, qLabel){
       ['التاريخ','المورد','رقم الفاتورة','المشرف','المشروع','صافي','VAT','الإجمالي'],
       '<td colspan="5">الإجمالي</td><td>'+fmt(fP.reduce(function(a,e){return a+(e.subtotal||0);},0))+'</td><td>'+fmt(vatP)+'</td><td>'+fmt(tP)+' ﷼</td>'
     )
-
 
 
     // الفرق
