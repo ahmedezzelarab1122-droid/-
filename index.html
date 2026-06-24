@@ -2996,7 +2996,6 @@ async function pickFile(inp){
 async function runAI(){
   const txt=(document.getElementById('stxt')?.value||'').trim();
   const err=document.getElementById('serr');
-  // Wait for PDF conversion if still processing
   if(!imgB64&&!txt){
     const sfile=document.getElementById('sfile');
     if(sfile?.files[0]?.type==='application/pdf'&&!imgB64){
@@ -3005,6 +3004,31 @@ async function runAI(){
     err.style.display='block';err.textContent='يرجى رفع صورة أو كتابة نص';return;
   }
   err.style.display='none';
+
+  // ── إذا كان نص فقط بدون صورة — حاول استخراج مباشرة ──
+  if(!imgB64 && txt){
+    // استخراج المبلغ: أرقام في النص (مثال: "أكل عمال 450 ريال")
+    const amountMatch = txt.match(/(\d[\d,]*(?:\.\d+)?)\s*(?:ريال|ر\.س|SAR|﷼)?/i);
+    const invoiceMatch = txt.match(/(?:INV|رقم|فاتورة|inv)[-\s]?(\w+)/i);
+    if(amountMatch){
+      const total = parseFloat(amountMatch[1].replace(/,/g,''));
+      parsed = {
+        desc: txt.replace(amountMatch[0],'').trim() || txt,
+        supplier: txt.replace(amountMatch[0],'').trim() || txt,
+        type: 'petty',
+        total: total,
+        subtotal: total,
+        taxRate: 0,
+        taxAmt: 0,
+        invoiceNo: invoiceMatch ? invoiceMatch[1] : null,
+        date: today(),
+        payMethod: 'cash',
+        items: []
+      };
+      showResult();
+      return;
+    }
+  }
   document.getElementById('ss1').style.display='none';
   const ldg=document.getElementById('sldg');ldg.style.display='block';
   document.getElementById('ltxt').textContent=imgB64?'جاري قراءة الصورة...':'جاري تحليل النص...';
