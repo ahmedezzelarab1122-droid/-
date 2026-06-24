@@ -890,13 +890,13 @@ function showApp(){
   const navSections = ROLE==='manager' ? [
     { label:'الرئيسية', items:[['dash','🏠','الرئيسية']] },
     { label:'المالية', items:[['txns','📄','المعاملات'],['reports','📊','التقارير'],['transfer','💸','التحويلات']] },
-    { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور']] },
     { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
     { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
     { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
     { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
-    { label:'المشتريات', items:[['purchases','🛒','فواتير المشتريات']] },
+    { label:'فواتير المشتريات', items:[['purchases','🛒','فواتير المشتريات']] },
     { label:'المبيعات', items:[['sales','🧾','فواتير المبيعات'],['trial-balance','⚖️','ميزان المراجعة']] },
+    { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور']] },
   ] : ROLE==='owner' ? [
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
     { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
