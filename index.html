@@ -625,7 +625,7 @@ select {
         <div><label class="lbl">المشرف</label><select id="csup"></select></div>
         <div><label class="lbl">المشروع</label><select id="cproj"></select></div>
       </div>
-      <!-- حقول التعديل اليدوي -->
+      <!-- حقول الإدخال اليدوي -->
       <div id="manual-fields" style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin-bottom:10px">
         <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">✏️ تعديل أو إدخال يدوي</div>
         <div class="fg2">
@@ -2960,6 +2960,7 @@ async function runAI(){
   }catch(e){
     ldg.style.display='none';
     document.getElementById('ss1').style.display='block';
+  setTimeout(function(){var d=document.getElementById('m-date');if(d&&!d.value)d.value=today();},50);
     err.style.display='block';
     err.textContent='خطأ: '+(e.message||'حاول مرة أخرى');
   }
@@ -3046,6 +3047,7 @@ function showResult(){
 
     if(!qualityOk){
       document.getElementById('ss1').style.display='block';
+  setTimeout(function(){var d=document.getElementById('m-date');if(d&&!d.value)d.value=today();},50);
       const err = document.getElementById('serr');
       err.style.display='block';
       let missing = [];
@@ -3062,6 +3064,7 @@ function showResult(){
     const todayStr = today();
     if(parsed.date && parsed.date !== todayStr){
       document.getElementById('ss1').style.display='block';
+  setTimeout(function(){var d=document.getElementById('m-date');if(d&&!d.value)d.value=today();},50);
       const err = document.getElementById('serr');
       err.style.display='block';
       err.textContent='⚠️ لا يمكن قبول الفاتورة — تاريخ الفاتورة ('+parsed.date+') لا يطابق تاريخ اليوم ('+todayStr+') — يُسمح فقط بفواتير تاريخ اليوم';
@@ -3122,6 +3125,24 @@ async function saveEntry(){
       alert('⚠️ لا يمكن قبول الفاتورة - تاريخ الفاتورة ('+entryDate+') لا يطابق تاريخ اليوم ('+todayStr+')');
       return;
     }
+  }
+  // تطبيق الحقول اليدوية
+  const mSub  = parseFloat(document.getElementById('m-subtotal')?.value)||0;
+  const mRate = parseFloat(document.getElementById('m-taxrate')?.value)||0;
+  const mVat  = mSub*mRate/100;
+  const mTot  = mSub+mVat;
+  const mInv  = document.getElementById('m-invno')?.value.trim()||'';
+  const mSupp = document.getElementById('m-supplier')?.value.trim()||'';
+  const mDate = document.getElementById('m-date')?.value||'';
+  if(mSub>0){ parsed.subtotal=mSub; parsed.taxRate=mRate; parsed.taxAmt=mVat; parsed.total=mTot; }
+  if(mInv)  parsed.invoiceNo=mInv;
+  if(mSupp) parsed.supplier=mSupp;
+  if(mDate) parsed.date=mDate;
+  // التحقق من المبلغ
+  if(!parsed.total && !parsed.subtotal){
+    const err=document.getElementById('serr');
+    if(err){err.style.display='block';err.textContent='⚠️ يرجى إدخال المبلغ في حقل المبلغ';}
+    return;
   }
   const supName=DB.supervisors.find(s=>s.id==supId)?.name||'';
   const uploadTs = new Date().toISOString();
@@ -3234,6 +3255,7 @@ function resetScan(){
   document.getElementById('serr').style.display='none';
   document.getElementById('icard').style.display='none';
   document.getElementById('ss1').style.display='block';
+  setTimeout(function(){var d=document.getElementById('m-date');if(d&&!d.value)d.value=today();},50);
   document.getElementById('ss2').style.display='none';
   document.getElementById('sldg').style.display='none';
   document.getElementById('sdone').style.display='none';
