@@ -6159,7 +6159,8 @@ function _renderTrialBalance(){
   // ── فلتر الفترة ──
   var fS   = filterByDate(sales,    _tbFrom, _tbTo);
   var fSR  = filterByDate(salesRet, _tbFrom, _tbTo);
-  var fP   = filterByDate(DB.entries.filter(function(e){return(e.type==='petty'||e.type==='tax')&&!e.rejected;}), _tbFrom, _tbTo);
+  // المشتريات في ميزان المراجعة = فواتير ضريبية فقط
+  var fP   = filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}), _tbFrom, _tbTo);
   var fRet = filterByDate(DB.entries.filter(function(e){return e.type==='return';}), _tbFrom, _tbTo);
 
   // ── المبيعات ──
@@ -6281,7 +6282,7 @@ function exportVatReturn(){
   var sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
   var salesRet=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
   var fS=filterByDate(sales,_tbFrom,_tbTo);
-  var fP=filterByDate(DB.entries.filter(function(e){return(e.type==='petty'||e.type==='tax')&&!e.rejected;}),_tbFrom,_tbTo);
+  var fP=filterByDate(DB.entries.filter(function(e){returne.type==='tax'&&!e.rejected;}),_tbFrom,_tbTo);
   var fSR=filterByDate(salesRet,_tbFrom,_tbTo);
   var sv=fS.reduce(function(a,s){return a+(s.taxAmt||0);},0);
   var sn=fS.reduce(function(a,s){return a+(s.subtotal||0);},0);
