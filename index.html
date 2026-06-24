@@ -625,6 +625,26 @@ select {
         <div><label class="lbl">المشرف</label><select id="csup"></select></div>
         <div><label class="lbl">المشروع</label><select id="cproj"></select></div>
       </div>
+      <!-- حقول التعديل اليدوي -->
+      <div id="manual-fields" style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">✏️ تعديل أو إدخال يدوي</div>
+        <div class="fg2">
+          <div><label class="lbl" style="font-size:11px">المبلغ قبل الضريبة</label>
+            <input type="number" id="m-subtotal" placeholder="0.00" oninput="updateManual()" step="0.01"></div>
+          <div><label class="lbl" style="font-size:11px">نسبة VAT %</label>
+            <input type="number" id="m-taxrate" placeholder="0" value="0" oninput="updateManual()"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px">
+          <span style="color:rgba(255,255,255,.6)">VAT: <strong id="m-vatamt" style="color:#70B5FF">0.00 ﷼</strong></span>
+          <span style="color:rgba(255,255,255,.6)">الإجمالي: <strong id="m-total" style="color:#34d399">0.00 ﷼</strong></span>
+        </div>
+        <div><label class="lbl" style="font-size:11px">رقم الفاتورة (اختياري)</label>
+          <input type="text" id="m-invno" placeholder="INV-001"></div>
+        <div><label class="lbl" style="font-size:11px">اسم المورد (اختياري)</label>
+          <input type="text" id="m-supplier" placeholder="اسم المورد"></div>
+        <div><label class="lbl" style="font-size:11px">التاريخ</label>
+          <input type="date" id="m-date"></div>
+      </div>
       <div class="brow">
         <button class="btn bp" onclick="saveEntry()"><svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>حفظ</button>
         <button class="btn bs" onclick="resetScan()">إلغاء</button>
@@ -2975,6 +2995,45 @@ function setInvoiceType(type){
       }
     });
   }
+}
+
+function updateManual(){
+  const sub = parseFloat(document.getElementById('m-subtotal')?.value)||0;
+  const rate = parseFloat(document.getElementById('m-taxrate')?.value)||0;
+  const vat = sub*rate/100;
+  const tot = sub+vat;
+  const ve = document.getElementById('m-vatamt');
+  const te = document.getElementById('m-total');
+  if(ve) ve.textContent = fmt(vat)+' ﷼';
+  if(te) te.textContent = fmt(tot)+' ﷼';
+  // Update parsed with manual values if entered
+  if(sub>0){
+    parsed.subtotal = sub;
+    parsed.taxRate  = rate;
+    parsed.taxAmt   = vat;
+    parsed.total    = tot;
+  }
+  const invno = document.getElementById('m-invno')?.value.trim();
+  const supp  = document.getElementById('m-supplier')?.value.trim();
+  const date  = document.getElementById('m-date')?.value;
+  if(invno) parsed.invoiceNo = invno;
+  if(supp)  parsed.supplier  = supp;
+  if(date)  parsed.date      = date;
+}
+
+function initManualFields(){
+  // Pre-fill manual fields with parsed values if available
+  const sub = document.getElementById('m-subtotal');
+  const rate = document.getElementById('m-taxrate');
+  const invno = document.getElementById('m-invno');
+  const supp = document.getElementById('m-supplier');
+  const date = document.getElementById('m-date');
+  if(sub && parsed.subtotal) sub.value = parsed.subtotal;
+  if(rate && parsed.taxRate) rate.value = parsed.taxRate;
+  if(invno && parsed.invoiceNo) invno.value = parsed.invoiceNo;
+  if(supp && parsed.supplier) supp.value = parsed.supplier;
+  if(date) date.value = parsed.date || today();
+  updateManual();
 }
 
 function showResult(){
