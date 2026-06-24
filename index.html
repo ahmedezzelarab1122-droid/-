@@ -6302,11 +6302,11 @@ function exportQuarterDetail(from, to, qLabel){
   var fS   = filterByDate(sales, from, to);
   var fSR  = filterByDate(salesRet, from, to);
   var fP   = filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}), from, to);
-  var fPet = filterByDate(DB.entries.filter(function(e){return e.type==='petty'&&!e.rejected;}), from, to);
+  // النثرية لا تدخل في ميزان المراجعة
   var tS   = fS.reduce(function(a,s){return a+(s.total||0);},0);
   var tSR  = fSR.reduce(function(a,r){return a+(r.total||0);},0);
   var tP   = fP.reduce(function(a,e){return a+(e.total||0);},0);
-  var tPet = fPet.reduce(function(a,e){return a+(e.total||0);},0);
+
   var netS = tS-tSR;
   var diff = netS-tP;
   var vatS = fS.reduce(function(a,s){return a+(s.taxAmt||0);},0)-fSR.reduce(function(a,r){return a+(r.taxAmt||0);},0);
@@ -6370,14 +6370,7 @@ function exportQuarterDetail(from, to, qLabel){
       '<td colspan="5">الإجمالي</td><td>'+fmt(fP.reduce(function(a,e){return a+(e.subtotal||0);},0))+'</td><td>'+fmt(vatP)+'</td><td>'+fmt(tP)+' ﷼</td>'
     )
 
-    // مشتريات نثرية
-    +(fPet.length?tbl('📋 المشتريات النثرية (معلومات)','#0369a1','#f0f9ff',
-      fPet.sort(function(a,b){return(a.date||'').localeCompare(b.date||'');}).map(function(e){
-        return'<tr><td>'+(e.date||'—')+'</td><td>'+(e.desc||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td><td>'+fmt(e.total)+' ﷼</td></tr>';
-      }).join(''),
-      ['التاريخ','الوصف','المشرف','المشروع','الإجمالي'],
-      '<td colspan="4">الإجمالي النثري (غير محسوب في الفرق)</td><td>'+fmt(tPet)+' ﷼</td>'
-    ):'')
+
 
     // الفرق
     +'<div class="diff" style="background:'+(diff>=0?'#dcfce7':'#fee2e2')+';border-color:'+(diff>=0?'#166534':'#D93025')+'">'
