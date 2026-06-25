@@ -917,7 +917,7 @@ function showApp(){
     { label:'طلبات المحاسب', items:[['pending-requests','📋','طلبات المحاسب']] },
     { label:'العمال الخارجيون', items:[['ext-workers','👷','حسابات العمال الخارجيين']] },
     { label:'المحاسبون', items:[['accountants-mgr','📒','إدارة المحاسبين']] },
-    { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور']] },
+    { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور'],['backups','💾','النسخ الاحتياطية']] },
   ] : ROLE==='owner' ? [
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
     { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
@@ -1055,7 +1055,7 @@ function goBNav(id,btn){
   const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','my-requests':'طلباتي','manager-governance':'حساب المالك','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
   // Sync from server then render
   if(map[id]) map[id]();
 }
@@ -1063,7 +1063,7 @@ function goBNav(id,btn){
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
   if(map[id]) map[id]();
 }
 
@@ -3266,6 +3266,73 @@ function _renderExtWorkers(){
           )
           +'</div>';
       }).join(''));
+}
+
+
+function rBackups(){
+  document.getElementById('mc').innerHTML =
+    '<div class="ctitle">💾 النسخ الاحتياطية</div>'
+    +'<div class="card" style="margin-bottom:12px">'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:8px">النسخ الاحتياطية تتم تلقائياً كل 24 ساعة ويحتفظ بآخر 30 نسخة.</div>'
+    +'<button onclick="createBackupNow()" style="width:100%;padding:10px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif;margin-bottom:8px">💾 إنشاء نسخة الآن</button>'
+    +'<button onclick="sendBackupEmailNow()" style="width:100%;padding:10px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">📧 إرسال نسخة على الإيميل الآن</button>'
+    +'</div>'
+    +'<div class="shdr" id="backups-list-hdr">📋 النسخ المتاحة</div>'
+    +'<div id="backups-list"><div class="empty">جاري التحميل...</div></div>';
+  
+  loadBackupsList();
+}
+
+async function loadBackupsList(){
+  try {
+    const res = await api('/api/backups/list');
+    const el = document.getElementById('backups-list');
+    if(!el) return;
+    if(!res.backups||!res.backups.length){el.innerHTML='<div class="empty">لا توجد نسخ احتياطية بعد</div>';return;}
+    el.innerHTML = res.backups.map(function(b){
+      const d = new Date(b.createdAt);
+      const dateStr = d.toLocaleDateString('ar-SA',{year:'numeric',month:'short',day:'numeric'});
+      const timeStr = d.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+      return '<div class="card" style="padding:9px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">'
+        +'<div><div style="font-size:12px;font-weight:700">'+dateStr+' - '+timeStr+'</div>'
+        +'<div style="font-size:10px;color:rgba(255,255,255,.4)">'+(b.type==='auto'?'تلقائية':'يدوية')+'</div></div>'
+        +'<button onclick="restoreBackup(this.dataset.id)" data-id="'+b.id+'" style="padding:5px 10px;background:rgba(245,200,66,.1);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:7px;font-size:11px;cursor:pointer;font-family:Tajawal,sans-serif">↩️ استعادة</button>'
+        +'</div>';
+    }).join('');
+  } catch(e) {
+    const el=document.getElementById('backups-list');
+    if(el)el.innerHTML='<div class="empty">خطأ في تحميل النسخ</div>';
+  }
+}
+
+async function sendBackupEmailNow(){
+  try {
+    const btn=event.target;btn.disabled=true;btn.textContent='⏳ جاري الإرسال...';
+    const res=await api('/api/backups/send-email','POST');
+    if(res.ok) alert('✅ '+res.message+' → ahmed.ezzelarab1122@gmail.com');
+    else alert('❌ '+res.error);
+  } catch(e){ alert('❌ '+e.message); }
+  finally{ loadBackupsList(); }
+}
+
+async function createBackupNow(){
+  try {
+    const res = await api('/api/backups/create','POST');
+    if(res.ok){ alert('✅ '+res.message); loadBackupsList(); }
+    else alert('❌ '+res.error);
+  } catch(e){ alert('❌ '+e.message); }
+}
+
+async function restoreBackup(backupId){
+  if(!confirm('⚠️ استعادة هذه النسخة سيحل محل البيانات الحالية. هل أنت متأكد؟')) return;
+  try {
+    const res = await api('/api/backups/restore/'+encodeURIComponent(backupId),'POST');
+    if(res.ok){
+      alert('✅ '+res.message);
+      DB = await api('/api/db');
+      rBackups();
+    } else alert('❌ '+res.error);
+  } catch(e){ alert('❌ '+e.message); }
 }
 
 function rPendingRequests(){
