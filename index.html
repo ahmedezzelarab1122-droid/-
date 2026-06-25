@@ -1026,11 +1026,11 @@ function rTxns(){
   const pO=DB.projects.map(p=>`<option>${p}</option>`).join('');
   document.getElementById('mc').innerHTML=`
     <div class="card" style="padding:10px 12px;margin-bottom:10px">
-      <div style="margin-bottom:7px"><select id="fs" onchange="rfT()"><option value="all">كل المشرفين</option>${sO}</select></div>
-      <div style="margin-bottom:7px"><select id="fp" onchange="rfT()"><option value="all">كل المشاريع</option>${pO}</select></div>
+      <div style="margin-bottom:7px"><select id="fs" onchange="window._txnPage=0;rfT()"><option value="all">كل المشرفين</option>${sO}</select></div>
+      <div style="margin-bottom:7px"><select id="fp" onchange="window._txnPage=0;rfT()"><option value="all">كل المشاريع</option>${pO}</select></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px">
-        <div><label style="font-size:11px;color:rgba(255,255,255,.75);display:block;margin-bottom:3px">من تاريخ</label><input type="date" id="fd-from" onchange="rfT()" style="width:100%;font-size:12px;padding:6px 8px"></div>
-        <div><label style="font-size:11px;color:rgba(255,255,255,.75);display:block;margin-bottom:3px">إلى تاريخ</label><input type="date" id="fd-to" onchange="rfT()" style="width:100%;font-size:12px;padding:6px 8px"></div>
+        <div><label style="font-size:11px;color:rgba(255,255,255,.75);display:block;margin-bottom:3px">من تاريخ</label><input type="date" id="fd-from" onchange="window._txnPage=0;rfT()" style="width:100%;font-size:12px;padding:6px 8px"></div>
+        <div><label style="font-size:11px;color:rgba(255,255,255,.75);display:block;margin-bottom:3px">إلى تاريخ</label><input type="date" id="fd-to" onchange="window._txnPage=0;rfT()" style="width:100%;font-size:12px;padding:6px 8px"></div>
       </div>
             <div class="ftabs"><button class="ftab on" onclick="setFT('all',this)">الكل</button><button class="ftab" onclick="setFT('petty',this)">نثرية</button><button class="ftab" onclick="setFT('tax',this)">ضريبية</button></div>
     </div>
@@ -1041,7 +1041,7 @@ function rTxns(){
     <div id="tl"></div>`;
   rfT();
 }
-function setFT(v,btn){fType=v;document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');rfT();}
+function setFT(v,btn){fType=v;window._txnPage=0;document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');rfT();}
 function rfT(){
   const fS=document.getElementById('fs')?.value||'all';
   const fP=document.getElementById('fp')?.value||'all';
@@ -1059,8 +1059,17 @@ function rfT(){
   const total=list.reduce((a,e)=>a+(e.total||0),0);
   const el=document.getElementById('tl');if(!el)return;
   if(!list.length){el.innerHTML='<div class="empty">لا توجد نتائج</div>';return;}
+  const _PAGE=50, _page=window._txnPage||0;
+  const _shown=list.slice(_page*_PAGE, _page*_PAGE+_PAGE);
+  const _pages=Math.ceil(list.length/_PAGE);
+  const _nav=_pages>1?`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px;margin-top:6px">
+    <span style="color:rgba(255,255,255,.5)">${_page*_PAGE+1}–${Math.min(_page*_PAGE+_PAGE,list.length)} من ${list.length}</span>
+    <div style="display:flex;gap:6px">
+      ${_page>0?'<button onclick="window._txnPage='+(_page-1)+';rfT()" style="padding:4px 10px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-family:Tajawal,sans-serif">السابق</button>':''}
+      ${_page*_PAGE+_PAGE<list.length?'<button onclick="window._txnPage='+(_page+1)+';rfT()" style="padding:4px 10px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-family:Tajawal,sans-serif">التالي</button>':''}
+    </div></div>`:'';
   el.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:11px;color:rgba(255,255,255,.75)">${list.length} معاملة</span><span style="font-size:13px;font-weight:700;color:var(--r)">${fmt(total)} ﷼</span></div>`
-  +list.map(e=>`<div class="card" style="padding:10px 12px">
+  +_shown.map(e=>`<div class="card" style="padding:10px 12px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div style="flex:1"><div style="font-size:13px;font-weight:600">${e.desc}</div>
       <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}${e.uploadedAt?' · 🕐 '+new Date(e.uploadedAt).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):''}${e.rejected?' · <span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px">✕ مرفوضة</span>':''}</div></div>
@@ -6067,10 +6076,21 @@ async function savePurchEdit(entryId){
   }
 }
 
-function renderPurchList(entries, filter='all'){
+function renderPurchList(entries, filter='all', page=0){
   const filtered=filter==='all'?entries:entries.filter(e=>e.type===filter);
   if(!filtered.length)return '<div class="empty">لا توجد نتائج</div>';
-  return filtered.slice().sort((a,b)=>b.id-a.id).map(e=>`
+  const sorted=filtered.slice().sort((a,b)=>b.id-a.id);
+  const PAGE=50, total=sorted.length, start=page*PAGE, end=Math.min(start+PAGE,total);
+  const shown=sorted.slice(start,end);
+  const pages=Math.ceil(total/PAGE);
+  const navHTML=pages>1?`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:12px">
+    <span style="color:rgba(255,255,255,.5)">${start+1}–${end} من ${total}</span>
+    <div style="display:flex;gap:6px">
+      ${page>0?`<button onclick="filterPurch('${filter}',null,${page-1})" style="padding:4px 12px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-family:'Tajawal',sans-serif">السابق</button>`:''}
+      ${end<total?`<button onclick="filterPurch('${filter}',null,${page+1})" style="padding:4px 12px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-family:'Tajawal',sans-serif">التالي</button>`:''}
+    </div>
+  </div>`:'';
+  return navHTML+shown.map(e=>`
     <div class="card" style="padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1">
@@ -6086,15 +6106,15 @@ function renderPurchList(entries, filter='all'){
           ${ROLE==='manager'?`<button onclick="editPurchEntry(${e.id})" style="padding:4px 10px;border:1px solid rgba(245,200,66,.4);border-radius:7px;background:rgba(245,200,66,.1);color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">✏️ تعديل</button>`:''}
         </div>
       </div>
-    </div>`).join('');
+    </div>`).join('')+navHTML;
 }
 
-function filterPurch(type,btn){
+function filterPurch(type,btn,page=0){
   document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
+  if(btn)btn.classList.add('on');
   const entries=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected);
   const el=document.getElementById('purch-list');
-  if(el)el.innerHTML=renderPurchList(entries,type);
+  if(el)el.innerHTML=renderPurchList(entries,type,page);
 }
 
 async function deleteHistoricalPurchases(){
