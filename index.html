@@ -6489,7 +6489,7 @@ function renderPurchList(entries, filter='all', page=0){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1">
           <div style="font-size:13px;font-weight:700">${e.desc||e.supplier||'—'}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.5)">${e.invoiceNo?e.invoiceNo+' · ':''}${e.date||''} · ${e.supName||''} · ${e.project||''}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.5)">${e.invoiceNo?e.invoiceNo+' · ':''}${e.date||''} · ${e.supName||''} · ${e.project||''}${e.uploadedByRole==='accountant'?' <span style="color:#70B5FF;font-size:10px">· رُفع بواسطة '+e.uploadedBy+'</span>':''}</div>
           <span style="font-size:10px;background:rgba(${e.type==='tax'?'112,181,255':'255,255,255'},.1);color:${e.type==='tax'?'#70B5FF':'rgba(255,255,255,.5)'};padding:2px 7px;border-radius:99px">${e.type==='tax'?'ضريبية':'نثرية'}</span>
         </div>
         <div style="text-align:left;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
