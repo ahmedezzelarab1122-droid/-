@@ -1732,23 +1732,23 @@ function rCostCenterOwner(){
 function rManagerGovernance(){
   const withdrawals = JSON.parse(localStorage.getItem('kayan_owner_withdrawals')||'[]');
   const totalW = withdrawals.reduce((a,w)=>a+(w.amount||0),0);
-  const mgr = DB.supervisors.find(s=>s.name==='حساب الشركة'||s.name==='المدير');
-  const mgrEntries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(e.supId===0||(mgr&&e.supId===mgr.id)||e.managerAdded));
-  const totalSpent = mgrEntries.reduce((a,e)=>a+(e.total||0),0);
-  const remaining = totalW - totalSpent;
+
   document.getElementById('mc').innerHTML = `
     <div class="ctitle">🏦 حساب المالك</div>
+
     <div class="sg" style="margin-bottom:14px">
-      <div class="stat"><div class="sl">إجمالي السحوبات</div><div class="sv" style="color:#f87171">${fmt(totalW)} ﷼</div></div>
-      <div class="stat"><div class="sl">مصروفات الشركة</div><div class="sv" style="color:#70B5FF">${fmt(totalSpent)} ﷼</div></div>
-      <div class="stat" style="grid-column:span 2"><div class="sl">الباقي مع المالك</div><div class="sv" style="color:${remaining>=0?'#f5c842':'#f87171'};font-size:20px">${remaining>=0?'+':''}${fmt(remaining)} ﷼</div></div>
+      <div class="stat" style="grid-column:span 2">
+        <div class="sl">إجمالي السحوبات</div>
+        <div class="sv" style="color:#f87171;font-size:20px">${fmt(totalW)} ﷼</div>
+      </div>
     </div>
-    ${ROLE==='owner'?`
+
+    ${ROLE==='manager'?`
     <div class="card" style="margin-bottom:12px">
       <div class="ctitle" style="margin-bottom:10px">➕ تسجيل سحب المالك</div>
       <div class="fg">
         <label class="lbl">📷 ارفع إيصال التحويل (اختياري)</label>
-        <div class="drop" onclick="document.getElementById('gov-file').click()" style="cursor:pointer;padding:12px" id="gov-drop">
+        <div class="drop" onclick="document.getElementById('gov-file').click()" style="cursor:pointer;padding:12px">
           <div style="font-size:22px;margin-bottom:4px" id="gov-icon">📷</div>
           <div id="gov-txt" style="font-size:11px;color:rgba(255,255,255,.5)">AI يقرأ المبلغ والتاريخ تلقائياً</div>
         </div>
@@ -1760,11 +1760,12 @@ function rManagerGovernance(){
         <div><label class="lbl">المبلغ ﷼</label><input type="number" id="gov-amount" placeholder="0.00" step="0.01"></div>
       </div>
       <div class="fg"><label class="lbl">رقم المرجع</label><input id="gov-ref" placeholder="اختياري"></div>
-      <div class="fg"><label class="lbl">ملاحظة</label><input id="gov-note" placeholder="مثال: سحب للمصاريف"></div>
+      <div class="fg"><label class="lbl">ملاحظة</label><input id="gov-note" placeholder="مثال: سحب للمصاريف الشخصية"></div>
       <div class="err" id="gov-err" style="display:none"></div>
       <button class="btn bp" onclick="saveWithdrawal()" style="background:rgba(248,113,113,.2);border-color:rgba(248,113,113,.4);color:#f87171">💾 تسجيل السحب</button>
     </div>`:''}
-    <div class="shdr">📋 سجل السحوبات (${withdrawals.length})</div>
+
+    <div class="shdr">📋 سجل سحوبات المالك (${withdrawals.length})</div>
     ${withdrawals.length===0?'<div class="empty">لا توجد سحوبات مسجلة</div>':
       withdrawals.slice().reverse().map(w=>`
         <div class="card" style="padding:10px 14px;margin-bottom:8px">
@@ -1775,13 +1776,17 @@ function rManagerGovernance(){
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               <strong style="color:#f87171;font-size:14px">${fmt(w.amount)} ﷼</strong>
-              ${ROLE==='owner'?'<button onclick="deleteWithdrawal('+w.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:16px">🗑</button>':''}
+              ${ROLE==='manager'?'<button onclick="deleteWithdrawal('+w.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:16px">🗑</button>':''}
             </div>
           </div>
         </div>`).join('')}
-    <button onclick="exportGovernancePDF()" style="width:100%;margin-top:10px;padding:11px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير حساب المالك</button>
+
+    <button onclick="exportGovernancePDF()" style="width:100%;margin-top:10px;padding:11px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
+      📄 تصدير تقرير حساب المالك
+    </button>
   `;
 }
+
 
 async function pickGovFile(input){
   const file=input.files[0]; if(!file) return;
@@ -1836,22 +1841,16 @@ function deleteWithdrawal(id){
 function exportGovernancePDF(){
   const w=JSON.parse(localStorage.getItem('kayan_owner_withdrawals')||'[]');
   const totalW=w.reduce((a,x)=>a+(x.amount||0),0);
-  const mgr=DB.supervisors.find(s=>s.name==='حساب الشركة'||s.name==='المدير');
-  const spent=DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(e.supId===0||(mgr&&e.supId===mgr.id)||e.managerAdded)).reduce((a,e)=>a+(e.total||0),0);
-  const rem=totalW-spent;
   const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير حساب المالك</title>'
     +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.diff{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body>'
     +'<h1>تقرير حساب المالك</h1><div style="font-size:11px;color:#555;margin-bottom:12px">شركة كيان وبناء للمقاولات · '+now+'</div>'
-    +'<div class="sum"><div class="box"><div class="bl">إجمالي السحوبات</div><div class="bv" style="color:#D93025">'+fmt(totalW)+' ﷼</div></div><div class="box"><div class="bl">مصروفات الشركة</div><div class="bv" style="color:#1d4ed8">'+fmt(spent)+' ﷼</div></div><div class="box"><div class="bl">الباقي مع المالك</div><div class="bv" style="color:'+(rem>=0?'#b45309':'#166534')+'">'+fmt(Math.abs(rem))+' ﷼</div></div></div>'
+    +'<div class="sum"><div class="box" style="grid-column:span 3"><div class="bl">إجمالي السحوبات</div><div class="bv" style="color:#D93025">'+fmt(totalW)+' ﷼</div></div></div>'
     +'<h2 style="margin:12px 0 6px;font-size:13px">سجل السحوبات</h2>'
     +'<table><tr><th>التاريخ</th><th>الملاحظة</th><th>رقم المرجع</th><th>المبلغ</th></tr>'
     +w.slice().reverse().map(x=>'<tr><td>'+x.date+'</td><td>'+(x.note||'—')+'</td><td>'+(x.ref||'—')+'</td><td style="font-weight:700;color:#D93025">'+fmt(x.amount)+' ﷼</td></tr>').join('')
     +'<tr class="tr"><td colspan="3">الإجمالي</td><td>'+fmt(totalW)+' ﷼</td></tr></table>'
-    +'<div class="diff" style="background:'+(rem>=0?'#fef3c7':'#dcfce7')+';border-color:'+(rem>=0?'#b45309':'#166534')+'">'
-    +'<div style="font-size:11px;margin-bottom:4px">السحوبات '+fmt(totalW)+' − مصروفات الشركة '+fmt(spent)+' = الباقي</div>'
-    +'<div style="font-size:22px;font-weight:900;color:'+(rem>=0?'#b45309':'#166534')+'">'+fmt(Math.abs(rem))+' ﷼'+(rem<0?' (مديون للشركة)':' (مع المالك)')+'</div>'
-    +'</div></body></html>';
+    +'</body></html>';
   const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
 }
 
