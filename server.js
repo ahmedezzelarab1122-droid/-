@@ -25,6 +25,7 @@ async function connectMongo() {
         supervisors: [{ id: 1, name: 'المشرف', budget: 10000, password: '1234' }],
         projects: ['المشروع الأول'],
         managerPassword: 'admin123',
+        accountant: { name: 'إسلام', password: 'i1234' },
         nextId: 1,
         laborRates: { company: 100, external: 150 },
         companyWorkers: [],
@@ -219,6 +220,11 @@ const server = http.createServer(async (req, res) => {
       if (password === data.managerPassword) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
       return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
     }
+    if (role === 'accountant') {
+      const acc = (await db.collection('config').findOne({_id:'main'}))?.accountant || {name:'إسلام',password:'i1234'};
+      if (password === acc.password) return sendJSON(res, { ok: true, role: 'accountant', name: acc.name });
+      return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
+    }
     if (role === 'supervisor') {
       const sup = data.supervisors.find(s => s.id === parseInt(supId));
       if (!sup) return sendJSON(res, { ok: false, error: 'المشرف غير موجود' }, 404);
@@ -234,7 +240,8 @@ const server = http.createServer(async (req, res) => {
   }
   if (pathname === '/api/db' && req.method === 'GET') {
     const data = await loadDB();
-    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [] };
+    const cfg2 = await db.collection('config').findOne({_id:'main'}).catch(()=>null);
+    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [], accountant: { name: cfg2?.accountant?.name||'المحاسب' } };
     delete safe.managerPassword;
     return sendJSON(res, safe);
   }
@@ -529,6 +536,29 @@ const server = http.createServer(async (req, res) => {
     try {
       const cfg = await db.collection('config').findOne({_id:'main'});
       return sendJSON(res, { expenses: cfg?.ownerExpenses||[] });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
+  // Accountant pending requests
+  if (pathname === '/api/pending' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, { pending: cfg?.pendingRequests||[] });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  if (pathname === '/api/pending' && req.method === 'POST') {
+    try {
+      const { pending } = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{pendingRequests:pending||[]}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  // Update accountant settings
+  if (pathname === '/api/accountant' && req.method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{accountant:body}},{upsert:true});
+      return sendJSON(res, { ok: true });
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
