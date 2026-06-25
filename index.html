@@ -523,6 +523,10 @@ select {
         <div style="font-size:32px;margin-bottom:6px">👑</div>
         <span>المالك</span>
       </button>
+      <button class="rb" id="rb-accountant" onclick="selRole('accountant')">
+        <div style="font-size:32px;margin-bottom:6px">📒</div>
+        <span>محاسب</span>
+      </button>
     </div>
     <div class="fg" id="sup-grp" style="display:none">
       <label class="lbl">اختر اسمك</label>
@@ -648,6 +652,7 @@ select {
 const COLORS=['#b8860b','#1d4ed8','#9333ea','#0a7c5c','#dc2626','#0891b2'];
 let DB={supervisors:[],projects:[],entries:[]};
 let CU=null,ROLE=null,SR=null;
+let _pendingRequests=[];
 let _tbFrom='',_tbTo='';
 let imgB64=null,imgSrc=null,parsed=null,fType='all';
 
@@ -750,6 +755,7 @@ async function start(){
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
         api('/api/owner-withdrawals').then(wr=>{if(wr&&wr.withdrawals)localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(wr.withdrawals));}).catch(()=>{});
         api('/api/owner-expenses').then(er=>{if(er&&er.expenses)localStorage.setItem('kayan_owner_expenses',JSON.stringify(er.expenses));}).catch(()=>{});
+        api('/api/pending').then(pr=>{if(pr&&pr.pending){_pendingRequests=pr.pending;localStorage.setItem('kayan_pending',JSON.stringify(pr.pending));}}).catch(()=>{});
         return;
       }
     }catch(e){localStorage.removeItem('ks');}
@@ -814,7 +820,7 @@ async function start(){
 async function selRole(r){
   SR=r;
   document.querySelectorAll('.rb').forEach(b=>b.classList.remove('sel'));
-  const idMap={supervisor:'sup',manager:'mgr',owner:'owner'};
+  const idMap={supervisor:'sup',manager:'mgr',owner:'owner',accountant:'accountant'};
   document.getElementById('rb-'+idMap[r]).classList.add('sel');
   const g=document.getElementById('sup-grp');
   if(r==='supervisor'){
@@ -899,12 +905,19 @@ function showApp(){
     { label:'فواتير المشتريات', items:[['purchases','🛒','فواتير المشتريات']] },
     { label:'المبيعات', items:[['sales','🧾','فواتير المبيعات'],['trial-balance','⚖️','ميزان المراجعة']] },
     { label:'حساب المالك', items:[['manager-governance','🏦','حساب المالك']] },
+    { label:'طلبات المحاسب', items:[['pending-requests','📋','طلبات المحاسب']] },
     { label:'الإدارة', items:[['setup','⚙️','الإعداد'],['pws','🔑','كلمات المرور']] },
   ] : ROLE==='owner' ? [
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
     { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
     { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
     { label:'حساب المالك', items:[['manager-governance','🏦','حساب المالك']] },
+  ] : ROLE==='accountant' ? [
+    { label:'الرئيسية', items:[['dash','🏠','الرئيسية']] },
+    { label:'المالية', items:[['txns','📄','المعاملات'],['reports','📊','التقارير'],['transfer','💸','التحويلات']] },
+    { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
+    { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
+    { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
   ] : [
     { label:'الرئيسية', items:[['home','🏠','الرئيسية'],['bal','💰','رصيدي']] },
     { label:'العمل', items:[['labor','👷','تسجيل عمالة'],['hist','📋','سجلاتي']] },
@@ -933,6 +946,7 @@ function showApp(){
   
   if(ROLE==='manager') rDash();
   else if(ROLE==='owner') rOwnerDash();
+  else if(ROLE==='accountant') rDash();
   else rHome();
 }
 
@@ -959,17 +973,17 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','manager-governance':'حساب المالك','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','manager-governance':'حساب المالك','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
   map[id]?.();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
   map[id]?.();
 }
 
@@ -2811,6 +2825,87 @@ function rReports(){
 }
 
 // ── SETUP ──────────────────────────
+
+// ── ACCOUNTANT PENDING REQUESTS ──
+function rPendingRequests(){
+  const pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
+  const typeLabel = {add:'إضافة',edit:'تعديل',delete:'حذف'};
+  const typeColor = {add:'#34d399',edit:'#f5c842',delete:'#f87171'};
+
+  document.getElementById('mc').innerHTML = `
+    <div class="ctitle">📋 طلبات المحاسب</div>
+    ${pending.length===0?'<div class="empty">لا توجد طلبات معلقة</div>':
+      pending.map(req=>`
+      <div class="card" style="padding:12px 14px;margin-bottom:8px;border-right:3px solid ${typeColor[req.action]||'#70B5FF'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <span style="background:rgba(${req.action==='add'?'52,211,153':req.action==='edit'?'245,200,66':'248,113,113'},.15);color:${typeColor[req.action]};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${typeLabel[req.action]||req.action}</span>
+            <div style="font-size:13px;font-weight:700;margin-top:6px">${req.desc||'طلب من المحاسب'}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${req.date||''} · ${req.submittedAt||''}</div>
+          </div>
+          <div style="font-size:14px;font-weight:800;color:${typeColor[req.action]}">${fmt(req.amount||0)} ﷼</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="approvePending('${req.id}')" style="flex:1;padding:8px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">✅ موافقة</button>
+          <button onclick="rejectPending('${req.id}')" style="flex:1;padding:8px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">❌ رفض</button>
+        </div>
+      </div>`).join('')}
+  `;
+}
+
+async function approvePending(reqId){
+  let pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
+  const req = pending.find(r=>r.id===reqId);
+  if(!req) return;
+
+  try{
+    // Execute the actual action
+    if(req.action==='add'){
+      const res = await api('/api/entries','POST',req.data);
+      if(res.error) throw new Error(res.error);
+    } else if(req.action==='delete'){
+      await api('/api/entries/'+req.entryId,'DELETE');
+    } else if(req.action==='edit'){
+      await api('/api/entries/'+req.entryId,'PATCH',req.data);
+    }
+    // Remove from pending
+    pending = pending.filter(r=>r.id!==reqId);
+    localStorage.setItem('kayan_pending',JSON.stringify(pending));
+    await api('/api/pending','POST',{pending});
+    DB = await api('/api/db');
+    alert('✅ تم تنفيذ الطلب');
+    rPendingRequests();
+  }catch(e){
+    alert('❌ '+e.message);
+  }
+}
+
+async function rejectPending(reqId){
+  if(!confirm('رفض هذا الطلب؟')) return;
+  let pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
+  pending = pending.filter(r=>r.id!==reqId);
+  localStorage.setItem('kayan_pending',JSON.stringify(pending));
+  await api('/api/pending','POST',{pending});
+  rPendingRequests();
+}
+
+// Accountant submits a pending request instead of direct action
+async function submitPendingRequest(action, desc, amount, data, entryId){
+  const pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
+  const req = {
+    id: 'req_'+Date.now(),
+    action, desc, amount: amount||0,
+    data: data||null,
+    entryId: entryId||null,
+    date: today(),
+    submittedAt: new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'})
+  };
+  pending.push(req);
+  localStorage.setItem('kayan_pending',JSON.stringify(pending));
+  await api('/api/pending','POST',{pending}).catch(()=>{});
+  alert('✅ تم إرسال الطلب للمدير للموافقة');
+}
+
 function rSetup(){
   document.getElementById('mc').innerHTML=`
     <div class="card"><div class="ctitle">المشرفون</div>
@@ -2911,6 +3006,18 @@ async function restoreBackup(inp){
 }
 
 // ── PASSWORDS ─────────────────────
+// Accountant password management (in rSetup or accessible from manager)
+async function saveAccountantSettings(){
+  const name = document.getElementById('acc-name')?.value.trim();
+  const pw   = document.getElementById('acc-pw')?.value.trim();
+  if(!name){alert('⚠️ أدخل اسم المحاسب');return;}
+  try{
+    await api('/api/accountant','POST',{name, password:pw||'acc123'});
+    alert('✅ تم حفظ إعدادات المحاسب\nاسم: '+name+'\nكلمة السر: '+(pw||'acc123'));
+    rSetup();
+  }catch(e){alert('❌ '+e.message);}
+}
+
 function rPws(){
   document.getElementById('mc').innerHTML=`
     <div class="card"><div class="ctitle">كلمة مرور المدير</div>
@@ -3282,6 +3389,21 @@ async function saveEntry(){
   const project=document.getElementById('cproj').value;
   if(!supId||isNaN(supId)){alert('⚠️ يجب اختيار المشرف أولاً');return;}
   if(!project){alert('⚠️ يجب اختيار المشروع أولاً');return;}
+  // المحاسب يرسل الطلب للمدير بدل الحفظ المباشر
+  if(ROLE==='accountant'){
+    const total=parsed.total||parsed.subtotal||0;
+    const desc=parsed.desc||parsed.supplier||'فاتورة من المحاسب';
+    submitPendingRequest('add', desc+' — '+fmt(total)+' ﷼ ('+project+')', total, {
+      supId, supName:DB.supervisors.find(s=>s.id===supId)?.name||'',
+      project, type:parsed.type||'petty', desc, supplier:parsed.supplier||'',
+      invoiceNo:parsed.invoiceNo||'', date:parsed.date||today(),
+      payMethod:parsed.payMethod||'cash',
+      subtotal:parsed.subtotal||0, taxRate:parsed.taxRate||0,
+      taxAmt:parsed.taxAmt||0, total:total, items:parsed.items||[]
+    });
+    closeScan();
+    return;
+  }
   // ── فحص وقت الرفع (للمشرف فقط) ──
   if(ROLE==='supervisor'){
     const nowHour = new Date().getHours();
