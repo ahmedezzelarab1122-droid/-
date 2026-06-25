@@ -501,6 +501,21 @@ const server = http.createServer(async (req, res) => {
     await saveConfig(data);
     return sendJSON(res, { ok: true, message: `تم تحويل ${amt} ﷼ من ${fromSup.name} إلى ${toSup.name}` });
   }
+  // Manager withdrawals
+  if (pathname === '/api/mgr-withdrawals' && req.method === 'POST') {
+    try {
+      const { withdrawals } = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{mgrWithdrawals:withdrawals||[]}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  if (pathname === '/api/mgr-withdrawals' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, { withdrawals: cfg?.mgrWithdrawals||[] });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
   if (pathname === '/api/backup' && req.method === 'GET') {
     const data = await loadDB();
     const timestamp = new Date().toISOString().split('T')[0];
