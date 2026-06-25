@@ -516,6 +516,20 @@ const server = http.createServer(async (req, res) => {
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
+  if (pathname === '/api/owner-expenses' && req.method === 'POST') {
+    try {
+      const { expenses } = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{ownerExpenses:expenses||[]}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  if (pathname === '/api/owner-expenses' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, { expenses: cfg?.ownerExpenses||[] });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
   if (pathname === '/api/backup' && req.method === 'GET') {
     const data = await loadDB();
     const timestamp = new Date().toISOString().split('T')[0];
