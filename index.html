@@ -730,6 +730,7 @@ async function restoreSession(){
         try{
           if(ROLE==='manager') rDash();
           else if(ROLE==='owner') rOwnerDash();
+          else if(ROLE==='accountant') rDash();
           else rHome();
         }catch(e){}
       }
