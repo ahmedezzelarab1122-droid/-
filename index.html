@@ -962,6 +962,7 @@ function showApp(){
 
   bottomNav.innerHTML = navHtml;
   
+  startAutoRefresh();
   if(ROLE==='manager') rDash();
   else if(ROLE==='owner') rOwnerDash();
   else if(ROLE==='accountant') rDash();
@@ -997,6 +998,34 @@ async function syncFromServer(keys){
   } catch(e){}
 }
 
+// ── AUTO REFRESH every 60s ──
+let _autoRefreshTimer = null;
+function startAutoRefresh(){
+  if(_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+  _autoRefreshTimer = setInterval(async function(){
+    try{
+      const db = await api('/api/db');
+      if(db&&db.supervisors){
+        DB=db;
+        localStorage.setItem('kayan_db_cache',JSON.stringify(db));
+      }
+      // Sync shared collections
+      const [wPmts,pending,history,ownerW,ownerE] = await Promise.allSettled([
+        api('/api/worker-payments'),
+        api('/api/pending'),
+        api('/api/pending-history'),
+        api('/api/owner-withdrawals'),
+        api('/api/owner-expenses')
+      ]);
+      if(wPmts.value?.payments)    localStorage.setItem('kayan_worker_payments',   JSON.stringify(wPmts.value.payments));
+      if(pending.value?.pending)   localStorage.setItem('kayan_pending',           JSON.stringify(pending.value.pending));
+      if(history.value?.history)   localStorage.setItem('kayan_my_requests',       JSON.stringify(history.value.history));
+      if(ownerW.value?.withdrawals)localStorage.setItem('kayan_owner_withdrawals', JSON.stringify(ownerW.value.withdrawals));
+      if(ownerE.value?.expenses)   localStorage.setItem('kayan_owner_expenses',    JSON.stringify(ownerE.value.expenses));
+    } catch(e){}
+  }, 60000); // كل 60 ثانية
+}
+
 async function syncAll(){
   // Full sync - call only when needed (not on every nav click)
   try {
@@ -1028,11 +1057,7 @@ function goBNav(id,btn){
   if(tbn) tbn.textContent = _titles[id] || '';
   const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr};
   // Sync from server then render
-  syncFromServer().then(function(){
-    if(map[id]) map[id]();
-  }).catch(function(){
-    if(map[id]) map[id]();
-  });
+  if(map[id]) map[id]();
 }
 
 function goTab(id,btn){
