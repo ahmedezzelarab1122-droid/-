@@ -602,6 +602,20 @@ const server = http.createServer(async (req, res) => {
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
+  if (pathname === '/api/worker-payments' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, { payments: cfg?.workerPayments||[] });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  if (pathname === '/api/worker-payments' && req.method === 'POST') {
+    try {
+      const { payments } = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{workerPayments:payments||[]}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
   if (pathname === '/api/backup' && req.method === 'GET') {
     const data = await loadDB();
     const timestamp = new Date().toISOString().split('T')[0];
