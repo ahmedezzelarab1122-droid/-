@@ -915,6 +915,7 @@ function showApp(){
     { label:'الرئيسية', items:[['owner-dash','📊','الملخص']] },
     { label:'التقارير', items:[['owner-sup','👥','المشرفون'],['owner-proj','🏗️','المشاريع'],['owner-labor','👷','العمالة']] },
     { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
+    { label:'العمال الخارجيون', items:[['ext-workers','👷','حسابات العمال الخارجيين']] },
     { label:'حساب المالك', items:[['manager-governance','🏦','حساب المالك']] },
   ] : ROLE==='accountant' ? [
     { label:'الرئيسية', items:[['dash','🏠','الرئيسية']] },
@@ -928,6 +929,7 @@ function showApp(){
     { label:'العمل', items:[['labor','👷','تسجيل عمالة'],['hist','📋','سجلاتي']] },
     { label:'المرتجعات', items:[['sup-returns','↩️','فواتير مرتجعاتي']] },
     { label:'المخزون', items:[['inventory','📦','المخزون والعهدة']] },
+    { label:'العمال الخارجيون', items:[['ext-workers','👷','تقرير العمال الخارجيين']] },
   ];
 
   let navHtml = '';
@@ -3043,6 +3045,7 @@ async function saveWorkerPayment(workerKey, amount, note){
 }
 
 function rExternalWorkersAccounting(){
+  var canPay=ROLE==='manager'||(ROLE==='accountant');
   // Aggregate external workers from all labor entries
   const laborEntries = DB.entries.filter(e=>e.type==='labor'&&!e.rejected);
   const extRate = (DB.laborRates||{}).external||150;
@@ -3102,7 +3105,7 @@ function rExternalWorkersAccounting(){
           +(!isPaid?
             '<div style="display:flex;gap:6px;align-items:center">'
             +'<input type="number" id="pay-'+k.replace(/[^a-z0-9]/gi,'_')+'" placeholder="'+fmt(w.total-totalPaid)+'" value="'+( w.total-totalPaid)+'" style="flex:1;padding:8px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-family:Tajawal,sans-serif;font-size:12px">'
-            +'<button onclick="var inp=this.previousSibling;saveWorkerPayment(this.dataset.k,parseFloat(inp.value)||0)" data-k="'+k+'" style="padding:8px 12px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:8px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;white-space:nowrap">✅ صرف</button>'
+            +(canPay?'<button onclick="var inp=this.previousSibling;saveWorkerPayment(this.dataset.k,parseFloat(inp.value)||0)" data-k="'+k+'" style="padding:8px 12px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:8px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;white-space:nowrap">✅ صرف</button>':'')
             +'</div>'
           :'')
 
@@ -4950,9 +4953,43 @@ function rOwnerLabor(){
   
   const laborEntries=fromDate||toDate ? allLabor.filter(e=>(!fromDate||e.date>=fromDate)&&(!toDate||e.date<=toDate)) : allLabor;
   
-  const totalCost=laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  // الحصول على العمال الخارجيين الذين تم محاسبتهم
+  const _wPmts = JSON.parse(localStorage.getItem('kayan_worker_payments')||'[]');
+  const _paidWorkers = {};
+  // جمع كل ما دُفع لكل عامل
+  _wPmts.forEach(function(p){ _paidWorkers[p.workerKey]=(_paidWorkers[p.workerKey]||0)+p.amount; });
+  // حساب المستحق لكل عامل
+  const _workerDue = {};
+  laborEntries.forEach(function(e){
+    if(!e.laborDetails||!e.laborDetails.externalWorkersList) return;
+    e.laborDetails.externalWorkersList.forEach(function(w){
+      var k=w.name+'||'+(w.jobTitle||'');
+      _workerDue[k]=(_workerDue[k]||0)+(e.laborDetails.externalRate||150);
+    });
+  });
+  // العمال الذين اكتمل صرف حسابهم
+  const _fullyPaid = new Set(Object.keys(_workerDue).filter(function(k){return (_paidWorkers[k]||0)>=_workerDue[k];}));
+
+  // احسب الإجماليات مع استثناء العمال المحاسَبين
+  const totalCost=laborEntries.reduce(function(a,e){
+    if(!e.laborDetails) return a+(e.total||0);
+    var extPaidCost=0;
+    if(e.laborDetails.externalWorkersList){
+      e.laborDetails.externalWorkersList.forEach(function(w){
+        var k=w.name+'||'+(w.jobTitle||'');
+        if(_fullyPaid.has(k)) extPaidCost+=(e.laborDetails.externalRate||150);
+      });
+    }
+    return a+(e.laborDetails.laborTotal||0)-extPaidCost;
+  },0);
   const totalComp=laborEntries.reduce((a,e)=>a+(e.laborDetails?.companyCount||0),0);
-  const totalExt=laborEntries.reduce((a,e)=>a+(e.laborDetails?.externalCount||0),0);
+  const totalExt=laborEntries.reduce(function(a,e){
+    if(!e.laborDetails||!e.laborDetails.externalWorkersList) return a+(e.laborDetails?.externalCount||0);
+    var paidCount=e.laborDetails.externalWorkersList.filter(function(w){
+      return _fullyPaid.has(w.name+'||'+(w.jobTitle||''));
+    }).length;
+    return a+((e.laborDetails.externalCount||0)-paidCount);
+  },0);
 
   document.getElementById('mc').innerHTML=`
     <div class="card" style="padding:12px 14px;margin-bottom:12px">
