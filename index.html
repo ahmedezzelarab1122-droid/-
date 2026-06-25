@@ -751,20 +751,14 @@ async function start(){
         ROLE=_sd.ROLE;
         document.getElementById('lview').style.display='none';
         showApp();
-        // 1. Render immediately from cached DB
+        // 1. Render immediately from cache
 const _cachedDB = localStorage.getItem('kayan_db_cache');
 if(_cachedDB){try{DB=JSON.parse(_cachedDB);}catch(e){}}
 try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}
-// 2. Update from server in background (silent)
-api('/api/db').then(async function(d){
-  if(d&&d.supervisors){
-    DB=d;
-    localStorage.setItem('kayan_db_cache',JSON.stringify(d));
-    await syncFromServer().catch(function(){});
-    // Re-render silently if on same tab
-    try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}
-  }
-}).catch(()=>{});
+// 2. Full sync in background - once on load
+syncAll().then(function(){
+  try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}
+}).catch(function(){});
         api('/api/contracts').then(cr=>{if(cr&&cr.contracts&&cr.contracts.length>0)localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));}).catch(()=>{});
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
         api('/api/owner-withdrawals').then(wr=>{if(wr&&wr.withdrawals)localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(wr.withdrawals));}).catch(()=>{});
@@ -994,33 +988,34 @@ document.addEventListener('click', function(e){
 });
 
 // ── SYNC ALL DATA FROM SERVER ──────────────────────
-async function syncFromServer(){
+async function syncFromServer(keys){
+  // keys = array of what to sync, or 'all' for everything
+  // Default: only sync DB
   try {
-    // Core DB (entries + supervisors + projects)
     const db = await api('/api/db');
-    if(db && db.supervisors) DB = db;
+    if(db&&db.supervisors){ DB=db; localStorage.setItem('kayan_db_cache',JSON.stringify(db)); }
+  } catch(e){}
+}
 
-    // All localStorage collections - load from server
-    const [sales, returns, contracts, ownerW, ownerE, wPmts, pending, history] = await Promise.allSettled([
-      api('/api/sales'),
-      api('/api/sales-returns'),
-      api('/api/contracts'),
-      api('/api/owner-withdrawals'),
-      api('/api/owner-expenses'),
-      api('/api/worker-payments'),
-      api('/api/pending'),
-      api('/api/pending-history')
+async function syncAll(){
+  // Full sync - call only when needed (not on every nav click)
+  try {
+    const db = await api('/api/db');
+    if(db&&db.supervisors){ DB=db; localStorage.setItem('kayan_db_cache',JSON.stringify(db)); }
+    const [sales,returns,contracts,ownerW,ownerE,wPmts,pending,history] = await Promise.allSettled([
+      api('/api/sales'), api('/api/sales-returns'), api('/api/contracts'),
+      api('/api/owner-withdrawals'), api('/api/owner-expenses'),
+      api('/api/worker-payments'), api('/api/pending'), api('/api/pending-history')
     ]);
-
-    if(sales.value?.sales)          localStorage.setItem('kayan_sales',           JSON.stringify(sales.value.sales));
-    if(returns.value?.returns)      localStorage.setItem('kayan_sales_returns',    JSON.stringify(returns.value.returns));
-    if(contracts.value?.contracts)  localStorage.setItem('kayan_contracts',        JSON.stringify(contracts.value.contracts));
-    if(ownerW.value?.withdrawals)   localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(ownerW.value.withdrawals));
-    if(ownerE.value?.expenses)      localStorage.setItem('kayan_owner_expenses',   JSON.stringify(ownerE.value.expenses));
-    if(wPmts.value?.payments)       localStorage.setItem('kayan_worker_payments',  JSON.stringify(wPmts.value.payments));
-    if(pending.value?.pending)      localStorage.setItem('kayan_pending',          JSON.stringify(pending.value.pending));
-    if(history.value?.history)      localStorage.setItem('kayan_my_requests',      JSON.stringify(history.value.history));
-  } catch(e) { /* silent fail */ }
+    if(sales.value?.sales)         localStorage.setItem('kayan_sales',            JSON.stringify(sales.value.sales));
+    if(returns.value?.returns)     localStorage.setItem('kayan_sales_returns',     JSON.stringify(returns.value.returns));
+    if(contracts.value?.contracts) localStorage.setItem('kayan_contracts',         JSON.stringify(contracts.value.contracts));
+    if(ownerW.value?.withdrawals)  localStorage.setItem('kayan_owner_withdrawals', JSON.stringify(ownerW.value.withdrawals));
+    if(ownerE.value?.expenses)     localStorage.setItem('kayan_owner_expenses',    JSON.stringify(ownerE.value.expenses));
+    if(wPmts.value?.payments)      localStorage.setItem('kayan_worker_payments',   JSON.stringify(wPmts.value.payments));
+    if(pending.value?.pending)     localStorage.setItem('kayan_pending',           JSON.stringify(pending.value.pending));
+    if(history.value?.history)     localStorage.setItem('kayan_my_requests',       JSON.stringify(history.value.history));
+  } catch(e){}
 }
 
 function goBNav(id,btn){
@@ -1044,8 +1039,7 @@ function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr};
-  // Sync all data from server then render
-  syncFromServer().then(function(){if(map[id])map[id]();}).catch(function(){if(map[id])map[id]();});
+  if(map[id]) map[id]();
 }
 
 // ── DASHBOARD ──────────────────────
