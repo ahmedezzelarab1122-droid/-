@@ -502,17 +502,17 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, { ok: true, message: `تم تحويل ${amt} ﷼ من ${fromSup.name} إلى ${toSup.name}` });
   }
   // Manager withdrawals
-  if (pathname === '/api/mgr-withdrawals' && req.method === 'POST') {
+  if (pathname === '/api/owner-withdrawals' && req.method === 'POST') {
     try {
       const { withdrawals } = await parseBody(req);
-      await db.collection('config').updateOne({_id:'main'},{$set:{mgrWithdrawals:withdrawals||[]}},{upsert:true});
+      await db.collection('config').updateOne({_id:'main'},{$set:{ownerWithdrawals:withdrawals||[]}},{upsert:true});
       return sendJSON(res, { ok: true });
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
-  if (pathname === '/api/mgr-withdrawals' && req.method === 'GET') {
+  if (pathname === '/api/owner-withdrawals' && req.method === 'GET') {
     try {
       const cfg = await db.collection('config').findOne({_id:'main'});
-      return sendJSON(res, { withdrawals: cfg?.mgrWithdrawals||[] });
+      return sendJSON(res, { withdrawals: cfg?.ownerWithdrawals||[] });
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
