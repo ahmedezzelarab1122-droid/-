@@ -756,6 +756,7 @@ async function start(){
         api('/api/owner-withdrawals').then(wr=>{if(wr&&wr.withdrawals)localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(wr.withdrawals));}).catch(()=>{});
         api('/api/owner-expenses').then(er=>{if(er&&er.expenses)localStorage.setItem('kayan_owner_expenses',JSON.stringify(er.expenses));}).catch(()=>{});
         api('/api/pending').then(pr=>{if(pr&&pr.pending){_pendingRequests=pr.pending;localStorage.setItem('kayan_pending',JSON.stringify(pr.pending));}}).catch(()=>{});
+        api('/api/pending-history').then(hr=>{if(hr&&hr.history)localStorage.setItem('kayan_my_requests',JSON.stringify(hr.history));}).catch(()=>{});
         return;
       }
     }catch(e){localStorage.removeItem('ks');}
@@ -2837,6 +2838,13 @@ function rReports(){
 // ── ACCOUNTANT PENDING REQUESTS ──
 
 function rMyRequests(){
+  api('/api/pending-history').then(function(hr){
+    if(hr&&hr.history) localStorage.setItem('kayan_my_requests',JSON.stringify(hr.history));
+    _renderMyRequests();
+  }).catch(function(){_renderMyRequests();});
+}
+
+function _renderMyRequests(){
   const myReqs = JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
   const stLabel = {pending:'⏳ معلق',approved:'✅ تمت الموافقة',rejected:'❌ تم الرفض'};
   const stColor  = {pending:'#f5c842',approved:'#34d399',rejected:'#f87171'};
@@ -3592,7 +3600,6 @@ function resetScan(){
 }
 
 
-async 
 
 // ── ADD BUDGET ─────────────────────────
 let _budgetSupId=null;
