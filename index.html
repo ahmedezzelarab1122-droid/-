@@ -4252,6 +4252,10 @@ function rLaborMgr(){
 }
 
 async function addWorker(){
+  if(ROLE==='accountant'){
+    submitPendingRequest('addWorker','إضافة عامل جديد',0,{});
+    return;
+  }
   const nameEl = document.getElementById('nw-name');
   const jobEl = document.getElementById('nw-job');
   if(!nameEl || !jobEl) return;
@@ -4336,6 +4340,12 @@ function addWaitExtWorker(){
 }
 
 async function submitWaitingLabor(){
+  if(ROLE==='accountant'){
+    const proj2 = document.getElementById('wait-proj')?.value||'';
+    const date2 = document.getElementById('wait-date')?.value||today();
+    submitPendingRequest('submitLaborWaiting','تسجيل عمالة انتظار — '+proj2+' ('+date2+')',0,{type:'labor_waiting',project:proj2,date:date2});
+    return;
+  }
   const date = document.getElementById('wait-date')?.value || today();
   const project = document.getElementById('wait-proj')?.value;
   const err = document.getElementById('wait-err');
