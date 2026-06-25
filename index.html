@@ -918,6 +918,7 @@ function showApp(){
     { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
     { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
     { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
+    { label:'طلباتي', items:[['my-requests','📋','طلباتي']] },
   ] : [
     { label:'الرئيسية', items:[['home','🏠','الرئيسية'],['bal','💰','رصيدي']] },
     { label:'العمل', items:[['labor','👷','تسجيل عمالة'],['hist','📋','سجلاتي']] },
@@ -932,10 +933,12 @@ function showApp(){
     section.items.forEach(([id,icon,text])=>{
       const active = firstItem ? ' active' : '';
       firstItem = false;
-      navHtml += `<button class="bottom-nav-item${active}" onclick="goBNav('${id}',this)" data-id="${id}">
-        <div class="bnav-icon"><span>${icon}</span></div>
-        <span>${text}</span>
-      </button>`;
+      const _pendingCount = id==='pending-requests' ? JSON.parse(localStorage.getItem('kayan_pending')||'[]').length : 0;
+      navHtml += '<button class="bottom-nav-item'+active+'" onclick="goBNav(\''+id+'\',this)" data-id="'+id+'">'
+        + '<div class="bnav-icon"><span>'+icon+'</span></div>'
+        + '<span>'+text+'</span>'
+        + (_pendingCount>0 ? '<span style="background:#f87171;color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:800;margin-right:auto;margin-left:4px">'+_pendingCount+'</span>' : '')
+        + '</button>';
     });
   });
 
@@ -973,17 +976,17 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','manager-governance':'حساب المالك','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','my-requests':'طلباتي','manager-governance':'حساب المالك','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
   map[id]?.();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
   map[id]?.();
 }
 
@@ -2832,6 +2835,25 @@ function rReports(){
 // ── SETUP ──────────────────────────
 
 // ── ACCOUNTANT PENDING REQUESTS ──
+
+function rMyRequests(){
+  const myReqs = JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
+  const stLabel = {pending:'⏳ معلق',approved:'✅ تمت الموافقة',rejected:'❌ تم الرفض'};
+  const stColor  = {pending:'#f5c842',approved:'#34d399',rejected:'#f87171'};
+  document.getElementById('mc').innerHTML =
+    '<div class="ctitle">📋 طلباتي</div>'
+    + (myReqs.length===0 ? '<div class="empty">لا توجد طلبات مسجلة</div>'
+      : myReqs.slice().reverse().map(function(req){
+          return '<div class="card" style="padding:11px 14px;margin-bottom:8px;border-right:3px solid '+(stColor[req.status]||'#70B5FF')+'">'
+            +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+            +'<div style="flex:1"><div style="font-size:12px;font-weight:700">'+(req.desc||'—')+'</div>'
+            +'<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">'+(req.date||'')+' '+(req.submittedAt||'')+'</div></div>'
+            +'<div style="text-align:left"><div style="font-size:11px;font-weight:800;color:'+(stColor[req.status]||'#70B5FF')+'">'+(stLabel[req.status]||'معلق')+'</div>'
+            +(req.amount?'<div style="font-size:11px;color:rgba(255,255,255,.5)">'+fmt(req.amount)+' ﷼</div>':'')
+            +'</div></div></div>';
+        }).join(''));
+}
+
 function rPendingRequests(){
   const pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
   const typeLabel = {add:'إضافة',edit:'تعديل',delete:'حذف'};
@@ -2880,6 +2902,10 @@ async function approvePending(reqId){
     pending = pending.filter(r=>r.id!==reqId);
     localStorage.setItem('kayan_pending',JSON.stringify(pending));
     await api('/api/pending','POST',{pending});
+    const _mr=JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
+    const _mi=_mr.findIndex(r=>r.id===reqId);
+    if(_mi>=0){_mr[_mi].status='approved';localStorage.setItem('kayan_my_requests',JSON.stringify(_mr));}
+    await api('/api/pending-history','POST',{history:_mr}).catch(()=>{});
     DB = await api('/api/db');
     alert('✅ تم تنفيذ الطلب');
     rPendingRequests();
@@ -2894,6 +2920,10 @@ async function rejectPending(reqId){
   pending = pending.filter(r=>r.id!==reqId);
   localStorage.setItem('kayan_pending',JSON.stringify(pending));
   await api('/api/pending','POST',{pending});
+  const _mr2=JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
+  const _mi2=_mr2.findIndex(r=>r.id===reqId);
+  if(_mi2>=0){_mr2[_mi2].status='rejected';localStorage.setItem('kayan_my_requests',JSON.stringify(_mr2));}
+  await api('/api/pending-history','POST',{history:_mr2}).catch(()=>{});
   rPendingRequests();
 }
 
