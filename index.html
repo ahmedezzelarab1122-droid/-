@@ -3320,15 +3320,17 @@ async function saveEntry(){
 
   // 1. رقم الفاتورة + المبلغ + المورد (التاريخ لا يؤثر)
   if(entry.invoiceNo && entry.invoiceNo.trim()){
+    // تكرار: رقم الفاتورة + التاريخ + المبلغ + المورد كلهم متطابقين
     const dup = invoices.find(e=>
-      e.invoiceNo &&
+      e.invoiceNo && entry.invoiceNo &&
       _norm(e.invoiceNo)===_norm(entry.invoiceNo) &&
+      e.date===(entry.date||today()) &&
       Math.abs((e.total||0)-(entry.total||0))<0.5 &&
       _norm(e.supplier||e.desc||'')===_norm(entry.supplier||entry.desc||'')
     );
     if(dup){
       const who = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
-      alert('⚠️ تكرار — رقم الفاتورة\nالفاتورة رقم "'+entry.invoiceNo+'" بنفس المبلغ والمورد مسجلة مسبقاً\nعند: '+who+' | تاريخ: '+dup.date);
+      alert('⚠️ فاتورة مكررة\nرقم: '+entry.invoiceNo+'\nتاريخ: '+dup.date+'\nمسجلة عند: '+who);
       return;
     }
   }
@@ -3370,13 +3372,15 @@ async function saveEntry(){
   const normalize = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
   if(entry.invoiceNo && entry.invoiceNo.trim()){
     const dup = DB.entries.find(e=>
-      e.invoiceNo && _norm(e.invoiceNo)===_norm(entry.invoiceNo) &&
+      e.invoiceNo && entry.invoiceNo &&
+      _norm(e.invoiceNo)===_norm(entry.invoiceNo) &&
+      e.date===(entry.date||today()) &&
       Math.abs((e.total||0)-(entry.total||0))<0.5 &&
       _norm(e.supplier||e.desc||'')===_norm(entry.supplier||entry.desc||'')
     );
     if(dup){
       const dupSup = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
-      alert('⚠️ الفاتورة رقم '+entry.invoiceNo+' بنفس المبلغ والمورد مسجلة مسبقاً عند '+dupSup);
+      alert('⚠️ فاتورة مكررة\nرقم: '+entry.invoiceNo+'\nتاريخ: '+dup.date+'\nمسجلة عند: '+dupSup);
       return;
     }
   }
@@ -6012,12 +6016,14 @@ async function pickPurchBulkFile(input){
 
       // فحص التكرار: رقم الفاتورة + المبلغ + اسم المورد
       // مفتاح التكرار: رقم الفاتورة + المبلغ + اسم المورد (بدون تاريخ)
+      // مفتاح التكرار: رقم الفاتورة + التاريخ + المبلغ + المورد
       const _mkDupKey = inv => {
         const invNo = (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase();
+        const date  = (inv.date||'').trim();
         const amt   = Math.round((inv.total||inv.subtotal||0)*100);
         const sup   = (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20);
-        if(!invNo && !amt) return ''; // مفيش بيانات كافية
-        return invNo+'|'+amt+'|'+sup;
+        if(!invNo && !amt) return '';
+        return invNo+'|'+date+'|'+amt+'|'+sup;
       };
       const _existDupKeys = new Set(
         DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkDupKey({
@@ -6067,13 +6073,14 @@ async function savePurchBulk(){
   const sup=DB.supervisors.find(s=>s.id===supId);
   const btn=document.getElementById('pb-save-btn');
   btn.textContent='⏳ جاري الحفظ...';btn.disabled=true;
-  // فحص التكرار: رقم الفاتورة + المبلغ + اسم المورد (بدون تاريخ)
+  // فحص التكرار: رقم الفاتورة + التاريخ + المبلغ + المورد
   const _mkKey2 = inv => {
     const invNo = (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase();
+    const date  = (inv.date||'').trim();
     const amt   = Math.round((inv.total||inv.subtotal||0)*100);
     const sup   = (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20);
     if(!invNo && !amt) return '';
-    return invNo+'|'+amt+'|'+sup;
+    return invNo+'|'+date+'|'+amt+'|'+sup;
   };
   const _saveSet=new Set(
     DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkKey2({
