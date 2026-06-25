@@ -923,6 +923,7 @@ function showApp(){
     { label:'العمالة', items:[['labor-mgr','👷','إدارة العمالة']] },
     { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
     { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
+    { label:'العمال الخارجيون', items:[['ext-workers','👷','حسابات العمال الخارجيين']] },
     { label:'طلباتي', items:[['my-requests','📋','طلباتي']] },
   ] : [
     { label:'الرئيسية', items:[['home','🏠','الرئيسية'],['bal','💰','رصيدي']] },
@@ -3066,7 +3067,10 @@ function rExternalWorkersAccounting(){
   const workerList = Object.entries(workers).sort(function(a,b){return b[1].days-a[1].days;});
 
   document.getElementById('mc').innerHTML =
-    '<div class="ctitle">👷 حسابات العمال الخارجيين</div>'
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +'<div class="ctitle" style="margin-bottom:0">👷 حسابات العمال الخارجيين</div>'
+    +'<button onclick="exportExtWorkersPDF()" style="padding:6px 12px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif">📄 PDF</button>'
+    +'</div>'
 
     // Summary stats
     +'<div class="sg" style="margin-bottom:12px">'
