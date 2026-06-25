@@ -4363,8 +4363,8 @@ function addWaitExtWorker(){
 
 async function submitWaitingLabor(){
   if(ROLE==='accountant'){
-    const proj2 = document.getElementById('wait-proj')?.value||'';
-    const date2 = document.getElementById('wait-date')?.value||today();
+    const proj2 = (document.getElementById('wait-proj')||{value:'انتظار - سكن'}).value||'انتظار - سكن';
+    const date2 = (document.getElementById('wait-date')||{value:today()}).value||today();
     submitPendingRequest('submitLaborWaiting','تسجيل عمالة انتظار — '+proj2+' ('+date2+')',0,{type:'labor_waiting',project:proj2,date:date2});
     return;
   }
