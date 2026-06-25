@@ -751,7 +751,7 @@ async function start(){
         ROLE=_sd.ROLE;
         document.getElementById('lview').style.display='none';
         showApp();
-        api('/api/db').then(d=>{if(d&&d.supervisors){DB=d;try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else rHome();}catch(e){}}}).catch(()=>{});
+        api('/api/db').then(d=>{if(d&&d.supervisors){DB=d;try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}}}).catch(()=>{});
         api('/api/contracts').then(cr=>{if(cr&&cr.contracts&&cr.contracts.length>0)localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));}).catch(()=>{});
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
         api('/api/owner-withdrawals').then(wr=>{if(wr&&wr.withdrawals)localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(wr.withdrawals));}).catch(()=>{});
