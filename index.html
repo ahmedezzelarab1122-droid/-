@@ -2883,6 +2883,130 @@ function _renderMyRequests(){
         }).join(''));
 }
 
+
+// ── ACCOUNTANTS MANAGEMENT ──
+function rAccountantsMgr(){
+  const accs = DB.accountants||[];
+  const permLabel = {txns:'المعاملات',reports:'التقارير',transfer:'التحويلات','labor-mgr':'العمالة',returns:'المرتجعات','inventory-mgr':'المخزون','cost-center':'مركز التكلفة',purchases:'المشتريات',sales:'المبيعات','trial-balance':'ميزان المراجعة',projects:'المشاريع'};
+
+  document.getElementById('mc').innerHTML =
+    '<div class="ctitle">📒 إدارة المحاسبين</div>'
+    +'<div class="card" style="margin-bottom:12px">'
+    +'<div class="ctitle" style="margin-bottom:10px">➕ إضافة محاسب</div>'
+    +'<div class="fg"><label class="lbl">الاسم</label><input id="new-acc-name" placeholder="اسم المحاسب"></div>'
+    +'<div class="fg"><label class="lbl">كلمة المرور</label><input id="new-acc-pw" placeholder="كلمة المرور"></div>'
+    +'<div class="fg"><label class="lbl">الصلاحيات</label>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px">'
++'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="txns" class="new-perm"> المعاملات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="reports" class="new-perm"> التقارير</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="transfer" class="new-perm"> التحويلات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="labor-mgr" class="new-perm"> العمالة</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="returns" class="new-perm"> المرتجعات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="inventory-mgr" class="new-perm"> المخزون</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="cost-center" class="new-perm"> مركز التكلفة</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="purchases" class="new-perm"> فواتير المشتريات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="sales" class="new-perm"> فواتير المبيعات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="trial-balance" class="new-perm"> ميزان المراجعة</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="projects" class="new-perm"> إدارة المشاريع</label>'
+    
+    +'</div></div>'
+    +'<div class="err" id="new-acc-err" style="display:none"></div>'
+    +'<button onclick="addAccountant()" class="btn bp" style="margin-top:8px">💾 إضافة</button>'
+    +'</div>'
+    +'<div class="shdr">المحاسبون ('+accs.length+')</div>'
+    +(accs.length===0?'<div class="empty">لا يوجد محاسبون</div>'
+      :accs.map(function(acc){
+        var pLabels=(acc.permissions||[]).map(function(p){return permLabel[p]||p;}).join(' · ')||'لا توجد صلاحيات';
+        return '<div class="card" style="margin-bottom:8px;padding:12px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+          +'<div><div style="font-size:13px;font-weight:700">'+acc.name+'</div>'
+          +'<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">'+pLabels+'</div></div>'
+          +'<div style="display:flex;gap:6px">'
+          +'<button onclick="editAccountant(this.dataset.id)" data-id="'+acc.id+'" style="padding:5px 10px;border:1px solid rgba(245,200,66,.3);border-radius:7px;background:rgba(245,200,66,.1);color:#f5c842;cursor:pointer;font-size:11px;font-family:Tajawal,sans-serif">✏️</button>'
+          +'<button onclick="deleteAccountant(this.dataset.id)" data-id="'+acc.id+'" style="padding:5px 10px;border:1px solid rgba(248,113,113,.3);border-radius:7px;background:rgba(248,113,113,.1);color:#f87171;cursor:pointer;font-size:11px;font-family:Tajawal,sans-serif">🗑</button>'
+          +'</div></div></div>';
+      }).join(''));
+}
+
+async function addAccountant(){
+  const name=document.getElementById('new-acc-name')?.value.trim();
+  const pw=document.getElementById('new-acc-pw')?.value.trim();
+  const perms=Array.from(document.querySelectorAll('.new-perm:checked')).map(function(c){return c.value;});
+  const err=document.getElementById('new-acc-err');
+  if(!name||!pw){err.style.display='block';err.textContent='أدخل الاسم وكلمة المرور';return;}
+  const accs=DB.accountants||[];
+  accs.push({id:'acc_'+Date.now(),name:name,password:pw,permissions:perms});
+  const res=await api('/api/accountants','POST',{accountants:accs});
+  if(res.error){err.style.display='block';err.textContent=res.error;return;}
+  DB=await api('/api/db');
+  alert('تم إضافة المحاسب: '+name);
+  rAccountantsMgr();
+}
+
+async function deleteAccountant(accId){
+  if(!confirm('حذف هذا المحاسب؟')) return;
+  const accs=(DB.accountants||[]).filter(function(a){return a.id!==accId;});
+  await api('/api/accountants','POST',{accountants:accs});
+  DB=await api('/api/db');
+  rAccountantsMgr();
+}
+
+function editAccountant(accId){
+  const acc=(DB.accountants||[]).find(function(a){return a.id===accId;});
+  if(!acc) return;
+  const old=document.getElementById('edit-acc-modal');if(old)old.remove();
+  const m=document.createElement('div');
+  m.id='edit-acc-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
+    +'<div style="font-size:14px;font-weight:700;color:#f5c842">✏️ تعديل '+acc.name+'</div>'
+    +'<button onclick="var m=document.getElementById(\'edit-acc-modal\');if(m)m.remove();" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button></div>'
+    +'<div class="fg"><label class="lbl">الاسم</label><input id="edit-acc-name" value="'+acc.name+'"></div>'
+    +'<div class="fg"><label class="lbl">كلمة مرور جديدة</label><input id="edit-acc-pw" placeholder="اتركها فارغة"></div>'
+    +'<div class="fg"><label class="lbl">الصلاحيات</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px">'
++'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="txns" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('txns')?' checked':'')+'>  المعاملات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="reports" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('reports')?' checked':'')+'>  التقارير</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="transfer" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('transfer')?' checked':'')+'>  التحويلات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="labor-mgr" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('labor-mgr')?' checked':'')+'>  العمالة</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="returns" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('returns')?' checked':'')+'>  المرتجعات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="inventory-mgr" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('inventory-mgr')?' checked':'')+'>  المخزون</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="cost-center" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('cost-center')?' checked':'')+'>  مركز التكلفة</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="purchases" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('purchases')?' checked':'')+'>  فواتير المشتريات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="sales" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('sales')?' checked':'')+'>  فواتير المبيعات</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="trial-balance" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('trial-balance')?' checked':'')+'>  ميزان المراجعة</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="projects" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('projects')?' checked':'')+'>  إدارة المشاريع</label>'
+    
+    +'</div></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +'<button onclick="saveAccountantEdit(this.dataset.id)" data-id="'+accId+'" class="btn bp" style="flex:1">💾 حفظ</button>'
+    +'<button onclick="var m=document.getElementById(\'edit-acc-modal\');if(m)m.remove();" style="padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:Tajawal,sans-serif">إلغاء</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+
+async function saveAccountantEdit(accId){
+  const name=document.getElementById('edit-acc-name')?.value.trim();
+  const pw=document.getElementById('edit-acc-pw')?.value.trim();
+  const perms=Array.from(document.querySelectorAll('.edit-perm:checked')).map(function(c){return c.value;});
+  if(!name){alert('أدخل الاسم');return;}
+  const accs=DB.accountants||[];
+  const idx2=accs.findIndex(function(a){return a.id===accId;});
+  if(idx2>=0){accs[idx2].name=name;accs[idx2].permissions=perms;if(pw)accs[idx2].password=pw;}
+  await api('/api/accountants','POST',{accountants:accs});
+  DB=await api('/api/db');
+  document.getElementById('edit-acc-modal').remove();
+  alert('تم حفظ التعديلات');
+  rAccountantsMgr();
+}
+
+function rProjectsMgr(){
+  document.getElementById('mc').innerHTML =
+    '<div class="ctitle">🏗️ المشاريع</div>'
+    +(DB.projects.length===0?'<div class="empty">لا توجد مشاريع</div>'
+      :DB.projects.map(function(p){return '<div class="card" style="padding:10px 14px;margin-bottom:6px;font-size:13px">'+p+'</div>';}).join(''));
+}
+
 function rPendingRequests(){
   // Load latest from server
   api('/api/pending').then(pr=>{
