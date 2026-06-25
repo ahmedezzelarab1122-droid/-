@@ -751,7 +751,20 @@ async function start(){
         ROLE=_sd.ROLE;
         document.getElementById('lview').style.display='none';
         showApp();
-        api('/api/db').then(d=>{if(d&&d.supervisors){DB=d;try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}}}).catch(()=>{});
+        // 1. Render immediately from cached DB
+const _cachedDB = localStorage.getItem('kayan_db_cache');
+if(_cachedDB){try{DB=JSON.parse(_cachedDB);}catch(e){}}
+try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}
+// 2. Update from server in background (silent)
+api('/api/db').then(async function(d){
+  if(d&&d.supervisors){
+    DB=d;
+    localStorage.setItem('kayan_db_cache',JSON.stringify(d));
+    await syncFromServer().catch(function(){});
+    // Re-render silently if on same tab
+    try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}
+  }
+}).catch(()=>{});
         api('/api/contracts').then(cr=>{if(cr&&cr.contracts&&cr.contracts.length>0)localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));}).catch(()=>{});
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
         api('/api/owner-withdrawals').then(wr=>{if(wr&&wr.withdrawals)localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(wr.withdrawals));}).catch(()=>{});
@@ -1150,7 +1163,7 @@ async function delE(id){if(!confirm('حذف؟'))return;await api('/api/entries/'
 async function toggleReject(id, isRejected){
   if(!confirm(isRejected?'قبول الفاتورة وإعادتها للرصيد؟':'رفض الفاتورة وإزالتها من الرصيد؟')) return;
   await api('/api/entries/'+id+'/reject','POST',{rejected:!isRejected});
-  DB = await api('/api/db');
+  DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   rfT(); rDash();
 }
 
@@ -1311,7 +1324,7 @@ async function saveReturn2(){
     document.getElementById('ret-err2').textContent=res.error;
     return;
   }
-  DB = await api('/api/db');
+  DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   document.getElementById('ret-ok2').style.display='block';
   document.getElementById('ret-ok2').textContent='✅ تم حفظ المرتجع — تمت إضافة '+fmt(entry.total)+' ﷼ لرصيدك';
   document.getElementById('ret-save-btn2').style.display='none';
@@ -2831,7 +2844,7 @@ async function saveReturn(){
     document.getElementById('ret-err').textContent=res.error;
     return;
   }
-  DB = await api('/api/db');
+  DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   document.getElementById('ret-ok').style.display='block';
   document.getElementById('ret-ok').textContent='✅ تم حفظ المرتجع وإضافة '+fmt(entry.total)+' ﷼ لرصيد '+orig.supName;
   document.getElementById('ret-save-btn').style.display='none';
@@ -3078,7 +3091,7 @@ async function saveWorkerPayment(workerKey, amount, note){
     date:today(), payMethod:'cash',
     subtotal:amount, taxRate:0, taxAmt:0, total:amount
   }).catch(()=>{});
-  DB = await api('/api/db');
+  DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   rExternalWorkersAccounting();
 }
 
@@ -3328,7 +3341,7 @@ async function approvePending(reqId){
     else { _hist.push(Object.assign({},_reqData,{status:'approved'})); }
     await api('/api/pending-history','POST',{history:_hist});
     localStorage.setItem('kayan_my_requests',JSON.stringify(_hist));
-    DB = await api('/api/db');
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     alert('✅ تم تنفيذ الطلب');
     rPendingRequests();
   }catch(e){
@@ -3642,7 +3655,7 @@ async function saveManualDirect(){
       total:tot
     });
     if(res.error) throw new Error(res.error);
-    DB = await api('/api/db');
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     closeScan();
     // Show success
     const ok = document.createElement('div');
@@ -4129,7 +4142,7 @@ async function doTransfer(){
   try{
     const res = await api('/api/transfer','POST',{fromId,toId,amount:parseFloat(amount),note});
     if(res.error){err.style.display='block';err.textContent=res.error;return;}
-    DB = await api('/api/db');
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     document.getElementById('tf-amount').value='';
     document.getElementById('tf-note').value='';
     document.getElementById('tf-ok-msg').textContent = res.message;
@@ -4649,7 +4662,7 @@ async function addWorker(){
     if(res.ok){
       nameEl.value='';
       jobEl.value='';
-      DB = await api('/api/db');
+      DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
       rLaborMgr();
     }
   }catch(e){console.error('addWorker error:',e);}
@@ -4658,7 +4671,7 @@ async function addWorker(){
 async function deleteWorker(id){
   if(!confirm('حذف العامل؟')) return;
   await api('/api/workers/'+id,'DELETE');
-  DB = await api('/api/db');
+  DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   rLaborMgr();
 }
 
@@ -4758,7 +4771,7 @@ async function submitWaitingLabor(){
       date, project, presentWorkers, externalWorkersList
     });
     if(res.error){err.style.display='block';err.textContent=res.error;return;}
-    DB = await api('/api/db');
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     ok.style.display='flex';
     // Reset checkboxes
     workers.forEach(w=>{const cb=document.getElementById('ww-'+w.id);if(cb)cb.checked=false;});
@@ -4910,7 +4923,7 @@ async function submitLabor(){
   try{
     const res = await api('/api/labor','POST',{supId:CU.id,project,presentWorkers,externalWorkersList});
     if(res.error){err.style.display='block';err.textContent=res.error;return;}
-    DB = await api('/api/db');
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     extWorkerCount = 0;
     document.getElementById('lab-ok-msg').textContent=`تم تسجيل ${presentWorkers.length+externalWorkersList.length} عامل`;
     ok.style.display='flex';
@@ -6904,7 +6917,7 @@ async function savePurchEdit(entryId){
       subtotal:sub, taxRate:rate, taxAmt:vat, total:tot
     });
     if(res.error) throw new Error(res.error);
-    DB = await api('/api/db');
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     document.getElementById('edit-modal').remove();
     rPurchases();
   }catch(e){
@@ -6973,7 +6986,7 @@ async function deleteHistoricalPurchases(){
     else failed++;
   });
 
-  DB = await api('/api/db');
+  DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   alert('✅ تم حذف '+deleted+' فاتورة'+(failed?' · فشل '+failed:''));
   rPurchases();
 }
