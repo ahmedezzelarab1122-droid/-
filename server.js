@@ -12,12 +12,132 @@ const { MongoClient } = require('mongodb');
 let mongoClient = null;
 let db = null;
 
+
+// ── AUTO BACKUP ──────────────────────────────────────
+async function createAutoBackup() {
+  if (!db) return;
+  try {
+    const cfg = await db.collection('config').findOne({_id:'main'});
+    const entries = await db.collection('entries').find({}).toArray();
+    const timestamp = new Date().toISOString();
+    const backupDoc = {
+      _id: 'backup_' + Date.now(),
+      createdAt: timestamp,
+      type: 'auto',
+      data: {
+        supervisors: cfg?.supervisors || [],
+        projects: cfg?.projects || [],
+        managerPassword: cfg?.managerPassword || 'admin123',
+        ownerPassword: cfg?.ownerPassword || 'owner123',
+        nextId: cfg?.nextId || 1,
+        laborRates: cfg?.laborRates || {},
+        companyWorkers: cfg?.companyWorkers || [],
+        accountants: cfg?.accountants || [],
+        sales: cfg?.sales || [],
+        salesReturns: cfg?.salesReturns || [],
+        contracts: cfg?.contracts || [],
+        ownerWithdrawals: cfg?.ownerWithdrawals || [],
+        ownerExpenses: cfg?.ownerExpenses || [],
+        workerPayments: cfg?.workerPayments || [],
+        pendingRequests: cfg?.pendingRequests || [],
+        entries: entries.map(e => { const { _id, ...rest } = e; return rest; })
+      }
+    };
+    await db.collection('backups').insertOne(backupDoc);
+    // Keep only last 30 backups
+    const allBackups = await db.collection('backups').find({type:'auto'},{projection:{_id:1,createdAt:1}}).sort({createdAt:-1}).toArray();
+    if (allBackups.length > 30) {
+      const toDelete = allBackups.slice(30).map(b => b._id);
+      await db.collection('backups').deleteMany({ _id: { $in: toDelete } });
+    }
+    console.log('✅ Auto backup created:', timestamp);
+  } catch(e) { console.error('❌ Auto backup failed:', e.message); }
+}
+
+// Schedule backup every 24h (run first after 10s)
+setTimeout(function scheduleBackup() {
+  createAutoBackup();
+  setInterval(createAutoBackup, 24 * 60 * 60 * 1000);
+}, 10000);
+
+
+// ── EMAIL BACKUP ─────────────────────────────────────
+const EMAIL_USER = process.env.EMAIL_USER || 'ahmed.ezzelarab1122@gmail.com';
+const EMAIL_PASS = process.env.EMAIL_PASS || 'vqht xjvz bqye ypzz';
+const EMAIL_TO   = process.env.EMAIL_TO   || 'ahmed.ezzelarab1122@gmail.com';
+
+async function sendBackupEmail() {
+  if (!db) return;
+  try {
+    const nodemailer = require('nodemailer');
+    const cfg = await db.collection('config').findOne({_id:'main'});
+    const entries = await db.collection('entries').find({}).toArray();
+    const backupData = {
+      createdAt: new Date().toISOString(),
+      supervisors: cfg?.supervisors||[],
+      projects: cfg?.projects||[],
+      entries: entries.map(e=>{ const {_id,...r}=e; return r; }),
+      sales: cfg?.sales||[],
+      contracts: cfg?.contracts||[],
+      workerPayments: cfg?.workerPayments||[],
+      ownerWithdrawals: cfg?.ownerWithdrawals||[],
+      ownerExpenses: cfg?.ownerExpenses||[],
+      accountants: (cfg?.accountants||[]).map(a=>({...a,password:undefined})),
+    };
+    const json = JSON.stringify(backupData, null, 2);
+    const date = new Date().toLocaleDateString('ar-SA');
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: EMAIL_USER, pass: EMAIL_PASS.replace(/\s/g,'') }
+    });
+    await transporter.sendMail({
+      from: `"كيان وبناء - نسخ احتياطي" <${EMAIL_USER}>`,
+      to: EMAIL_TO,
+      subject: `💾 نسخة احتياطية - كيان وبناء - ${date}`,
+      html: `
+        <div dir="rtl" style="font-family:Arial;padding:20px">
+          <h2 style="color:#1a1535">💾 نسخة احتياطية تلقائية</h2>
+          <p>مرحباً،</p>
+          <p>هذه نسخة احتياطية تلقائية لبيانات نظام <strong>كيان وبناء للمقاولات</strong>.</p>
+          <table style="border-collapse:collapse;margin:10px 0">
+            <tr><td style="padding:4px 10px;color:#666">التاريخ:</td><td><strong>${date}</strong></td></tr>
+            <tr><td style="padding:4px 10px;color:#666">عدد المعاملات:</td><td><strong>${entries.length}</strong></td></tr>
+            <tr><td style="padding:4px 10px;color:#666">عدد المشرفين:</td><td><strong>${cfg?.supervisors?.length||0}</strong></td></tr>
+          </table>
+          <p style="color:#666;font-size:12px">الملف المرفق يحتوي على جميع البيانات ويمكن استخدامه للاستعادة من خلال النظام.</p>
+        </div>
+      `,
+      attachments: [{
+        filename: `kayan_backup_${new Date().toISOString().split('T')[0]}.json`,
+        content: json,
+        contentType: 'application/json'
+      }]
+    });
+    console.log('✅ Backup email sent to', EMAIL_TO);
+  } catch(e) { console.error('❌ Email backup failed:', e.message); }
+}
+
+// Schedule email backup daily at 2 AM
+function scheduleDailyEmail() {
+  const now = new Date();
+  const next2AM = new Date(now);
+  next2AM.setHours(2, 0, 0, 0);
+  if (next2AM <= now) next2AM.setDate(next2AM.getDate() + 1);
+  const msUntil2AM = next2AM - now;
+  console.log('📧 Next email backup in', Math.round(msUntil2AM/1000/60), 'minutes');
+  setTimeout(function() {
+    sendBackupEmail();
+    setInterval(sendBackupEmail, 24 * 60 * 60 * 1000);
+  }, msUntil2AM);
+}
+
 async function connectMongo() {
   try {
     mongoClient = new MongoClient(MONGO_URI);
     await mongoClient.connect();
     db = mongoClient.db('kayan_expenses');
     console.log('✅ MongoDB connected');
+    scheduleDailyEmail();
     const cfg = await db.collection('config').findOne({ _id: 'main' });
     if (!cfg) {
       await db.collection('config').insertOne({
@@ -613,6 +733,62 @@ const server = http.createServer(async (req, res) => {
       const { payments } = await parseBody(req);
       await db.collection('config').updateOne({_id:'main'},{$set:{workerPayments:payments||[]}},{upsert:true});
       return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
+  // List auto backups
+  if (pathname === '/api/backups/list' && req.method === 'GET') {
+    try {
+      const backups = await db.collection('backups').find({},{projection:{_id:1,createdAt:1,type:1}}).sort({createdAt:-1}).limit(30).toArray();
+      return sendJSON(res, { backups: backups.map(b=>({id:b._id,createdAt:b.createdAt,type:b.type})) });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  // Restore from auto backup
+  if (pathname.startsWith('/api/backups/restore/') && req.method === 'POST') {
+    try {
+      const backupId = decodeURIComponent(pathname.split('/api/backups/restore/')[1]);
+      const backup = await db.collection('backups').findOne({_id: backupId});
+      if (!backup) return sendJSON(res, { error: 'النسخة غير موجودة' }, 404);
+      const data = backup.data;
+      // Restore entries
+      await db.collection('entries').deleteMany({});
+      if (data.entries && data.entries.length > 0) {
+        await db.collection('entries').insertMany(data.entries);
+      }
+      // Restore config
+      await db.collection('config').updateOne({_id:'main'},{$set:{
+        supervisors: data.supervisors||[],
+        projects: data.projects||[],
+        managerPassword: data.managerPassword||'admin123',
+        ownerPassword: data.ownerPassword||'owner123',
+        nextId: data.nextId||1,
+        laborRates: data.laborRates||{},
+        companyWorkers: data.companyWorkers||[],
+        accountants: data.accountants||[],
+        sales: data.sales||[],
+        salesReturns: data.salesReturns||[],
+        contracts: data.contracts||[],
+        ownerWithdrawals: data.ownerWithdrawals||[],
+        ownerExpenses: data.ownerExpenses||[],
+        workerPayments: data.workerPayments||[],
+      }},{upsert:true});
+      // Create backup before restore
+      await createAutoBackup();
+      return sendJSON(res, { ok: true, message: 'تم الاستعادة من نسخة ' + backup.createdAt });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  // Manual backup now
+  if (pathname === '/api/backups/send-email' && req.method === 'POST') {
+    try {
+      await sendBackupEmail();
+      return sendJSON(res, { ok: true, message: 'تم إرسال النسخة الاحتياطية على الإيميل' });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
+  if (pathname === '/api/backups/create' && req.method === 'POST') {
+    try {
+      await createAutoBackup();
+      return sendJSON(res, { ok: true, message: 'تم إنشاء نسخة احتياطية' });
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
