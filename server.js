@@ -562,6 +562,14 @@ const server = http.createServer(async (req, res) => {
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
+  if (pathname === '/api/pending-history' && req.method === 'POST') {
+    try {
+      const { history } = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{pendingHistory:history||[]}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
   if (pathname === '/api/backup' && req.method === 'GET') {
     const data = await loadDB();
     const timestamp = new Date().toISOString().split('T')[0];
