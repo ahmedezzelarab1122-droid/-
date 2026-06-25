@@ -935,10 +935,11 @@ function showApp(){
       const active = firstItem ? ' active' : '';
       firstItem = false;
       const _pendingCount = id==='pending-requests' ? JSON.parse(localStorage.getItem('kayan_pending')||'[]').length : 0;
+      const _myNewCount = id==='my-requests' ? JSON.parse(localStorage.getItem('kayan_my_requests')||'[]').filter(function(r){return r.status!=='pending'&&!r.seen;}).length : 0;
       navHtml += '<button class="bottom-nav-item'+active+'" onclick="goBNav(\''+id+'\',this)" data-id="'+id+'">'
         + '<div class="bnav-icon"><span>'+icon+'</span></div>'
         + '<span>'+text+'</span>'
-        + (_pendingCount>0 ? '<span style="background:#f87171;color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:800;margin-right:auto;margin-left:4px">'+_pendingCount+'</span>' : '')
+        + (_pendingCount||_myNewCount ? '<span style="background:#f87171;color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:800;margin-right:auto;margin-left:4px">'+_pendingCount+'</span>' : '')
         + '</button>';
     });
   });
@@ -2861,7 +2862,10 @@ function rMyRequests(){
 }
 
 function _renderMyRequests(){
-  const myReqs = JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
+  let myReqs = JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
+  let _changed=false;
+  myReqs=myReqs.map(function(r){if(r.status!=='pending'&&!r.seen){_changed=true;return Object.assign({},r,{seen:true});}return r;});
+  if(_changed){localStorage.setItem('kayan_my_requests',JSON.stringify(myReqs));api('/api/pending-history','POST',{history:myReqs}).catch(function(){});}
   const stLabel = {pending:'⏳ معلق',approved:'✅ تمت الموافقة',rejected:'❌ تم الرفض'};
   const stColor  = {pending:'#f5c842',approved:'#34d399',rejected:'#f87171'};
   document.getElementById('mc').innerHTML =
@@ -3511,7 +3515,8 @@ async function saveEntry(){
       invoiceNo:parsed.invoiceNo||'', date:parsed.date||today(),
       payMethod:parsed.payMethod||'cash',
       subtotal:parsed.subtotal||0, taxRate:parsed.taxRate||0,
-      taxAmt:parsed.taxAmt||0, total:total, items:parsed.items||[]
+      taxAmt:parsed.taxAmt||0, total:total, items:parsed.items||[],
+      uploadedBy:CU?.name||'المحاسب', uploadedByRole:'accountant'
     });
     closeScan();
     return;
