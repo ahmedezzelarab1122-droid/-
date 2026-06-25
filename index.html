@@ -3267,7 +3267,15 @@ function showResult(){
     <div class="tbox"><span style="font-size:12px;opacity:.85">الإجمالي</span><span style="font-size:17px;font-weight:700">${fmt(parsed.total)} ﷼</span></div>`;
   if(parsed.items?.length){
     document.getElementById('icard').style.display='block';
-    document.getElementById('ilist').innerHTML=parsed.items.map(it=>`<div class="chip"><div style="font-size:12px;font-weight:600">${it.desc}</div><div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px">${it.qty} ${it.unit} × ${fmt(it.unitPrice)} ﷼ = <strong>${fmt(it.total)} ﷼</strong></div></div>`).join('');
+    document.getElementById('ilist').innerHTML=parsed.items.map(it=>{
+    const desc = it.desc||it.name||it.description||it.item||it.بند||'—';
+    const qty  = parseFloat(it.qty||it.quantity||it.كمية||0)||1;
+    const unit = it.unit||it.وحدة||'';
+    const price= parseFloat(it.unitPrice||it.price||it.سعر||it.unit_price||0);
+    const total= parseFloat(it.total||it.amount||it.مبلغ||0)||(qty*price);
+    return '<div class="chip"><div style="font-size:12px;font-weight:600">'+desc+'</div>'
+      +'<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px">'+qty+' '+(unit?unit+' ':'')+(price?'× '+fmt(price)+' ﷼ = ':'')+'<strong>'+fmt(total)+' ﷼</strong></div></div>';
+  }).join('');
   }
   // Auto-select type button based on AI result
   setTimeout(()=>setInvoiceType(parsed.type||'petty'),50);
