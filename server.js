@@ -226,7 +226,7 @@ const server = http.createServer(async (req, res) => {
       const accountants = cfg?.accountants || [];
       // Legacy single accountant
       if(accountants.length===0 && cfg?.accountant){
-        accountants.push({id:'acc_1', name:cfg.accountant.name||'إسلام', password:cfg.accountant.password||'i1234', permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr']});
+        accountants.push({id:'acc_1', name:cfg.accountant.name||'إسلام', password:cfg.accountant.password||'i1234', permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr','ext-workers']});
       }
       const acc = accountants.find(a=>a.password===password);
       if(acc) return sendJSON(res, { ok: true, role: 'accountant', name: acc.name, accId: acc.id, permissions: acc.permissions||[] });
@@ -249,7 +249,7 @@ const server = http.createServer(async (req, res) => {
     const data = await loadDB();
     const cfg2 = await db.collection('config').findOne({_id:'main'}).catch(()=>null);
     const accs2 = (cfg2?.accountants||[]);
-    if(accs2.length===0 && cfg2?.accountant) accs2.push({id:'acc_1',name:cfg2.accountant.name||'إسلام',permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr']});
+    if(accs2.length===0 && cfg2?.accountant) accs2.push({id:'acc_1',name:cfg2.accountant.name||'إسلام',permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr','ext-workers']});
     const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [], accountants: accs2.map(a=>({id:a.id,name:a.name,permissions:a.permissions||[]})) };
     delete safe.managerPassword;
     return sendJSON(res, safe);
