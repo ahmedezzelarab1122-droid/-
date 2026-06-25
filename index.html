@@ -3187,6 +3187,12 @@ async function approvePending(reqId){
     } else if(req.action==='transfer'){
       const res = await api('/api/transfer','POST',req.data);
       if(res.error) throw new Error(res.error);
+    } else if(req.action==='workerPayment'){
+      const payments = JSON.parse(localStorage.getItem('kayan_worker_payments')||'[]');
+      payments.push({id:'wp_'+Date.now(),workerKey:req.data.workerKey,amount:req.data.amount,note:req.data.note||'حساب عامل خارجي',date:today()});
+      localStorage.setItem('kayan_worker_payments',JSON.stringify(payments));
+      await api('/api/worker-payments','POST',{payments});
+      await api('/api/entries','POST',{supId:0,supName:'المدير',project:'مصروفات العمالة',type:'petty',desc:'حساب عامل خارجي: '+req.data.workerKey.split('||')[0],date:today(),payMethod:'cash',subtotal:req.data.amount,taxRate:0,taxAmt:0,total:req.data.amount});
     }
     // Save req data before filtering
     const _reqData = pending.find(r=>r.id===reqId) || req;
