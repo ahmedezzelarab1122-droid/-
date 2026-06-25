@@ -926,16 +926,8 @@ function showApp(){
     });
   });
 
-  // Settings button at bottom
+  // No standalone settings button - it's in the nav sections under الإدارة
   navHtml += `<div style="flex:1"></div>`;
-  if(ROLE==='manager'){
-    navHtml += `<div style="border-top:1px solid rgba(255,255,255,.08);padding:8px 0">
-      <button class="bottom-nav-item" onclick="goBNav('setup',this)" data-id="setup">
-        <div class="bnav-icon"><span>⚙️</span></div>
-        <span>الإعدادات</span>
-      </button>
-    </div>`;
-  }
 
   bottomNav.innerHTML = navHtml;
   
