@@ -2910,10 +2910,14 @@ async function approvePending(reqId){
     pending = pending.filter(r=>r.id!==reqId);
     localStorage.setItem('kayan_pending',JSON.stringify(pending));
     await api('/api/pending','POST',{pending});
-    const _mr=JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
-    const _mi=_mr.findIndex(r=>r.id===reqId);
-    if(_mi>=0){_mr[_mi].status='approved';localStorage.setItem('kayan_my_requests',JSON.stringify(_mr));}
-    await api('/api/pending-history','POST',{history:_mr}).catch(()=>{});
+    // Update history on server directly (not from localStorage)
+    const _hrRes = await api('/api/pending-history').catch(()=>({history:[]}));
+    const _hist = (_hrRes&&_hrRes.history)||[];
+    const _hi = _hist.findIndex(r=>r.id===reqId);
+    if(_hi>=0){ _hist[_hi].status='approved'; }
+    else { _hist.push(Object.assign({},req,{status:'approved'})); }
+    await api('/api/pending-history','POST',{history:_hist});
+    localStorage.setItem('kayan_my_requests',JSON.stringify(_hist));
     DB = await api('/api/db');
     alert('✅ تم تنفيذ الطلب');
     rPendingRequests();
@@ -2928,10 +2932,16 @@ async function rejectPending(reqId){
   pending = pending.filter(r=>r.id!==reqId);
   localStorage.setItem('kayan_pending',JSON.stringify(pending));
   await api('/api/pending','POST',{pending});
-  const _mr2=JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
-  const _mi2=_mr2.findIndex(r=>r.id===reqId);
-  if(_mi2>=0){_mr2[_mi2].status='rejected';localStorage.setItem('kayan_my_requests',JSON.stringify(_mr2));}
-  await api('/api/pending-history','POST',{history:_mr2}).catch(()=>{});
+  // Update history on server directly
+  const _hrRes2 = await api('/api/pending-history').catch(()=>({history:[]}));
+  const _hist2 = (_hrRes2&&_hrRes2.history)||[];
+  // Find the rejected request in pending list (before filter)
+  const _rejReq = JSON.parse(localStorage.getItem('kayan_pending')||'[]').find(r=>r.id===reqId) || {id:reqId};
+  const _hi2 = _hist2.findIndex(r=>r.id===reqId);
+  if(_hi2>=0){ _hist2[_hi2].status='rejected'; }
+  else { _hist2.push(Object.assign({},_rejReq,{status:'rejected'})); }
+  await api('/api/pending-history','POST',{history:_hist2});
+  localStorage.setItem('kayan_my_requests',JSON.stringify(_hist2));
   rPendingRequests();
 }
 
