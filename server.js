@@ -562,6 +562,13 @@ const server = http.createServer(async (req, res) => {
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
+  if (pathname === '/api/pending-history' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, { history: cfg?.pendingHistory||[] });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
   if (pathname === '/api/pending-history' && req.method === 'POST') {
     try {
       const { history } = await parseBody(req);
