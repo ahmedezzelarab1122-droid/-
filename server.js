@@ -257,13 +257,15 @@ const server = http.createServer(async (req, res) => {
     const data = await loadDB();
     const normalize = s => (s || '').toString().trim().toLowerCase().replace(/\s+/g, '');
     if (body.type !== 'return') {
-      if (body.invoiceNo && body.invoiceNo.trim() && body.total) {
+      // تكرار: رقم الفاتورة + التاريخ + المبلغ + المورد كلهم متطابقين
+      if (body.invoiceNo && body.invoiceNo.trim() && body.total && body.date) {
         const dup = data.entries.find(e =>
           e.invoiceNo && normalize(e.invoiceNo) === normalize(body.invoiceNo) &&
+          e.date === body.date &&
           Math.abs((e.total||0)-(body.total||0)) < 0.5 &&
           normalize(e.supplier||e.desc||'') === normalize(body.supplier||body.desc||'')
         );
-        if (dup) return sendJSON(res, { error: `⚠️ الفاتورة رقم ${body.invoiceNo} بنفس المبلغ والمورد مسجلة مسبقاً` });
+        if (dup) return sendJSON(res, { error: `⚠️ فاتورة مكررة — رقم: ${body.invoiceNo} | تاريخ: ${body.date} | مسجلة مسبقاً` });
       }
     }
     const entry = { ...body, id: data.nextId++ };
