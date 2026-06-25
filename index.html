@@ -2735,6 +2735,11 @@ async function analyzeReturn(){
 }
 
 async function saveReturn(){
+  if(ROLE==='accountant'){
+    const amt = parseFloat(document.getElementById('ret-total')?.value||document.getElementById('ret-amt')?.value)||0;
+    submitPendingRequest('saveReturn', 'إضافة مرتجع — '+fmt(amt)+' ﷼', amt, {type:'return'});
+    return;
+  }
   if(!returnParsed||!returnParsed.total){alert('يرجى تحليل الفاتورة أولاً');return;}
   const origId = parseInt(document.getElementById('ret-orig').value);
   if(!origId){alert('يرجى اختيار الفاتورة الأصلية');return;}
@@ -2867,6 +2872,9 @@ async function approvePending(reqId){
       await api('/api/entries/'+req.entryId,'DELETE');
     } else if(req.action==='edit'){
       await api('/api/entries/'+req.entryId,'PATCH',req.data);
+    } else if(req.action==='transfer'){
+      const res = await api('/api/transfer','POST',req.data);
+      if(res.error) throw new Error(res.error);
     }
     // Remove from pending
     pending = pending.filter(r=>r.id!==reqId);
@@ -3134,6 +3142,16 @@ function mfCalc(){
 }
 
 async function saveManualDirect(){
+  if(ROLE==='accountant'){
+    const tot = parseFloat(document.getElementById('mf-total')?.value)||0;
+    const desc2 = document.getElementById('mf-desc')?.value.trim()||'إدخال يدوي';
+    submitPendingRequest('add', desc2+' — '+fmt(tot)+' ﷼', tot, {
+      desc:desc2, total:tot, type:'petty', date:today(),
+      supId:parseInt(document.getElementById('ssup')?.value),
+      project:document.getElementById('sproj')?.value
+    });
+    return;
+  }
   const supId   = parseInt(document.getElementById('ssup')?.value);
   const project = document.getElementById('sproj')?.value;
   const desc    = document.getElementById('mf-desc')?.value.trim();
@@ -3628,8 +3646,20 @@ function rTransfer(){
 async function doTransfer(){
   const fromId = document.getElementById('tf-from').value;
   const toId = document.getElementById('tf-to').value;
-  const amount = document.getElementById('tf-amount').value;
-  const note = document.getElementById('tf-note').value;
+  const amount = parseFloat(document.getElementById('tf-amount').value)||0;
+  // المحاسب يرسل طلب موافقة للمدير
+  if(ROLE==='accountant'){
+    const fromSup = DB.supervisors.find(s=>s.id==fromId);
+    const toSup   = DB.supervisors.find(s=>s.id==toId);
+    if(!fromSup||!toSup||!amount){alert('⚠️ تأكد من البيانات');return;}
+    submitPendingRequest('transfer',
+      'تحويل '+fmt(amount)+' ﷼ من '+fromSup.name+' إلى '+toSup.name,
+      amount,
+      {fromId,toId,amount,note:document.getElementById('tf-note')?.value||''}
+    );
+    return;
+  }
+  const note = document.getElementById('tf-note')?.value||'';
   const err = document.getElementById('tf-err');
   const ok = document.getElementById('tf-ok');
   
@@ -4382,6 +4412,11 @@ function calcLabor(){
 }
 
 async function submitLabor(){
+  if(ROLE==='accountant'){
+    const proj = document.getElementById('lab-proj')?.value||'';
+    submitPendingRequest('submitLabor', 'تسجيل عمالة — '+proj, 0, {type:'labor',project:proj});
+    return;
+  }
   const project = document.getElementById('lab-proj').value;
   const err = document.getElementById('lab-err');
   const ok = document.getElementById('lab-ok');
