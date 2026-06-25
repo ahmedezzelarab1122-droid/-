@@ -984,14 +984,14 @@ function goBNav(id,btn){
   const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','my-requests':'طلباتي','manager-governance':'حساب المالك','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr};
   map[id]?.();
 }
 
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr};
   map[id]?.();
 }
 
@@ -4891,6 +4891,52 @@ function rOwnerProj(){
     </div>`).join('')||'<div class="empty">لا توجد بيانات</div>'}`;
 }
 
+
+function buildExtWorkersReport(){
+  const laborEntries = DB.entries.filter(function(e){return e.type==='labor'&&!e.rejected;});
+  const extRate = (DB.laborRates||{}).external||150;
+  const workers = {};
+
+  laborEntries.forEach(function(e){
+    if(!e.laborDetails||!e.laborDetails.externalWorkersList) return;
+    e.laborDetails.externalWorkersList.forEach(function(w){
+      const k=w.name+'||'+(w.jobTitle||'');
+      if(!workers[k]) workers[k]={name:w.name,jobTitle:w.jobTitle||'',days:0,total:0};
+      workers[k].days++;
+      workers[k].total += (e.laborDetails.externalRate||extRate);
+    });
+  });
+
+  const payments = JSON.parse(localStorage.getItem('kayan_worker_payments')||'[]');
+  const list = Object.entries(workers).sort(function(a,b){return b[1].days-a[1].days;});
+  if(!list.length) return '';
+
+  const totalDue   = list.reduce(function(a,w){return a+w[1].total;},0);
+  const totalPaid  = payments.reduce(function(a,p){return a+p.amount;},0);
+  const totalLeft  = totalDue-totalPaid;
+
+  return '<div class="shdr" style="margin-top:14px">👷 تقرير العمال الخارجيين</div>'
+    +'<div class="sg" style="margin-bottom:8px">'
+    +'<div class="stat"><div class="sl">إجمالي المستحق</div><div class="sv" style="color:#f87171">'+fmt(totalDue)+' ﷼</div></div>'
+    +'<div class="stat"><div class="sl">تم الصرف</div><div class="sv" style="color:#34d399">'+fmt(totalPaid)+' ﷼</div></div>'
+    +'<div class="stat" style="grid-column:span 2"><div class="sl">الباقي</div><div class="sv" style="color:'+( totalLeft>0?'#f87171':'#34d399')+'">'+fmt(totalLeft)+' ﷼</div></div>'
+    +'</div>'
+    +list.map(function(entry){
+      var k=entry[0], w=entry[1];
+      var paid=payments.filter(function(p){return p.workerKey===k;}).reduce(function(a,p){return a+p.amount;},0);
+      var left=w.total-paid;
+      var isPaid=paid>=w.total;
+      return '<div class="card" style="padding:9px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;border-right:3px solid '+(isPaid?'#34d399':'#f87171')+'">'
+        +'<div><div style="font-size:12px;font-weight:700">'+(isPaid?'✅ ':'🔴 ')+w.name+'</div>'
+        +'<div style="font-size:10px;color:rgba(255,255,255,.4)">'+w.jobTitle+' · '+w.days+' أيام</div></div>'
+        +'<div style="text-align:left">'
+        +'<div style="font-size:11px;color:rgba(255,255,255,.5)">مستحق: '+fmt(w.total)+' ﷼</div>'
+        +'<div style="font-size:11px;color:#34d399">مدفوع: '+fmt(paid)+' ﷼</div>'
+        +(left>0?'<div style="font-size:11px;color:#f87171;font-weight:700">باقي: '+fmt(left)+' ﷼</div>':'')
+        +'</div></div>';
+    }).join('');
+}
+
 function rOwnerLabor(){
   const allLabor=DB.entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').slice().reverse();
   const fromDate=window._laborFrom||'';
@@ -4922,7 +4968,9 @@ function rOwnerLabor(){
       <div class="stat"><div class="sl">إجمالي التكلفة</div><div class="sv" style="color:var(--red)">${fmt(totalCost)} ﷼</div></div>
       <div class="stat"><div class="sl">أيام تسجيل</div><div class="sv">${laborEntries.length}</div></div>
     </div>
-    ${buildLaborTable(laborEntries, window._laborFrom||'', window._laborTo||'')}`;
+    ${buildLaborTable(laborEntries, window._laborFrom||'', window._laborTo||'')}
+    +buildExtWorkersReport()
+    `;
 }
 
 
