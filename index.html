@@ -2863,13 +2863,28 @@ function _renderMyRequests(){
 }
 
 function rPendingRequests(){
-  const pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
-  const typeLabel = {add:'إضافة',edit:'تعديل',delete:'حذف'};
-  const typeColor = {add:'#34d399',edit:'#f5c842',delete:'#f87171'};
+  // Load latest from server
+  api('/api/pending').then(pr=>{
+    if(pr&&pr.pending) localStorage.setItem('kayan_pending',JSON.stringify(pr.pending));
+    api('/api/pending-history').then(hr=>{
+      if(hr&&hr.history) localStorage.setItem('kayan_my_requests',JSON.stringify(hr.history));
+      _renderPendingRequests();
+    }).catch(()=>_renderPendingRequests());
+  }).catch(()=>_renderPendingRequests());
+}
 
-  document.getElementById('mc').innerHTML = `
-    <div class="ctitle">📋 طلبات المحاسب</div>
-    ${pending.length===0?'<div class="empty">لا توجد طلبات معلقة</div>':
+function _renderPendingRequests(){
+  const pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
+  const history = JSON.parse(localStorage.getItem('kayan_my_requests')||'[]').filter(r=>r.status!=='pending');
+  const typeLabel = {add:'إضافة',edit:'تعديل',delete:'حذف',transfer:'تحويل',submitLabor:'عمالة',saveReturn:'مرتجع'};
+  const typeColor = {add:'#34d399',edit:'#f5c842',delete:'#f87171',transfer:'#70B5FF',submitLabor:'#f5c842',saveReturn:'#70B5FF'};
+
+  document.getElementById('mc').innerHTML =
+    '<div class="ctitle">📋 طلبات المحاسب</div>'
+
+    // Pending section
+    +'<div class="shdr" style="margin-bottom:6px">⏳ معلقة ('+pending.length+')</div>'
+    +(pending.length===0?'<div class="empty" style="margin-bottom:12px">لا توجد طلبات معلقة</div>':
       pending.map(req=>`
       <div class="card" style="padding:12px 14px;margin-bottom:8px;border-right:3px solid ${typeColor[req.action]||'#70B5FF'}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
@@ -2884,8 +2899,21 @@ function rPendingRequests(){
           <button onclick="approvePending('${req.id}')" style="flex:1;padding:8px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">✅ موافقة</button>
           <button onclick="rejectPending('${req.id}')" style="flex:1;padding:8px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">❌ رفض</button>
         </div>
-      </div>`).join('')}
-  `;
+      </div>`).join(''))
+
+    // History section
+    +'<div class="shdr" style="margin-top:14px;margin-bottom:6px">📁 السابقة ('+history.length+')</div>'
+    +(history.length===0?'<div class="empty">لا توجد طلبات سابقة</div>'
+      :history.slice().reverse().map(function(req){
+        var stColor = req.status==='approved'?'#34d399':'#f87171';
+        var stLabel = req.status==='approved'?'✅ مقبول':'❌ مرفوض';
+        return '<div class="card" style="padding:9px 12px;margin-bottom:6px;border-right:3px solid '+stColor+';opacity:.8">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center">'
+          +'<div><div style="font-size:12px;font-weight:600">'+(req.desc||'—')+'</div>'
+          +'<div style="font-size:10px;color:rgba(255,255,255,.4)">'+(req.date||'')+' '+(req.submittedAt||'')+'</div></div>'
+          +'<span style="font-size:11px;font-weight:700;color:'+stColor+'">'+stLabel+'</span>'
+          +'</div></div>';
+      }).join(''));
 }
 
 async function approvePending(reqId){
