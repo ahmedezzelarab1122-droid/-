@@ -2906,6 +2906,8 @@ async function approvePending(reqId){
       const res = await api('/api/transfer','POST',req.data);
       if(res.error) throw new Error(res.error);
     }
+    // Save req data before filtering
+    const _reqData = pending.find(r=>r.id===reqId) || req;
     // Remove from pending
     pending = pending.filter(r=>r.id!==reqId);
     localStorage.setItem('kayan_pending',JSON.stringify(pending));
@@ -2915,7 +2917,7 @@ async function approvePending(reqId){
     const _hist = (_hrRes&&_hrRes.history)||[];
     const _hi = _hist.findIndex(r=>r.id===reqId);
     if(_hi>=0){ _hist[_hi].status='approved'; }
-    else { _hist.push(Object.assign({},req,{status:'approved'})); }
+    else { _hist.push(Object.assign({},_reqData,{status:'approved'})); }
     await api('/api/pending-history','POST',{history:_hist});
     localStorage.setItem('kayan_my_requests',JSON.stringify(_hist));
     DB = await api('/api/db');
@@ -2929,14 +2931,14 @@ async function approvePending(reqId){
 async function rejectPending(reqId){
   if(!confirm('رفض هذا الطلب؟')) return;
   let pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
+  // Save the request BEFORE filtering
+  const _rejReq = pending.find(r=>r.id===reqId) || {id:reqId};
   pending = pending.filter(r=>r.id!==reqId);
   localStorage.setItem('kayan_pending',JSON.stringify(pending));
   await api('/api/pending','POST',{pending});
-  // Update history on server directly
+  // Update history on server
   const _hrRes2 = await api('/api/pending-history').catch(()=>({history:[]}));
   const _hist2 = (_hrRes2&&_hrRes2.history)||[];
-  // Find the rejected request in pending list (before filter)
-  const _rejReq = JSON.parse(localStorage.getItem('kayan_pending')||'[]').find(r=>r.id===reqId) || {id:reqId};
   const _hi2 = _hist2.findIndex(r=>r.id===reqId);
   if(_hi2>=0){ _hist2[_hi2].status='rejected'; }
   else { _hist2.push(Object.assign({},_rejReq,{status:'rejected'})); }
