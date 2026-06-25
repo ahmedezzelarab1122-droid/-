@@ -221,8 +221,15 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
     }
     if (role === 'accountant') {
-      const acc = (await db.collection('config').findOne({_id:'main'}))?.accountant || {name:'إسلام',password:'i1234'};
-      if (password === acc.password) return sendJSON(res, { ok: true, role: 'accountant', name: acc.name });
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      // Support multiple accountants
+      const accountants = cfg?.accountants || [];
+      // Legacy single accountant
+      if(accountants.length===0 && cfg?.accountant){
+        accountants.push({id:'acc_1', name:cfg.accountant.name||'إسلام', password:cfg.accountant.password||'i1234', permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr']});
+      }
+      const acc = accountants.find(a=>a.password===password);
+      if(acc) return sendJSON(res, { ok: true, role: 'accountant', name: acc.name, accId: acc.id, permissions: acc.permissions||[] });
       return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
     }
     if (role === 'supervisor') {
@@ -241,7 +248,9 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/db' && req.method === 'GET') {
     const data = await loadDB();
     const cfg2 = await db.collection('config').findOne({_id:'main'}).catch(()=>null);
-    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [], accountant: { name: cfg2?.accountant?.name||'المحاسب' } };
+    const accs2 = (cfg2?.accountants||[]);
+    if(accs2.length===0 && cfg2?.accountant) accs2.push({id:'acc_1',name:cfg2.accountant.name||'إسلام',permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr']});
+    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [], accountants: accs2.map(a=>({id:a.id,name:a.name,permissions:a.permissions||[]})) };
     delete safe.managerPassword;
     return sendJSON(res, safe);
   }
@@ -573,6 +582,22 @@ const server = http.createServer(async (req, res) => {
     try {
       const { history } = await parseBody(req);
       await db.collection('config').updateOne({_id:'main'},{$set:{pendingHistory:history||[]}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
+  // Accountants management
+  if (pathname === '/api/accountants' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      const accs = (cfg?.accountants||[]).map(a=>({id:a.id,name:a.name,permissions:a.permissions||[]}));
+      return sendJSON(res, { accountants: accs });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  if (pathname === '/api/accountants' && req.method === 'POST') {
+    try {
+      const { accountants } = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{accountants:accountants||[]}},{upsert:true});
       return sendJSON(res, { ok: true });
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
