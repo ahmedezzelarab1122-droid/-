@@ -2908,6 +2908,7 @@ function rAccountantsMgr(){
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="sales" class="new-perm"> فواتير المبيعات</label>'
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="trial-balance" class="new-perm"> ميزان المراجعة</label>'
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="projects" class="new-perm"> إدارة المشاريع</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="ext-workers" class="new-perm"> العمال الخارجيون</label>'
     
     +'</div></div>'
     +'<div class="err" id="new-acc-err" style="display:none"></div>'
@@ -3005,6 +3006,112 @@ function rProjectsMgr(){
     '<div class="ctitle">🏗️ المشاريع</div>'
     +(DB.projects.length===0?'<div class="empty">لا توجد مشاريع</div>'
       :DB.projects.map(function(p){return '<div class="card" style="padding:10px 14px;margin-bottom:6px;font-size:13px">'+p+'</div>';}).join(''));
+}
+
+
+// ── EXTERNAL WORKERS ACCOUNTING ──────────────────────
+function getWorkerPayments(){
+  return JSON.parse(localStorage.getItem('kayan_worker_payments')||'[]');
+}
+
+async function saveWorkerPayment(workerKey, amount, note){
+  note=note||'حساب عامل خارجي';
+  if(ROLE==='accountant'){
+    submitPendingRequest('workerPayment','صرف حساب عامل: '+workerKey.split('||')[0]+' — '+fmt(amount)+' ﷼', amount, {workerKey,amount,note});
+    return;
+  }
+  const payments = getWorkerPayments();
+  payments.push({
+    id:'wp_'+Date.now(),
+    workerKey, amount, note:note||'حساب عامل خارجي',
+    date:today(), paidAt:new Date().toLocaleString('ar-SA')
+  });
+  localStorage.setItem('kayan_worker_payments',JSON.stringify(payments));
+  await api('/api/worker-payments','POST',{payments}).catch(()=>{});
+  // Also record as petty expense
+  const wName = workerKey.split('||')[0];
+  await api('/api/entries','POST',{
+    supId:0, supName:'المدير', project:'مصروفات العمالة',
+    type:'petty', desc:'حساب عامل خارجي: '+wName,
+    date:today(), payMethod:'cash',
+    subtotal:amount, taxRate:0, taxAmt:0, total:amount
+  }).catch(()=>{});
+  DB = await api('/api/db');
+  rExternalWorkersAccounting();
+}
+
+function rExternalWorkersAccounting(){
+  // Aggregate external workers from all labor entries
+  const laborEntries = DB.entries.filter(e=>e.type==='labor'&&!e.rejected);
+  const extRate = (DB.laborRates||{}).external||150;
+  const workers = {};
+
+  laborEntries.forEach(function(e){
+    if(!e.laborDetails||!e.laborDetails.externalWorkersList) return;
+    e.laborDetails.externalWorkersList.forEach(function(w){
+      const k = w.name+'||'+(w.jobTitle||'');
+      if(!workers[k]) workers[k]={name:w.name,jobTitle:w.jobTitle||'',days:0,total:0,dates:[]};
+      workers[k].days++;
+      workers[k].total += (e.laborDetails.externalRate||extRate);
+      workers[k].dates.push(e.date||'');
+    });
+  });
+
+  const payments = getWorkerPayments();
+  const workerList = Object.entries(workers).sort(function(a,b){return b[1].days-a[1].days;});
+
+  document.getElementById('mc').innerHTML =
+    '<div class="ctitle">👷 حسابات العمال الخارجيين</div>'
+
+    // Summary stats
+    +'<div class="sg" style="margin-bottom:12px">'
+    +'<div class="stat"><div class="sl">إجمالي العمال</div><div class="sv">'+workerList.length+'</div></div>'
+    +'<div class="stat"><div class="sl">تم الصرف</div><div class="sv" style="color:#34d399">'+payments.length+'</div></div>'
+    +'<div class="stat"><div class="sl">إجمالي المستحق</div><div class="sv" style="color:#f87171">'+fmt(workerList.reduce(function(a,w){return a+w[1].total;},0))+' ﷼</div></div>'
+    +'<div class="stat"><div class="sl">إجمالي المدفوع</div><div class="sv" style="color:#34d399">'+fmt(payments.reduce(function(a,p){return a+p.amount;},0))+' ﷼</div></div>'
+    +'</div>'
+
+    +(workerList.length===0?'<div class="empty">لا توجد بيانات عمال خارجيين</div>'
+      :workerList.map(function(entry){
+        var k=entry[0], w=entry[1];
+        var workerPayments=payments.filter(function(p){return p.workerKey===k;});
+        var totalPaid=workerPayments.reduce(function(a,p){return a+p.amount;},0);
+        var remaining=w.total-totalPaid;
+        var isPaid=totalPaid>=w.total;
+
+        return '<div class="card" style="margin-bottom:10px;border-right:3px solid '+(isPaid?'#34d399':'#f87171')+'">'
+          // Header
+          +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
+          +'<div>'
+          +'<div style="font-size:13px;font-weight:700">'+(isPaid?'✅ ':'🔴 ')+w.name+'</div>'
+          +'<div style="font-size:10px;color:rgba(255,255,255,.5)">'+w.jobTitle+' · '+w.days+' أيام · '+w.dates[0]+(w.dates.length>1?' → '+w.dates[w.dates.length-1]:'')+' </div>'
+          +'</div>'
+          +'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;background:rgba('+(isPaid?'52,211,153':'248,113,113')+',.15);color:'+(isPaid?'#34d399':'#f87171')+'">'+(isPaid?'محاسَب':'باقي له')+' '+fmt(remaining)+' ﷼</span>'
+          +'</div>'
+
+          // Amounts row
+          +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">'
+          +'<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:rgba(255,255,255,.4)">المستحق</div><div style="font-size:13px;font-weight:700;color:#f5c842">'+fmt(w.total)+' ﷼</div></div>'
+          +'<div style="background:rgba(52,211,153,.08);border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:rgba(255,255,255,.4)">المدفوع</div><div style="font-size:13px;font-weight:700;color:#34d399">'+fmt(totalPaid)+' ﷼</div></div>'
+          +'<div style="background:rgba('+(remaining>0?'248,113,113':'52,211,153')+',.08);border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:rgba(255,255,255,.4)">الباقي</div><div style="font-size:13px;font-weight:700;color:'+(remaining>0?'#f87171':'#34d399')+'">'+fmt(remaining)+' ﷼</div></div>'
+          +'</div>'
+
+          // Payment form
+          +(!isPaid?
+            '<div style="display:flex;gap:6px;align-items:center">'
+            +'<input type="number" id="pay-'+k.replace(/[^a-z0-9]/gi,'_')+'" placeholder="'+fmt(w.total-totalPaid)+'" value="'+( w.total-totalPaid)+'" style="flex:1;padding:8px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-family:Tajawal,sans-serif;font-size:12px">'
+            +'<button onclick="var inp=this.previousSibling;saveWorkerPayment(this.dataset.k,parseFloat(inp.value)||0)" data-k="'+k+'" style="padding:8px 12px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:8px;cursor:pointer;font-family:Tajawal,sans-serif;font-size:12px;font-weight:700;white-space:nowrap">✅ صرف</button>'
+            +'</div>'
+          :'')
+
+          // Payment history
+          +(workerPayments.length>0?
+            '<div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,.4)">'
+            +workerPayments.map(function(p){return '• '+p.date+': '+fmt(p.amount)+' ﷼';}).join(' · ')
+            +'</div>':''
+          )
+          +'</div>';
+      }).join(''));
 }
 
 function rPendingRequests(){
