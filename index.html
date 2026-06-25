@@ -1433,6 +1433,10 @@ async function analyzeInvReceipt(){
 }
 
 async function saveInvReceive(){
+  if(ROLE==='accountant'){
+    submitPendingRequest('saveInvReceive','استلام مخزون',0,{});
+    return;
+  }
   const project = document.getElementById('inv-proj').value;
   const err = document.getElementById('inv-err');
   if(!project){err.style.display='block';err.textContent='⚠️ يجب اختيار المشروع';return;}
@@ -1483,6 +1487,10 @@ function loadUseItems(){
 }
 
 async function saveInvUse(){
+  if(ROLE==='accountant'){
+    submitPendingRequest('saveInvUse','صرف مخزون',0,{});
+    return;
+  }
   const proj=document.getElementById('use-proj').value;
   const err=document.getElementById('use-err');
   if(!proj){err.style.display='block';err.textContent='⚠️ اختر المشروع';return;}
@@ -1610,6 +1618,10 @@ function updateInvRemaining(){
 }
 
 async function saveInvEdit(){
+  if(ROLE==='accountant'){
+    submitPendingRequest('saveInvEdit','تعديل مخزون',0,{});
+    return;
+  }
   if(!_invEditData) return;
   const {supId, proj, itemName} = _invEditData;
   const newName = document.getElementById('inv-edit-name').value.trim()||itemName;
@@ -1634,6 +1646,10 @@ async function saveInvEdit(){
 }
 
 async function deleteInventoryItem(supId, proj, itemName){
+  if(ROLE==='accountant'){
+    submitPendingRequest('deleteInventoryItem','حذف عنصر مخزون',0,{});
+    return;
+  }
   if(!confirm('حذف كل سجلات "'+itemName+'" من مخزون هذا المشرف في المشروع؟'))return;
   const toDelete=DB.entries.filter(e=>(e.type==='inventory_receive'||e.type==='inventory_use')&&e.supId==supId&&e.project===proj&&(e.inventoryItems||[]).some(it=>it.name===itemName));
   for(const e of toDelete) await api('/api/entries/'+e.id,'DELETE');
