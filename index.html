@@ -3306,13 +3306,19 @@ async function loadBackupsList(){
 }
 
 async function sendBackupEmailNow(){
+  const btn=event?.target||document.querySelector('[onclick*="sendBackupEmailNow"]');
+  const origText = btn?btn.textContent:'';
   try {
-    const btn=event.target;btn.disabled=true;btn.textContent='⏳ جاري الإرسال...';
+    if(btn){btn.disabled=true;btn.textContent='⏳ جاري الإرسال...';}
     const res=await api('/api/backups/send-email','POST');
-    if(res.ok) alert('✅ '+res.message+' → ahmed.ezzelarab1122@gmail.com');
+    if(btn){btn.disabled=false;btn.textContent=origText;}
+    if(res.ok) alert('✅ الإيميل اتبعت على ahmed.ezzelarab1122@gmail.com');
     else alert('❌ '+res.error);
-  } catch(e){ alert('❌ '+e.message); }
-  finally{ loadBackupsList(); }
+  } catch(e){
+    if(btn){btn.disabled=false;btn.textContent=origText;}
+    alert('❌ '+e.message);
+  }
+  loadBackupsList();
 }
 
 async function createBackupNow(){
