@@ -972,7 +972,8 @@ function showApp(){
       navHtml += '<button class="bottom-nav-item'+active+'" onclick="goBNav(\''+id+'\',this)" data-id="'+id+'">'
         + '<div class="bnav-icon"><span>'+icon+'</span></div>'
         + '<span>'+text+'</span>'
-        + (_pendingCount||_myNewCount ? '<span style="background:#f87171;color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:800;margin-right:auto;margin-left:4px">'+_pendingCount+'</span>' : '')
+        + (_pendingCount>0 ? '<span style="background:#f87171;color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:800;margin-right:auto;margin-left:4px">'+_pendingCount+'</span>' : '')
+        + (_myNewCount>0 ? '<span style="background:#f5c842;color:#111;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:800;margin-right:auto;margin-left:4px">'+_myNewCount+'</span>' : '')
         + '</button>';
     });
   });
@@ -3040,6 +3041,10 @@ function rReports(){
 // ── ACCOUNTANT PENDING REQUESTS ──
 
 function rMyRequests(){
+  var _reqs=JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
+  var _updated=_reqs.map(function(r){return Object.assign({},r,{seen:true});});
+  localStorage.setItem('kayan_my_requests',JSON.stringify(_updated));
+  setTimeout(buildNav,50);
   api('/api/pending-history').then(function(hr){
     if(hr&&hr.history) localStorage.setItem('kayan_my_requests',JSON.stringify(hr.history));
     _renderMyRequests();
