@@ -6236,7 +6236,41 @@ const _fixNum = v => parseFloat(String(v||'0').replace(/,/g,'').replace(/[^0-9.]
 const _fixDate = d => {
   if(!d) return today();
   const s = String(d).trim();
+  // Already ISO format
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Arabic month names mapping
+  const arMonths = {
+    'يناير':'01','جانفي':'01','كانون الثاني':'01',
+    'فبراير':'02','شباط':'02','فيفري':'02',
+    'مارس':'03','آذار':'03',
+    'أبريل':'04','ابريل':'04','نيسان':'04',
+    'مايو':'05','أيار':'05',
+    'يونيو':'06','حزيران':'06','يونيه':'06',
+    'يوليو':'07','يوليه':'07','تموز':'07',
+    'أغسطس':'08','اغسطس':'08','آب':'08',
+    'سبتمبر':'09','أيلول':'09',
+    'أكتوبر':'10','اكتوبر':'10','تشرين الأول':'10',
+    'نوفمبر':'11','نونبر':'11','تشرين الثاني':'11',
+    'ديسمبر':'12','دجنبر':'12','كانون الأول':'12'
+  };
+  // Try Arabic date: "27 يونيو 2026" or "27يونيو2026"
+  for(const [arMonth, num] of Object.entries(arMonths)){
+    const re1 = new RegExp('(\\d{1,2})\\s*'+arMonth+'\\s*(\\d{4})');
+    const mAr = s.match(re1);
+    if(mAr) return mAr[2]+'-'+num+'-'+mAr[1].padStart(2,'0');
+    // Also try "2026 يونيو 27"
+    const re2 = new RegExp('(\\d{4})\\s*'+arMonth+'\\s*(\\d{1,2})');
+    const mAr2 = s.match(re2);
+    if(mAr2) return mAr2[1]+'-'+num+'-'+mAr2[2].padStart(2,'0');
+  }
+  // English month names
+  const enMonths = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+  for(const [enM, num] of Object.entries(enMonths)){
+    const re3 = new RegExp('(\\d{1,2})\\s*'+enM+'[a-z]*\\s*(\\d{4})','i');
+    const mEn = s.match(re3);
+    if(mEn) return mEn[2]+'-'+num+'-'+mEn[1].padStart(2,'0');
+  }
+  // Numeric formats
   const m1=s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
   if(m1) return m1[1]+'-'+m1[2].padStart(2,'0')+'-'+m1[3].padStart(2,'0');
   const m2=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
