@@ -1171,7 +1171,7 @@ function rfT(){
       عرض الفاتورة
     </a></div>` : ''}
     <button onclick="delE(${e.id})" style="margin-top:5px;border:none;background:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:11px;font-family:inherit">✕ حذف</button>
-    ${(ROLE==='manager'||ROLE==='owner')&&(e.type==='petty'||e.type==='tax')?`<button onclick="toggleReject(${e.id},${!!e.rejected})" style="margin-top:3px;border:none;background:none;cursor:pointer;font-size:11px;font-family:inherit;color:${e.rejected?'#34d399':'#f87171'}">${e.rejected?'✓ قبول الفاتورة':'✕ رفض الفاتورة'}</button>`:''}
+    ${(ROLE==='manager'||ROLE==='owner'||ROLE==='accountant')&&(e.type==='petty'||e.type==='tax')?`<button onclick="toggleReject(${e.id},${!!e.rejected})" style="margin-top:3px;border:none;background:none;cursor:pointer;font-size:11px;font-family:inherit;color:${e.rejected?'#34d399':'#f87171'}">${e.rejected?'✓ قبول الفاتورة':'✕ رفض الفاتورة'}</button>`:''}
     ${e.rejected?'<span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;display:inline-block;margin-top:3px">✕ غير مقبولة</span>':''}
   </div>`).join('');
 }
@@ -1181,6 +1181,14 @@ async function delE(id){if(!confirm('حذف؟'))return;await api('/api/entries/'
 
 async function toggleReject(id, isRejected){
   if(!confirm(isRejected?'قبول الفاتورة وإعادتها للرصيد؟':'رفض الفاتورة وإزالتها من الرصيد؟')) return;
+  // المحاسب يرسل طلب للمدير بدل التنفيذ المباشر
+  if(ROLE==='accountant'){
+    const action = isRejected ? 'قبول' : 'رفض';
+    const entry = DB.entries.find(function(e){return e.id===id;});
+    const desc = action+' فاتورة: '+(entry?entry.desc||entry.supplier||'#'+id:'#'+id)+' — '+(entry?fmt(entry.total||0):'')+'﷼';
+    submitPendingRequest('toggleReject', desc, entry?entry.total||0:0, {id:id, isRejected:isRejected, newRejected:!isRejected});
+    return;
+  }
   await api('/api/entries/'+id+'/reject','POST',{rejected:!isRejected});
   DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   rfT(); rDash();
@@ -3412,6 +3420,8 @@ async function approvePending(reqId){
     } else if(req.action==='transfer'){
       const res = await api('/api/transfer','POST',req.data);
       if(res.error) throw new Error(res.error);
+    } else if(req.action==='toggleReject'){
+      await api('/api/entries/'+req.data.id+'/reject','POST',{rejected:req.data.newRejected});
     } else if(req.action==='workerPayment'){
       const payments = JSON.parse(localStorage.getItem('kayan_worker_payments')||'[]');
       payments.push({id:'wp_'+Date.now(),workerKey:req.data.workerKey,amount:req.data.amount,note:req.data.note||'حساب عامل خارجي',date:today()});
