@@ -4032,8 +4032,19 @@ function showResult(){
       +'<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px">'+qty+' '+(unit?unit+' ':'')+(price?'× '+fmt(price)+' ﷼ = ':'')+'<strong>'+fmt(total)+' ﷼</strong></div></div>';
   }).join('');
   }
-  // Auto-select type button based on AI result
-  setTimeout(()=>setInvoiceType(parsed.type||'petty'),50);
+  // Auto-select type: smart detection
+  setTimeout(()=>{
+    let autoType = parsed.type||'petty';
+    // Force tax if: has taxId, registrationNumber, taxAmt>0
+    if(parsed.taxId||parsed.registrationNumber||parsed.taxAmt>0||(parsed.taxRate&&parsed.taxRate>0)){
+      autoType='tax';
+    }
+    // Force petty if total < 100 SAR (small receipt)
+    if((parsed.total||0) < 100 && !parsed.taxId && !parsed.registrationNumber) autoType='petty';
+    // Force tax if total >= 100 (as per business rule)
+    if((parsed.total||0) >= 100 && (parsed.taxAmt>0||(parsed.taxRate>0))) autoType='tax';
+    setInvoiceType(autoType);
+  },50);
   const ss=document.getElementById('ssup'),cs=document.getElementById('csup');
   if(ss&&cs&&!cs.disabled)cs.value=ss.value;
   const sp=document.getElementById('sproj'),cp=document.getElementById('cproj');
