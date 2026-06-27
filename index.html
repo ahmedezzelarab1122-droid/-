@@ -4114,12 +4114,11 @@ function showResult(){
       +'<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:2px">'+qty+' '+(unit?unit+' ':'')+(price?'× '+fmt(price)+' ﷼ = ':'')+'<strong>'+fmt(total)+' ﷼</strong></div></div>';
   }).join('');
   }
-  // Auto-select type: based on customer name and VAT
-  setTimeout(()=>{
-    const raw = JSON.stringify(parsed||{});
-    const hasKayan = raw.includes('\u0643\u064a\u0627\u0646') || raw.includes('kayan') || raw.includes('Kayan');
-    const hasVAT   = raw.includes('311305757400003');
-    const autoType = (hasKayan || hasVAT) ? 'tax' : 'petty';
+  // Auto-select type: tax if customer VAT matches kayan, else petty
+  setTimeout(function(){
+    var raw=JSON.stringify(parsed||{});
+    var hasKayanVAT = raw.includes('311305757400003');
+    var autoType = hasKayanVAT ? 'tax' : 'petty';
     setInvoiceType(autoType);
   },50);
   const ss=document.getElementById('ssup'),cs=document.getElementById('csup');
