@@ -3502,9 +3502,9 @@ function _renderPendingRequests(){
           </div>
           <div style="font-size:14px;font-weight:800;color:${typeColor[req.action]}">${fmt(req.amount||0)} ﷼</div>
         </div>
-        ${req.data&&(req.data.imageUrl||req.data.b64Image)?`
-        <div style="margin-bottom:8px;border-radius:8px;overflow:hidden;max-height:200px;cursor:pointer" onclick="window.open('${req.data.imageUrl||'data:image/jpeg;base64,'+req.data.b64Image}','_blank')">
-          <img src="${req.data.imageUrl||'data:image/jpeg;base64,'+req.data.b64Image}" style="width:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">
+        ${req.data&&(req.data.imageUrl||localStorage.getItem('kayan_img_'+req.id))?`
+        <div style="margin-bottom:8px;border-radius:8px;overflow:hidden;max-height:200px;cursor:pointer" onclick="var src='${req.data.imageUrl||(localStorage.getItem('kayan_img_'+req.id)?'data:image/jpeg;base64,'+localStorage.getItem('kayan_img_'+req.id):'')}';window.open(src,'_blank')">
+          <img src="${req.data.imageUrl||(localStorage.getItem('kayan_img_'+req.id)?'data:image/jpeg;base64,'+localStorage.getItem('kayan_img_'+req.id):'')}" style="width:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">
           <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;text-align:center">اضغط لعرض الصورة كاملة</div>
         </div>`:''}
         <div style="display:flex;gap:8px">
@@ -3538,12 +3538,18 @@ async function approvePending(reqId){
     if(req.action==='add'){
       const entryData = Object.assign({},req.data);
       // Upload image if b64Image exists but no imageUrl
+      // Get b64 from localStorage if not in data
+      if(!entryData.b64Image && !entryData.imageUrl){
+        const storedB64 = localStorage.getItem('kayan_img_'+req.id);
+        if(storedB64) entryData.b64Image = storedB64;
+      }
       if(entryData.b64Image && !entryData.imageUrl){
         try{
           const upRes = await api('/api/upload-image','POST',{b64:entryData.b64Image});
           if(upRes.url) entryData.imageUrl = upRes.url;
         }catch(e2){ console.error('upload failed',e2); }
         delete entryData.b64Image;
+        localStorage.removeItem('kayan_img_'+req.id);
       }
       const res = await api('/api/entries','POST',entryData);
       if(res.error) throw new Error(res.error);
@@ -3609,13 +3615,19 @@ async function rejectPending(reqId){
 // Accountant submits a pending request instead of direct action
 async function submitPendingRequest(action, desc, amount, data, entryId){
   const pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
+  const reqId = 'req_'+Date.now();
+  // Save b64Image separately in localStorage (too large for server)
+  const b64 = data&&data.b64Image ? data.b64Image : null;
+  const dataToSave = data ? Object.assign({},data,{b64Image:null}) : null;
+  if(b64) localStorage.setItem('kayan_img_'+reqId, b64);
   const req = {
-    id: 'req_'+Date.now(),
+    id: reqId,
     action, desc, amount: amount||0,
-    data: data||null,
+    data: dataToSave,
     entryId: entryId||null,
     date: today(),
-    submittedAt: new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'})
+    submittedAt: new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}),
+    submittedBy: CU?.name||''
   };
   pending.push(req);
   localStorage.setItem('kayan_pending',JSON.stringify(pending));
