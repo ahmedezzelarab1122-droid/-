@@ -4091,7 +4091,7 @@ async function saveEntry(){
       taxAmt:parsed.taxAmt||0, total:total, items:parsed.items||[],
       imageUrl:parsed.imageUrl||null,
       b64Image:(!parsed.imageUrl&&imgB64)?imgB64:null,
-      isPdf:isPdf||false,
+      isPdf:!!(imgSrc&&imgSrc.includes('pdf'))||false,
       uploadedBy:CU?.name||'المحاسب', uploadedByRole:'accountant'
     });
     closeScan();
