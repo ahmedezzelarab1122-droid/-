@@ -1997,11 +1997,13 @@ function editContractName(btn){
   var m=document.createElement('div');
   m.id='edit-contract-modal';
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
-  var pmtsHtml=(c.payments||[]).map(function(p,i){
+  var transfers=(c.transfers||[]);
+  var pmtsHtml=transfers.map(function(p,i){
     var up=i>0?'<button onclick="movePmt(\''+contractId+'\','+i+',-1)" style="border:none;background:rgba(255,255,255,.1);color:#fff;border-radius:4px;width:22px;height:18px;cursor:pointer">▲</button>':'<span style="display:inline-block;width:22px"></span>';
-    var dn=i<(c.payments||[]).length-1?'<button onclick="movePmt(\''+contractId+'\','+i+',1)" style="border:none;background:rgba(255,255,255,.1);color:#fff;border-radius:4px;width:22px;height:18px;cursor:pointer">▼</button>':'<span style="display:inline-block;width:22px"></span>';
+    var dn=i<transfers.length-1?'<button onclick="movePmt(\''+contractId+'\','+i+',1)" style="border:none;background:rgba(255,255,255,.1);color:#fff;border-radius:4px;width:22px;height:18px;cursor:pointer">▼</button>':'<span style="display:inline-block;width:22px"></span>';
+    var label=(p.ref||p.note||p.desc||'دفعة '+(i+1))+' — '+fmt(p.amount||0)+' ﷼'+(p.date?' ('+p.date+')':'');
     return '<div style="display:flex;align-items:center;gap:6px;padding:6px;background:rgba(255,255,255,.05);border-radius:8px;margin-bottom:4px">'
-      +'<div style="flex:1;font-size:12px">'+(p.desc||'دفعة '+(i+1))+' — '+fmt(p.amount)+' ﷼'+(p.dueDate?' ('+p.dueDate+')':'')+'</div>'
+      +'<div style="flex:1;font-size:12px">'+label+'</div>'
       +'<div style="display:flex;gap:2px">'+up+dn+'</div></div>';
   }).join('');
   m.innerHTML='<div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto">'
@@ -2010,7 +2012,7 @@ function editContractName(btn){
     +'<div class="fg"><label class="lbl">اسم العميل</label><input id="ec-client" value="'+(c.clientName||'')+'"></div>'
     +'<div class="fg"><label class="lbl">المشروع</label><input id="ec-project" value="'+(c.project||'')+'"></div>'
     +'<div class="fg"><label class="lbl">قيمة العقد ﷼</label><input type="number" id="ec-value" value="'+(c.value||0)+'"></div>'
-    +(pmtsHtml?'<div class="lbl" style="margin:8px 0 6px">ترتيب الدفعات ▲▼</div>'+pmtsHtml:'')
+    +(pmtsHtml?'<div class="lbl" style="margin:8px 0 6px">ترتيب الدفعات (الحوالات) ▲▼</div>'+pmtsHtml:'')
     +'<div style="display:flex;gap:8px;margin-top:12px">'
     +'<button onclick="saveContractEdit(\''+contractId+'\')" class="btn bp" style="flex:1">💾 حفظ</button>'
     +'<button onclick="var el=document.getElementById(\'edit-contract-modal\');if(el)el.remove();" style="padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:Tajawal,sans-serif">إلغاء</button>'
@@ -2021,10 +2023,10 @@ function editContractName(btn){
 function movePmt(contractId,idx,dir){
   var contracts=JSON.parse(localStorage.getItem('kayan_contracts')||'[]');
   var c=contracts.find(function(x){return x.id==contractId;});
-  if(!c||!c.payments)return;
+  if(!c||!c.transfers)return;
   var ni=idx+dir;
-  if(ni<0||ni>=c.payments.length)return;
-  var tmp=c.payments[idx];c.payments[idx]=c.payments[ni];c.payments[ni]=tmp;
+  if(ni<0||ni>=c.transfers.length)return;
+  var tmp=c.transfers[idx];c.transfers[idx]=c.transfers[ni];c.transfers[ni]=tmp;
   localStorage.setItem('kayan_contracts',JSON.stringify(contracts));
   api('/api/contracts','POST',{contracts:contracts}).catch(function(){});
   var old=document.getElementById('edit-contract-modal');if(old)old.remove();
