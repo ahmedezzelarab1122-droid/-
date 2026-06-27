@@ -263,6 +263,24 @@ async function analyzeInvoice(b64, text, isPdf=false) {
           }
           if (!parsed.total || parsed.total === 0) parsed.total = parsed.subtotal + parsed.taxAmt;
           if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0];
+          else {
+            // Fix Arabic date formats
+            const arM = {'يناير':'01','فبراير':'02','مارس':'03','أبريل':'04','ابريل':'04','مايو':'05','يونيو':'06','يونيه':'06','يوليو':'07','يوليه':'07','أغسطس':'08','اغسطس':'08','سبتمبر':'09','أكتوبر':'10','اكتوبر':'10','نوفمبر':'11','ديسمبر':'12'};
+            let ds = String(parsed.date).trim();
+            if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)){
+              for(const [ar,num] of Object.entries(arM)){
+                const r1=new RegExp('(\\d{1,2})\\s*'+ar+'\\s*(\\d{4})');
+                const r2=new RegExp('(\\d{4})\\s*'+ar+'\\s*(\\d{1,2})');
+                let m=ds.match(r1); if(m){ds=m[2]+'-'+num+'-'+m[1].padStart(2,'0');break;}
+                m=ds.match(r2); if(m){ds=m[1]+'-'+num+'-'+m[2].padStart(2,'0');break;}
+              }
+              // numeric fallback
+              const mn=ds.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+              if(mn) ds=mn[3]+'-'+mn[2].padStart(2,'0')+'-'+mn[1].padStart(2,'0');
+              if(/^\d{4}-\d{2}-\d{2}$/.test(ds)) parsed.date=ds;
+              else parsed.date=new Date().toISOString().split('T')[0];
+            }
+          }
           resolve(parsed);
         } catch (e) { reject(e); }
       });
