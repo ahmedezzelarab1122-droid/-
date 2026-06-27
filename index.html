@@ -901,6 +901,19 @@ function doLogout(){
   document.getElementById('lerr').style.display='none';
 }
 
+
+function refreshNavBadges(){
+  document.querySelectorAll('.bottom-nav-item').forEach(function(btn){
+    var id=btn.dataset.id;
+    var badge=btn.querySelector('.nav-badge');
+    if(badge) badge.remove();
+    var pendingCount=id==='pending-requests'?JSON.parse(localStorage.getItem('kayan_pending')||'[]').length:0;
+    var myNewCount=id==='my-requests'?JSON.parse(localStorage.getItem('kayan_my_requests')||'[]').filter(function(r){return r.status!=='pending'&&!r.seen;}).length:0;
+    if(pendingCount>0){var b=document.createElement('span');b.className='nav-badge';b.style.cssText='background:#f87171;color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:800;margin-right:auto;margin-left:4px';b.textContent=pendingCount;btn.appendChild(b);}
+    if(myNewCount>0){var b2=document.createElement('span');b2.className='nav-badge';b2.style.cssText='background:#f5c842;color:#111;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:800;margin-right:auto;margin-left:4px';b2.textContent=myNewCount;btn.appendChild(b2);}
+  });
+}
+
 function showApp(){
   document.getElementById('lview').style.display='none';
   document.getElementById('aview').style.display='block';
@@ -3044,7 +3057,7 @@ function rMyRequests(){
   var _reqs=JSON.parse(localStorage.getItem('kayan_my_requests')||'[]');
   var _updated=_reqs.map(function(r){return Object.assign({},r,{seen:true});});
   localStorage.setItem('kayan_my_requests',JSON.stringify(_updated));
-  setTimeout(buildNav,50);
+  setTimeout(refreshNavBadges,50);
   api('/api/pending-history').then(function(hr){
     if(hr&&hr.history) localStorage.setItem('kayan_my_requests',JSON.stringify(hr.history));
     _renderMyRequests();
