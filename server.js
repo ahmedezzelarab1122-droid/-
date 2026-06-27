@@ -270,7 +270,9 @@ async function analyzeInvoice(b64, text, isPdf=false) {
           else {
             // Fix Arabic date formats
             const arM = {'يناير':'01','فبراير':'02','مارس':'03','أبريل':'04','ابريل':'04','مايو':'05','يونيو':'06','يونيه':'06','يوليو':'07','يوليه':'07','أغسطس':'08','اغسطس':'08','سبتمبر':'09','أكتوبر':'10','اكتوبر':'10','نوفمبر':'11','ديسمبر':'12'};
-            let ds = String(parsed.date).trim();
+            let ds = String(parsed.date).trim()
+              .replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
+              .replace(/[مهـ\s]*$/,'').trim();
             if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)){
               for(const [ar,num] of Object.entries(arM)){
                 const r1=new RegExp('(\\d{1,2})\\s*'+ar+'\\s*(\\d{4})');
