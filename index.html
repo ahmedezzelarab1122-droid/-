@@ -2128,7 +2128,7 @@ function rCostCenter(){
         <!-- جدول الدفعات -->
         <div style="margin-bottom:8px">
           <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:6px">📋 جدول الدفعات</div>
-          ${(c.payments||[]).map((p,i)=>`
+          ${(c.payments||[]).slice().sort(function(a,b){var da=a.dueDate||'9999';var db=b.dueDate||'9999';return da<db?-1:da>db?1:0;}).map((p,i)=>`
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-bottom:5px;align-items:center;padding:6px 8px;background:rgba(255,255,255,.04);border-radius:7px">
               <div style="font-size:12px;font-weight:600">${fmt(p.amount)} ﷼</div>
               <div style="font-size:11px;color:rgba(255,255,255,.6)">${p.type==='date'?'📅 '+p.dueDate:'📊 '+p.progressPct+'% إنجاز'}</div>
@@ -2524,7 +2524,7 @@ ${c.payments?.length?`
 <h2>📋 جدول الدفعات</h2>
 <table>
   <tr><th>المبلغ</th><th>الاستحقاق</th><th>الحالة</th></tr>
-  ${c.payments.map(p=>`<tr><td style="font-weight:700">${fmt(p.amount)} ﷼</td><td>${p.type==='date'?p.dueDate:p.progressPct+'% إنجاز'}</td><td style="color:${p.status==='paid'?'#1A7A3C':'#D97706'};font-weight:700">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</td></tr>`).join('')}
+  ${c.payments.slice().sort(function(a,b){var da=a.dueDate||'9999';var db=b.dueDate||'9999';return da<db?-1:da>db?1:0;}).map(p=>`<tr><td style="font-weight:700">${fmt(p.amount)} ﷼</td><td>${p.type==='date'?p.dueDate:p.progressPct+'% إنجاز'}</td><td style="color:${p.status==='paid'?'#1A7A3C':'#D97706'};font-weight:700">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</td></tr>`).join('')}
 </table>`:''}
 </body></html>`;
   const win=window.open('','_blank');
@@ -2718,7 +2718,7 @@ ${c.payments?.length?`
 <h2>📋 جدول الدفعات</h2>
 <table>
   <tr><th>المبلغ</th><th>الاستحقاق</th><th>الحالة</th></tr>
-  ${c.payments.map(p=>`<tr><td style="font-weight:700">${fmt(p.amount)} ﷼</td><td>${p.type==='date'?p.dueDate:p.progressPct+'% إنجاز'}</td><td style="color:${p.status==='paid'?'#1A7A3C':'#D97706'};font-weight:700">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</td></tr>`).join('')}
+  ${c.payments.slice().sort(function(a,b){var da=a.dueDate||'9999';var db=b.dueDate||'9999';return da<db?-1:da>db?1:0;}).map(p=>`<tr><td style="font-weight:700">${fmt(p.amount)} ﷼</td><td>${p.type==='date'?p.dueDate:p.progressPct+'% إنجاز'}</td><td style="color:${p.status==='paid'?'#1A7A3C':'#D97706'};font-weight:700">${p.status==='paid'?'✓ مدفوعة':'⏳ معلقة'}</td></tr>`).join('')}
   <tr class="total"><td>مدفوع: ${fmt(paidPay)} ﷼</td><td>معلق: ${fmt(pendingPay)} ﷼</td><td>الإجمالي: ${fmt(c.payments.reduce((a,p)=>a+p.amount,0))} ﷼</td></tr>
 </table>`:''}
 </body></html>`;
