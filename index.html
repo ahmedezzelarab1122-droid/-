@@ -1166,10 +1166,7 @@ function rfT(){
       <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:rgba(255,255,255,.75)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
     </div>
     ${e.items?.length?`<div style="margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:rgba(255,255,255,.85)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
-    ${e.imageUrl ? `<div style="margin-top:7px"><a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.9);text-decoration:none;border-radius:5px;padding:3px 8px">
-      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      عرض الفاتورة
-    </a></div>` : ''}
+    ${e.imageUrl ? `<div style="margin-top:7px">${e.isPdf ? `<a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#70B5FF;text-decoration:none;border-radius:5px;padding:3px 8px;background:rgba(112,181,255,.1)">📄 عرض PDF</a>` : `<img src="${e.imageUrl}" onclick="window.open('${e.imageUrl}','_blank')" style="width:100%;max-height:150px;object-fit:cover;border-radius:8px;cursor:pointer;margin-bottom:2px;border:1px solid rgba(255,255,255,.1)" onerror="this.style.display='none'">`}</div>` : ''}
     <button onclick="delE(${e.id})" style="margin-top:5px;border:none;background:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:11px;font-family:inherit">✕ حذف</button>
     ${(ROLE==='manager'||ROLE==='owner'||ROLE==='accountant')&&(e.type==='petty'||e.type==='tax')?`<button onclick="toggleReject(${e.id},${!!e.rejected})" style="margin-top:3px;border:none;background:none;cursor:pointer;font-size:11px;font-family:inherit;color:${e.rejected?'#34d399':'#f87171'}">${e.rejected?'✓ قبول الفاتورة':'✕ رفض الفاتورة'}</button>`:''}
     ${e.rejected?'<span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;display:inline-block;margin-top:3px">✕ غير مقبولة</span>':''}
@@ -3439,10 +3436,15 @@ function _renderPendingRequests(){
           <div>
             <span style="background:rgba(${req.action==='add'?'52,211,153':req.action==='edit'?'245,200,66':'248,113,113'},.15);color:${typeColor[req.action]};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${typeLabel[req.action]||req.action}</span>
             <div style="font-size:13px;font-weight:700;margin-top:6px">${req.desc||'طلب من المحاسب'}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${req.date||''} · ${req.submittedAt||''}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">${req.date||''} · ${req.submittedAt||''} · ${req.submittedBy||''}</div>
           </div>
           <div style="font-size:14px;font-weight:800;color:${typeColor[req.action]}">${fmt(req.amount||0)} ﷼</div>
         </div>
+        ${req.data&&(req.data.imageUrl||req.data.b64Image)?`
+        <div style="margin-bottom:8px;border-radius:8px;overflow:hidden;max-height:200px;cursor:pointer" onclick="window.open('${req.data.imageUrl||'data:image/jpeg;base64,'+req.data.b64Image}','_blank')">
+          <img src="${req.data.imageUrl||'data:image/jpeg;base64,'+req.data.b64Image}" style="width:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">
+          <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;text-align:center">اضغط لعرض الصورة كاملة</div>
+        </div>`:''}
         <div style="display:flex;gap:8px">
           <button onclick="approvePending('${req.id}')" style="flex:1;padding:8px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">✅ موافقة</button>
           <button onclick="rejectPending('${req.id}')" style="flex:1;padding:8px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">❌ رفض</button>
@@ -3472,7 +3474,9 @@ async function approvePending(reqId){
   try{
     // Execute the actual action
     if(req.action==='add'){
-      const res = await api('/api/entries','POST',req.data);
+      // If entry has imageUrl already, no need to re-upload
+      const entryData = Object.assign({},req.data);
+      const res = await api('/api/entries','POST',entryData);
       if(res.error) throw new Error(res.error);
     } else if(req.action==='delete'){
       await api('/api/entries/'+req.entryId,'DELETE');
@@ -4052,6 +4056,7 @@ async function saveEntry(){
       payMethod:parsed.payMethod||'cash',
       subtotal:parsed.subtotal||0, taxRate:parsed.taxRate||0,
       taxAmt:parsed.taxAmt||0, total:total, items:parsed.items||[],
+      imageUrl:parsed.imageUrl||null,
       uploadedBy:CU?.name||'المحاسب', uploadedByRole:'accountant'
     });
     closeScan();
