@@ -1166,7 +1166,12 @@ function rfT(){
       <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:rgba(255,255,255,.75)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
     </div>
     ${e.items?.length?`<div style="margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:rgba(255,255,255,.85)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
-    ${(e.imageUrl||e.b64Image) ? `<div style="margin-top:7px">${e.isPdf ? `<a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#70B5FF;text-decoration:none;border-radius:5px;padding:3px 8px;background:rgba(112,181,255,.1)">📄 عرض PDF</a>` : `<img src="${e.imageUrl||(e.b64Image?'data:image/jpeg;base64,'+e.b64Image:'')}" onclick="window.open('${e.imageUrl}','_blank')" style="width:100%;max-height:150px;object-fit:cover;border-radius:8px;cursor:pointer;margin-bottom:2px;border:1px solid rgba(255,255,255,.1)" onerror="this.style.display='none'">`}</div>` : ''}
+    ${(e.imageUrl||e.b64Image) ? `<div style="margin-top:7px">
+      ${(e.isPdf&&e.imageUrl) 
+        ? `<a href="${e.imageUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#70B5FF;text-decoration:none;border-radius:5px;padding:3px 8px;background:rgba(112,181,255,.1)">📄 عرض PDF</a>`
+        : `<img src="${e.imageUrl||(e.b64Image?'data:image/jpeg;base64,'+e.b64Image:'')}" onclick="window.open(this.src,'_blank')" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.1)" onerror="this.style.display='none'">`
+      }
+    </div>` : ''}
     <button onclick="delE(${e.id})" style="margin-top:5px;border:none;background:none;color:rgba(255,255,255,.75);cursor:pointer;font-size:11px;font-family:inherit">✕ حذف</button>
     ${(ROLE==='manager'||ROLE==='owner'||ROLE==='accountant')&&(e.type==='petty'||e.type==='tax')?`<button onclick="toggleReject(${e.id},${!!e.rejected})" style="margin-top:3px;border:none;background:none;cursor:pointer;font-size:11px;font-family:inherit;color:${e.rejected?'#34d399':'#f87171'}">${e.rejected?'✓ قبول الفاتورة':'✕ رفض الفاتورة'}</button>`:''}
     ${e.rejected?'<span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;display:inline-block;margin-top:3px">✕ غير مقبولة</span>':''}
