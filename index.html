@@ -3474,8 +3474,15 @@ async function approvePending(reqId){
   try{
     // Execute the actual action
     if(req.action==='add'){
-      // If entry has imageUrl already, no need to re-upload
       const entryData = Object.assign({},req.data);
+      // Upload image if b64Image exists but no imageUrl
+      if(entryData.b64Image && !entryData.imageUrl){
+        try{
+          const upRes = await api('/api/upload-image','POST',{b64:entryData.b64Image});
+          if(upRes.url) entryData.imageUrl = upRes.url;
+        }catch(e2){ console.error('upload failed',e2); }
+        delete entryData.b64Image;
+      }
       const res = await api('/api/entries','POST',entryData);
       if(res.error) throw new Error(res.error);
     } else if(req.action==='delete'){
@@ -4083,6 +4090,8 @@ async function saveEntry(){
       subtotal:parsed.subtotal||0, taxRate:parsed.taxRate||0,
       taxAmt:parsed.taxAmt||0, total:total, items:parsed.items||[],
       imageUrl:parsed.imageUrl||null,
+      b64Image:(!parsed.imageUrl&&imgB64)?imgB64:null,
+      isPdf:isPdf||false,
       uploadedBy:CU?.name||'المحاسب', uploadedByRole:'accountant'
     });
     closeScan();
