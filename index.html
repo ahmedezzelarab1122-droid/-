@@ -754,10 +754,30 @@ async function start(){
         // 1. Render immediately from cache
 const _cachedDB = localStorage.getItem('kayan_db_cache');
 if(_cachedDB){try{DB=JSON.parse(_cachedDB);}catch(e){}}
-try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}
+// Restore last tab or go to default
+const _lastTab = localStorage.getItem('kayan_last_tab');
+function _goDefault(){if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}
+if(_lastTab){
+  try{
+    const _map2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+    if(_map2[_lastTab]) _map2[_lastTab](); else _goDefault();
+    // Update active nav button
+    setTimeout(function(){
+      document.querySelectorAll('.bottom-nav-item').forEach(function(b){b.classList.remove('active');});
+      const activeBtn=document.querySelector('[data-id="'+_lastTab+'"]');
+      if(activeBtn) activeBtn.classList.add('active');
+    },100);
+  }catch(e){_goDefault();}
+} else {
+  try{_goDefault();}catch(e){}
+}
 // 2. Full sync in background - once on load
 syncAll().then(function(){
-  try{if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}catch(e){}
+  try{
+    const _lt=localStorage.getItem('kayan_last_tab');
+    const _m2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+    if(_lt&&_m2[_lt])_m2[_lt](); else _goDefault();
+  }catch(e){}
 }).catch(function(){});
         api('/api/contracts').then(cr=>{if(cr&&cr.contracts&&cr.contracts.length>0)localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));}).catch(()=>{});
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
@@ -1048,6 +1068,7 @@ async function syncAll(){
 }
 
 function goBNav(id,btn){
+  localStorage.setItem('kayan_last_tab', id);
   closeNav();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
