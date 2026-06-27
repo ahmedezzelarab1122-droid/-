@@ -1203,7 +1203,18 @@ function rfT(){
     ${e.rejected?'<span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;display:inline-block;margin-top:3px">✕ غير مقبولة</span>':''}
   </div>`).join('');
 }
-async function delE(id){if(!confirm('حذف؟'))return;await api('/api/entries/'+id,'DELETE');DB=await api('/api/db');rfT();rDash();}
+async function delE(id){
+  if(!confirm('حذف؟')) return;
+  if(ROLE==='accountant'){
+    const entry = DB.entries.find(function(e){return e.id===id;});
+    const desc = 'حذف فاتورة: '+(entry?entry.desc||entry.supplier||'#'+id:'#'+id)+' — '+(entry?fmt(entry.total||0):'')+'﷼';
+    submitPendingRequest('delete', desc, entry?entry.total||0:0, {id:id});
+    return;
+  }
+  await api('/api/entries/'+id,'DELETE');
+  DB=await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+  rfT(); rDash();
+}
 
 // ── REPORTS ────────────────────────
 
@@ -3525,6 +3536,8 @@ async function approvePending(reqId){
     } else if(req.action==='transfer'){
       const res = await api('/api/transfer','POST',req.data);
       if(res.error) throw new Error(res.error);
+    } else if(req.action==='delete'){
+      await api('/api/entries/'+req.data.id,'DELETE');
     } else if(req.action==='toggleReject'){
       await api('/api/entries/'+req.data.id+'/reject','POST',{rejected:req.data.newRejected});
     } else if(req.action==='workerPayment'){
