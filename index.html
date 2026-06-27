@@ -2268,7 +2268,7 @@ function rCostCenter(){
       const profitPct=Math.round(profit/(c.value||1)*100);
       return `
       <div class="card" style="padding:13px 14px;margin-bottom:8px">
-        <div style="font-size:14px;font-weight:800;color:#f5c842;margin-bottom:10px">${c.clientName} — ${c.project}</div>
+        <div style="font-size:14px;font-weight:800;color:#f5c842;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span>${c.clientName} — ${c.project}</span><button onclick="editContractName(this)" data-id="${c.id}" style="border:none;background:rgba(245,200,66,.1);color:#f5c842;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-family:Tajawal,sans-serif">✏️ تعديل</button></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <div style="background:rgba(245,200,66,.08);border-radius:8px;padding:8px">
             <div style="font-size:10px;color:rgba(255,255,255,.5)">قيمة العقد</div>
