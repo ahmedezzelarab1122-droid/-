@@ -225,7 +225,7 @@ async function analyzeInvoice(b64, text, isPdf=false) {
     : [{ type: 'text', text: prompt }];
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-6',
       max_tokens: 64000,
       system: 'You are an expert Saudi accountant. Always return ONLY valid JSON. For single invoice return a JSON object. For bulk/list return {"invoices":[...]}. No explanation, no markdown, no extra text.',
       messages: [{ role: 'user', content }]
