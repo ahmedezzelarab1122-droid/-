@@ -1165,7 +1165,13 @@ function rfT(){
       <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}${e.supplier?' · '+e.supplier:''}${e.invoiceNo?' · '+e.invoiceNo:''} · ${e.date}${e.uploadedAt?' · 🕐 '+new Date(e.uploadedAt).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):''}${e.rejected?' · <span style="background:rgba(248,113,113,.2);color:#f87171;font-size:10px;padding:1px 6px;border-radius:99px">✕ مرفوضة</span>':''}</div></div>
       <div style="text-align:left;flex-shrink:0;margin-right:7px">${tb(e.type)} ${pb(e.payMethod||'cash')}<div style="font-size:13px;font-weight:700;color:var(--r);margin-top:3px">${fmt(e.total)} ﷼</div>${e.taxAmt>0?`<div style="font-size:10px;color:rgba(255,255,255,.75)">ضريبة: ${fmt(e.taxAmt)}</div>`:''}</div>
     </div>
-    ${e.items?.length?`<div style="margin-top:6px;padding-top:5px">${e.items.map(it=>`<div style="font-size:11px;color:rgba(255,255,255,.85)">${it.desc}: ${it.qty} ${it.unit} × ${fmt(it.unitPrice)} = ${fmt(it.total)} ﷼</div>`).join('')}</div>`:''}
+    ${e.items?.length?`<div style="margin-top:6px;padding-top:5px">${e.items.filter(function(it){var d=it.desc||it.name||it.itemName||it.description||it.item||it.product||it.بند||it.صنف||'';return d&&d!=='—';}).map(function(it){
+        var d=it.desc||it.name||it.itemName||it.description||it.item||it.product||it.بند||it.صنف||'';
+        var q=parseFloat(it.qty||it.quantity||it.count||it.كمية||0)||1;
+        var u=it.unit||it.unitName||it.وحدة||'';
+        var t=parseFloat(it.total||it.amount||it.totalPrice||it.مبلغ||0)||(q*(parseFloat(it.unitPrice||it.price||it.سعر||0)));
+        return '<div style="font-size:11px;color:rgba(255,255,255,.85)">'+d+' — '+fmt(t)+' ﷼</div>';
+      }).join('')}</div>`:''}
     ${(e.imageUrl||e.b64Image) ? `<div style="margin-top:6px">
       <button onclick="window.open('${e.imageUrl||(e.b64Image?'data:image/jpeg;base64,'+e.b64Image:'')}','_blank')" style="border:none;background:rgba(245,200,66,.1);color:#f5c842;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:Tajawal,sans-serif">
         ${e.isPdf?'📄':'🖼️'} عرض الفاتورة
