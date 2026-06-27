@@ -6246,7 +6246,11 @@ function setReturnMode(mode){
 const _fixNum = v => parseFloat(String(v||'0').replace(/,/g,'').replace(/[^0-9.]/g,''))||0;
 const _fixDate = d => {
   if(!d) return today();
-  const s = String(d).trim();
+  // Convert Arabic-Indic numerals to Western
+  let s = String(d).trim()
+    .replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
+    .replace(/م$|هـ$|\s*م\s*$|\s*هـ\s*$/,'')  // Remove م or هـ at end
+    .trim();
   // Already ISO format
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   // Arabic month names mapping
