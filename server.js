@@ -205,11 +205,15 @@ function getFallback() {
 
 async function analyzeInvoice(b64, text, isPdf=false) {
   const { default: https } = await import('https');
-  const prompt = text ? text : `أنت خبير محاسبة سعودي. انظر لهذه الفاتورة واستخرج بياناتها بدقة مهما كانت جودة الصورة.
-استخرج كل ما تستطيع رؤيته وأكمل الباقي بتقدير منطقي.
-أخرج JSON نقي فقط بهذا الشكل:
-{"desc":"اسم المورد","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم أو null","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":0,"taxRate":0,"taxAmt":0,"total":0,"items":[]}
-قواعد: type=tax إذا فيها رقم ضريبي أو VAT، وإلا petty. إذا لم تجد subtotal احسبها = total - taxAmt.
+  const prompt = text ? text : `أنت خبير محاسبة سعودي متخصص في قراءة الفواتير. انظر لهذه الفاتورة واستخرج بياناتها بدقة تامة.
+أخرج JSON نقي فقط بهذا الشكل بدون أي نص إضافي:
+{"desc":"اسم المورد","type":"petty أو tax","supplier":"اسم المورد","invoiceNo":"رقم الفاتورة أو null","taxId":"الرقم الضريبي أو null","date":"YYYY-MM-DD","payMethod":"cash أو transfer","subtotal":0,"taxRate":15,"taxAmt":0,"total":0,"items":[{"name":"اسم الصنف","quantity":1,"unitPrice":0,"total":0}]}
+قواعد مهمة:
+1. type=tax إذا وجد رقم ضريبي (taxId) أو VAT أو ضريبة القيمة المضافة، وإلا type=petty
+2. استخرج كل بنود الفاتورة في items مع الاسم والكمية والسعر
+3. إذا لم تجد subtotal احسبها = total - taxAmt
+4. التاريخ بصيغة YYYY-MM-DD فقط — حوّل أي صيغة تاريخ عربية أو إنجليزية
+5. استخرج الرقم الضريبي للمورد في taxId إذا وجد
 `;
   const content = b64
     ? isPdf
