@@ -4117,7 +4117,7 @@ function showResult(){
   // Auto-select type: tax if customer VAT matches kayan, else petty
   setTimeout(function(){
     var raw=JSON.stringify(parsed||{});
-    var hasKayanVAT = raw.includes('311305757400003');
+    var hasKayanVAT = raw.includes('311305757400003') || raw.includes('\u0663\u0661\u0661\u0663\u0660\u0665\u0667\u0665\u0667\u0664\u0660\u0660\u0660\u0660\u0663');
     var autoType = hasKayanVAT ? 'tax' : 'petty';
     setInvoiceType(autoType);
   },50);
