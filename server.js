@@ -392,6 +392,28 @@ const server = http.createServer(async (req, res) => {
     const entryCount = db ? await db.collection('entries').countDocuments().catch(()=>-1) : -1;
     return sendJSON(res, { mongo: !!db, hasCfg: !!cfg, supervisors: cfg?.supervisors?.length || 0, entries: entryCount, mongoUri: process.env.MONGO_URI ? 'env' : 'hardcoded' });
   }
+  // Config light - no entries, just supervisors/projects/rates
+  if (pathname === '/api/config-light' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, {
+        supervisors: cfg?.supervisors||[],
+        projects: cfg?.projects||[],
+        laborRates: cfg?.laborRates||{},
+        companyWorkers: cfg?.companyWorkers||[],
+        nextId: cfg?.nextId||1
+      });
+    } catch(e){ return sendJSON(res,{error:e.message},500); }
+  }
+
+  // Latest entry
+  if (pathname === '/api/entries/latest' && req.method === 'GET') {
+    try {
+      const entry = await db.collection('entries').findOne({},{sort:{_id:-1}});
+      return sendJSON(res, { entry: entry||null });
+    } catch(e){ return sendJSON(res,{error:e.message},500); }
+  }
+
   if (pathname === '/api/db' && req.method === 'GET') {
     const data = await loadDB();
     const cfg2 = await db.collection('config').findOne({_id:'main'}).catch(()=>null);
