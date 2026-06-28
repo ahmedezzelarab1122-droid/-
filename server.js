@@ -11,6 +11,10 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ahmedezzelarab1122_db_
 const { MongoClient } = require('mongodb');
 let mongoClient = null;
 let db = null;
+// In-memory cache - avoids repeated MongoDB queries
+let _cache = null;
+let _cacheTime = 0;
+const CACHE_TTL = 60000; // 1 minute
 
 
 // ── AUTO BACKUP ──────────────────────────────────────
@@ -139,6 +143,8 @@ async function connectMongo() {
     console.log('✅ MongoDB connected');
     db.collection('entries').createIndex({supId:1}).catch(()=>{});
     db.collection('entries').createIndex({date:-1}).catch(()=>{});
+    // Warm up cache immediately
+    loadDB().then(function(d){ console.log('✅ Cache ready:', d.entries?.length, 'entries'); }).catch(function(){});
     scheduleDailyEmail();
     const cfg = await db.collection('config').findOne({ _id: 'main' });
     if (!cfg) {
@@ -159,10 +165,12 @@ async function connectMongo() {
 
 async function loadDB() {
   if (!db) return getFallback();
+  // Return from cache if fresh (< 1 minute old)
+  if (_cache && (Date.now() - _cacheTime) < CACHE_TTL) return _cache;
   try {
     const cfg = await db.collection('config').findOne({ _id: 'main' });
     const entries = await db.collection('entries').find({}, {projection:{_id:0}}).toArray();
-    return {
+    const _result = {
       supervisors: cfg.supervisors || [],
       projects: cfg.projects || [],
       managerPassword: cfg.managerPassword || 'admin123',
@@ -172,10 +180,14 @@ async function loadDB() {
       ownerPassword: cfg.ownerPassword || 'owner123',
       entries: entries.map(e => { const { _id, ...rest } = e; return rest; })
     };
+    _cache = _result;
+    _cacheTime = Date.now();
+    return _result;
   } catch (e) { console.error('loadDB error:', e.message); return getFallback(); }
 }
 
 async function saveConfig(data) {
+  _cache = null;
   if (!db) return;
   try {
     await db.collection('config').updateOne(
