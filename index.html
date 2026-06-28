@@ -1256,7 +1256,25 @@ async function toggleReject(id, isRejected){
     return;
   }
   await api('/api/entries/'+id+'/reject','POST',{rejected:!isRejected});
-  DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+  // Fast: get latest entry + light config (no 1600+ entries reload)
+  const [_latest, _cfg] = await Promise.allSettled([
+    api('/api/entries/latest'),
+    api('/api/config-light')
+  ]);
+  if(_cfg.value&&_cfg.value.supervisors){
+    DB.supervisors=_cfg.value.supervisors;
+    if(_cfg.value.projects) DB.projects=_cfg.value.projects;
+    if(_cfg.value.laborRates) DB.laborRates=_cfg.value.laborRates;
+  }
+  if(_latest.value&&_latest.value.entry){
+    if(!DB.entries) DB.entries=[];
+    // Only add if not already in DB
+    const _eid=_latest.value.entry.id;
+    if(!DB.entries.find(function(e){return e.id===_eid;})){
+      DB.entries.unshift(_latest.value.entry);
+    }
+  }
+  localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   rfT(); rDash();
 }
 
