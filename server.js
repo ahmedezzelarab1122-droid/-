@@ -137,6 +137,8 @@ async function connectMongo() {
     await mongoClient.connect();
     db = mongoClient.db('kayan_expenses');
     console.log('✅ MongoDB connected');
+    db.collection('entries').createIndex({supId:1}).catch(()=>{});
+    db.collection('entries').createIndex({date:-1}).catch(()=>{});
     scheduleDailyEmail();
     const cfg = await db.collection('config').findOne({ _id: 'main' });
     if (!cfg) {
