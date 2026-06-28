@@ -392,6 +392,21 @@ const server = http.createServer(async (req, res) => {
     const entryCount = db ? await db.collection('entries').countDocuments().catch(()=>-1) : -1;
     return sendJSON(res, { mongo: !!db, hasCfg: !!cfg, supervisors: cfg?.supervisors?.length || 0, entries: entryCount, mongoUri: process.env.MONGO_URI ? 'env' : 'hardcoded' });
   }
+  // Light DB - no entries, for fast updates
+  if (pathname === '/api/db-light' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, {
+        supervisors: cfg?.supervisors||[],
+        projects: cfg?.projects||[],
+        laborRates: cfg?.laborRates||{},
+        companyWorkers: cfg?.companyWorkers||[],
+        accountants: cfg?.accountants||[],
+        nextId: cfg?.nextId||1
+      });
+    } catch(e){ return sendJSON(res,{error:e.message},500); }
+  }
+
   if (pathname === '/api/db' && req.method === 'GET') {
     const data = await loadDB();
     const cfg2 = await db.collection('config').findOne({_id:'main'}).catch(()=>null);
