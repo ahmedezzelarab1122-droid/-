@@ -63,7 +63,7 @@ setTimeout(function scheduleBackup() {
 
 // ── EMAIL BACKUP ─────────────────────────────────────
 const EMAIL_USER = process.env.EMAIL_USER || 'ahmed.ezzelarab1122@gmail.com';
-const EMAIL_PASS = process.env.EMAIL_PASS || 'swbvvcuoyszuyqav';
+const EMAIL_PASS = process.env.EMAIL_PASS || 'vervgkrdmdgxeemi';
 const EMAIL_TO   = process.env.EMAIL_TO   || 'ahmed.ezzelarab1122@gmail.com';
 
 async function sendBackupEmail() {
