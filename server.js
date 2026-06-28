@@ -502,8 +502,8 @@ const server = http.createServer(async (req, res) => {
     const sup = data.supervisors.find(s => s.id === id);
     if (!sup) return sendJSON(res, { error: 'مشرف غير موجود' }, 404);
     const amt = parseFloat(amount);
-    if (!amt || amt <= 0) return sendJSON(res, { error: 'مبلغ غير صحيح' }, 400);
-    sup.budget += amt;
+    if (!amt || amt === 0) return sendJSON(res, { error: 'مبلغ غير صحيح' }, 400);
+    sup.budget += amt; // amt can be negative for deduction
     await saveConfig(data);
     return sendJSON(res, { ok: true, newBudget: sup.budget });
   }
