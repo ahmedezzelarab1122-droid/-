@@ -3673,7 +3673,7 @@ async function submitPendingRequest(action, desc, amount, data, entryId){
 function rSetup(){
   document.getElementById('mc').innerHTML=`
     <div class="card"><div class="ctitle">المشرفون</div>
-      ${DB.supervisors.map((s,i)=>`<div class="srow"><div style="display:flex;align-items:center;gap:7px"><div class="av" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-size:12px;font-weight:600">${s.name}</div><div style="font-size:10px;color:rgba(255,255,255,.75)">ميزانية:${fmt(s.budget)} · متبقي:${fmt(s.budget-gs(s.id))}${s.visa?' · فيزا:****'+s.visa.slice(-4):''}</div></div></div><div style="display:flex;gap:5px;align-items:center"><button onclick="_budgetSupId=${s.id};document.getElementById('ab-name').textContent='${s.name}';document.getElementById('ab-amount').value='';document.getElementById('ab-err').style.display='none';document.getElementById('add-budget-form').style.display='block'" style="border:1px solid var(--g);border-radius:6px;padding:4px 10px;background:rgba(245,200,66,.1);color:rgba(255,255,255,.9);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">+ رصيد</button><button class="xb" onclick="delSup(${s.id})">✕</button></div></div>`).join('')}
+      ${DB.supervisors.map((s,i)=>`<div class="srow"><div style="display:flex;align-items:center;gap:7px"><div class="av" style="width:28px;height:28px;border-radius:7px;font-size:11px;background:${gc(i)}18;color:${gc(i)}">${s.name[0]}</div><div><div style="font-size:12px;font-weight:600">${s.name}</div><div style="font-size:10px;color:rgba(255,255,255,.75)">ميزانية:${fmt(s.budget)} · متبقي:${fmt(s.budget-gs(s.id))}${s.visa?' · فيزا:****'+s.visa.slice(-4):''}</div></div></div><div style="display:flex;gap:5px;align-items:center"><button onclick="_budgetSupId=${s.id};document.getElementById('ab-name').textContent='${s.name}';document.getElementById('ab-amount').value='';document.getElementById('ab-err').style.display='none';document.getElementById('add-budget-form').style.display='block'" style="border:1px solid var(--g);border-radius:6px;padding:4px 10px;background:rgba(245,200,66,.1);color:rgba(255,255,255,.9);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">+ رصيد</button><button onclick="showDeductBudget(${s.id},'${s.name}')" style="border:1px solid rgba(248,113,113,.3);border-radius:6px;padding:4px 10px;background:rgba(248,113,113,.1);color:#f87171;font-size:11px;cursor:pointer;font-family:inherit">- خصم</button><button class="xb" onclick="delSup(${s.id})">✕</button></div></div>`).join('')}
       <div id="add-budget-form" style="display:none;background:rgba(245,200,66,.1);border-radius:8px;padding:12px;margin-top:8px">
         <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:8px">إضافة رصيد لـ <span id="ab-name" style="color:#C8960C"></span></div>
         <div style="display:flex;gap:7px;align-items:center">
@@ -4338,6 +4338,41 @@ function resetScan(){
 }
 
 
+
+
+function showDeductBudget(id,name){
+  var old=document.getElementById('deduct-budget-form');if(old)old.remove();
+  var m=document.createElement('div');
+  m.id='deduct-budget-form';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:340px">'
+    +'<div style="font-size:14px;font-weight:700;color:#f87171;margin-bottom:12px">➖ خصم من رصيد: '+name+'</div>'
+    +'<div class="fg"><label class="lbl">المبلغ ﷼</label><input type="number" id="db-amount" placeholder="0" style="font-size:15px"></div>'
+    +'<div class="fg"><label class="lbl">السبب</label><input id="db-reason" placeholder="سبب الخصم"></div>'
+    +'<div class="err" id="db-err" style="display:none"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +'<button onclick="doDeductBudget()" class="btn" style="flex:1;background:rgba(248,113,113,.2);color:#f87171;border-color:rgba(248,113,113,.4)">➖ خصم</button>'
+    +'<button onclick="document.getElementById(\'deduct-budget-form\').remove()" style="padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:Tajawal,sans-serif">إلغاء</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+  window._deductSupId=id;
+  setTimeout(function(){var el=document.getElementById('db-amount');if(el)el.focus();},100);
+}
+
+async function doDeductBudget(){
+  var amt=parseFloat(document.getElementById('db-amount')?.value)||0;
+  var reason=document.getElementById('db-reason')?.value.trim()||'خصم من الرصيد';
+  var err=document.getElementById('db-err');
+  if(!amt||amt<=0){err.style.display='block';err.textContent='أدخل مبلغاً صحيحاً';return;}
+  err.style.display='none';
+  try{
+    var res=await api('/api/supervisors/'+window._deductSupId+'/budget','POST',{amount:-amt,reason:reason});
+    if(res.error){err.style.display='block';err.textContent=res.error;return;}
+    DB=await api('/api/db');if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+    document.getElementById('deduct-budget-form').remove();
+    rSetup();
+  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+}
 
 // ── ADD BUDGET ─────────────────────────
 let _budgetSupId=null;
