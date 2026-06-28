@@ -784,7 +784,7 @@ api('/api/db').then(function(d){
         api('/api/contracts').then(cr=>{if(cr&&cr.contracts&&cr.contracts.length>0)localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));}).catch(()=>{});
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
         api('/api/owner-withdrawals').then(wr=>{if(wr&&wr.withdrawals)localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(wr.withdrawals));}).catch(()=>{});
-        api('/api/owner-expenses').then(er=>{if(er&&er.expenses)localStorage.setItem('kayan_owner_expenses',JSON.stringify(er.expenses));}).catch(()=>{});
+        api('/api/owner-withdrawals').then(er=>{if(er&&er.expenses)localStorage.setItem('kayan_owner_expenses',JSON.stringify(er.expenses));}).catch(()=>{});
         api('/api/pending').then(pr=>{if(pr&&pr.pending){_pendingRequests=pr.pending;localStorage.setItem('kayan_pending',JSON.stringify(pr.pending));}}).catch(()=>{});
         api('/api/pending-history').then(hr=>{if(hr&&hr.history)localStorage.setItem('kayan_my_requests',JSON.stringify(hr.history));}).catch(()=>{});
         return;
@@ -1067,15 +1067,13 @@ function startAutoRefresh(){
       const [wPmts,pending,history,ownerW,ownerE] = await Promise.allSettled([
         api('/api/worker-payments'),
         api('/api/pending'),
-        api('/api/pending-history'),
+        
         api('/api/owner-withdrawals'),
-        api('/api/owner-expenses')
+        api('/api/owner-withdrawals')
       ]);
-      if(wPmts.value?.payments)    localStorage.setItem('kayan_worker_payments',   JSON.stringify(wPmts.value.payments));
-      if(pending.value?.pending)   localStorage.setItem('kayan_pending',           JSON.stringify(pending.value.pending));
-      if(history.value?.history)   localStorage.setItem('kayan_my_requests',       JSON.stringify(history.value.history));
-      if(ownerW.value?.withdrawals)localStorage.setItem('kayan_owner_withdrawals', JSON.stringify(ownerW.value.withdrawals));
-      if(ownerE.value?.expenses)   localStorage.setItem('kayan_owner_expenses',    JSON.stringify(ownerE.value.expenses));
+      if(wPmts.value?.payments)  localStorage.setItem('kayan_worker_payments', JSON.stringify(wPmts.value.payments));
+      if(pending.value?.pending) localStorage.setItem('kayan_pending',         JSON.stringify(pending.value.pending));
+      if(ownerW.value?.withdrawals) localStorage.setItem('kayan_owner_withdrawals', JSON.stringify(ownerW.value.withdrawals));
     } catch(e){}
   }, 30000); // كل 30 ثانية
 }
@@ -1087,7 +1085,7 @@ async function syncAll(){
     if(db&&db.supervisors){ DB=db; localStorage.setItem('kayan_db_cache',JSON.stringify(db)); }
     const [sales,returns,contracts,ownerW,ownerE,wPmts,pending,history] = await Promise.allSettled([
       api('/api/sales'), api('/api/sales-returns'), api('/api/contracts'),
-      api('/api/owner-withdrawals'), api('/api/owner-expenses'),
+      api('/api/owner-withdrawals'), api('/api/owner-withdrawals'),
       api('/api/worker-payments'), api('/api/pending'), api('/api/pending-history')
     ]);
     if(sales.value?.sales)         localStorage.setItem('kayan_sales',            JSON.stringify(sales.value.sales));

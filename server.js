@@ -745,7 +745,8 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/pending-history' && req.method === 'GET') {
     try {
       const cfg = await db.collection('config').findOne({_id:'main'});
-      return sendJSON(res, { history: cfg?.pendingHistory||[] });
+      const hist = (cfg?.pendingHistory||[]).slice(-200); // Keep last 200 only
+      return sendJSON(res, { history: hist });
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
