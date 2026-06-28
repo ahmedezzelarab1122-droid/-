@@ -18,7 +18,7 @@ async function createAutoBackup() {
   if (!db) return;
   try {
     const cfg = await db.collection('config').findOne({_id:'main'});
-    const entries = await db.collection('entries').find({}).toArray();
+    const entries = await db.collection('entries').find({}).sort({_id:-1}).limit(200).toArray();
     const timestamp = new Date().toISOString();
     const backupDoc = {
       _id: 'backup_' + Date.now(),
@@ -71,7 +71,7 @@ async function sendBackupEmail() {
   try {
     const nodemailer = require('nodemailer');
     const cfg = await db.collection('config').findOne({_id:'main'});
-    const entries = await db.collection('entries').find({}).toArray();
+    const entries = await db.collection('entries').find({}).sort({_id:-1}).limit(200).toArray();
     const backupData = {
       createdAt: new Date().toISOString(),
       supervisors: cfg?.supervisors||[],
@@ -161,7 +161,7 @@ async function loadDB() {
   if (!db) return getFallback();
   try {
     const cfg = await db.collection('config').findOne({ _id: 'main' });
-    const entries = await db.collection('entries').find({}).toArray();
+    const entries = await db.collection('entries').find({}).sort({_id:-1}).limit(200).toArray();
     return {
       supervisors: cfg.supervisors || [],
       projects: cfg.projects || [],
@@ -413,6 +413,14 @@ const server = http.createServer(async (req, res) => {
     try {
       const entry = await db.collection('entries').findOne({},{sort:{_id:-1}});
       return sendJSON(res, { entry: entry||null });
+    } catch(e){ return sendJSON(res,{error:e.message},500); }
+  }
+
+  // Get ALL entries for reports (no limit)
+  if (pathname === '/api/entries/all' && req.method === 'GET') {
+    try {
+      const entries = await db.collection('entries').find({}).sort({_id:-1}).toArray();
+      return sendJSON(res, { entries });
     } catch(e){ return sendJSON(res,{error:e.message},500); }
   }
 
