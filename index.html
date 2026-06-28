@@ -915,6 +915,23 @@ function addEntryToLocalDB(entry){
   localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
 }
 
+
+async function loadAllEntries(){
+  if(window._allLoaded) return;
+  const btn=document.getElementById('load-all-btn');
+  if(btn){btn.textContent='جاري...';btn.disabled=true;}
+  try{
+    const res=await api('/api/entries/all');
+    if(res&&res.entries){
+      DB.entries=res.entries;
+      window._allLoaded=true;
+      localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+      rfT();
+    }
+  }catch(e){}
+  if(btn){btn.textContent='مكتمل ✅';btn.disabled=true;}
+}
+
 function refreshNavBadges(){
   document.querySelectorAll('.bottom-nav-item').forEach(function(btn){
     var id=btn.dataset.id;
@@ -3032,6 +3049,7 @@ async function saveReturn(){
 }
 
 function rReports(){
+  if(!window._allLoaded) api('/api/entries/all').then(function(r){if(r&&r.entries){DB.entries=r.entries;window._allLoaded=true;localStorage.setItem('kayan_db_cache',JSON.stringify(DB));}}).catch(function(){});
   const rFrom = window._reportFrom||'';
   const rTo = window._reportTo||'';
   const rEntries = rFrom||rTo ? DB.entries.filter(e=>(!rFrom||e.date>=rFrom)&&(!rTo||e.date<=rTo)) : DB.entries;
