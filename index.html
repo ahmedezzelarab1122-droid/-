@@ -1053,8 +1053,15 @@ function startAutoRefresh(){
     try{
       const db = await api('/api/db');
       if(db&&db.supervisors){
+        const prevBudgets = JSON.stringify(DB.supervisors?.map(function(s){return {id:s.id,budget:s.budget};})||[]);
         DB=db;
         localStorage.setItem('kayan_db_cache',JSON.stringify(db));
+        // Re-render current tab if budgets changed
+        const newBudgets = JSON.stringify(db.supervisors?.map(function(s){return {id:s.id,budget:s.budget};})||[]);
+        if(prevBudgets!==newBudgets){
+          const _ct=localStorage.getItem('kayan_last_tab');
+          if(_ct){try{goBNav(_ct,document.querySelector('[data-id="'+_ct+'"]')||{classList:{add:function(){},remove:function(){}},dataset:{}});}catch(e){}}
+        }
       }
       // Sync shared collections
       const [wPmts,pending,history,ownerW,ownerE] = await Promise.allSettled([
@@ -1070,7 +1077,7 @@ function startAutoRefresh(){
       if(ownerW.value?.withdrawals)localStorage.setItem('kayan_owner_withdrawals', JSON.stringify(ownerW.value.withdrawals));
       if(ownerE.value?.expenses)   localStorage.setItem('kayan_owner_expenses',    JSON.stringify(ownerE.value.expenses));
     } catch(e){}
-  }, 180000); // كل 3 دقائق
+  }, 30000); // كل 30 ثانية
 }
 
 async function syncAll(){
