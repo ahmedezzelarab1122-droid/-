@@ -14,7 +14,7 @@ let db = null;
 // In-memory cache - avoids repeated MongoDB queries
 let _cache = null;
 let _cacheTime = 0;
-const CACHE_TTL = 60000; // 1 minute
+const CACHE_TTL = 5000; // 5 seconds
 
 
 // ── AUTO BACKUP ──────────────────────────────────────
