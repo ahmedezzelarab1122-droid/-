@@ -7,7 +7,7 @@ const CLOUDINARY_CLOUD = process.env.CLOUDINARY_CLOUD || 'dqgjqmwpy';
 const CLOUDINARY_KEY = process.env.CLOUDINARY_KEY || '458945749658771';
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_SECRET || 'kmhpQlDaDsfxi04i5L7MZvvQCGl';
 const API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ahmedezzelarab1122_db_user:D6hxMuamTPmqKkUO@cluster0.ukmtckx.mongodb.net/kayan_expenses?appName=Cluster0';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ahmedezzelarab1122_db_user:XmRn0IGTCCtgXFKn@cluster0.ukmtckx.mongodb.net/kayan_expenses?appName=Cluster0';
 const { MongoClient } = require('mongodb');
 let mongoClient = null;
 let db = null;
