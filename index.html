@@ -4244,82 +4244,21 @@ async function saveEntry(){
   const uploadTs = new Date().toISOString();
   const entry={supId,supName,project,type:parsed.type||'petty',desc:parsed.desc||'فاتورة',supplier:parsed.supplier||'',invoiceNo:parsed.invoiceNo||'',date:parsed.date||today(),payMethod:parsed.payMethod||'cash',subtotal:parsed.subtotal||0,taxRate:parsed.taxRate||0,taxAmt:parsed.taxAmt||0,total:parsed.total||parsed.subtotal||0,items:parsed.items||[],uploadedAt:uploadTs};
   if(imgB64) entry.b64Image = imgB64;
-  // ── فحص التكرار الشامل ──
+  // ── فحص التكرار: رفض فقط لو نفس التاريخ + نفس المبلغ + نفس رقم الفاتورة معاً ──
   const _norm = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
-  const _normItems = items => (items||[]).map(it=>_norm(it.desc)+'|'+it.qty+'|'+it.unitPrice).sort().join(',');
   const invoices = DB.entries.filter(e=>e.type==='petty'||e.type==='tax');
 
-  // 1. رقم الفاتورة + المبلغ + المورد (التاريخ لا يؤثر)
   if(entry.invoiceNo && entry.invoiceNo.trim()){
-    // تكرار: رقم الفاتورة + التاريخ + المبلغ + المورد كلهم متطابقين
     const dup = invoices.find(e=>
-      e.invoiceNo && entry.invoiceNo &&
+      e.invoiceNo &&
       _norm(e.invoiceNo)===_norm(entry.invoiceNo) &&
       e.date===(entry.date||today()) &&
-      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
-      _norm(e.supplier||e.desc||'')===_norm(entry.supplier||entry.desc||'')
+      Math.abs((e.total||0)-(entry.total||0))<0.5
     );
     if(dup){
       const who = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
       alert('⚠️ فاتورة مكررة\nرقم: '+entry.invoiceNo+'\nتاريخ: '+dup.date+'\nمسجلة عند: '+who);
       return;
-    }
-  }
-
-  // 2. نفس المورد + المبلغ + رقم الفاتورة (بدون تاريخ) - تم دمجه مع check 1
-  // تخطي هذا الفحص لأنه مشمول في الفحص الأول
-
-  // 3. نفس المبلغ + نفس المكونات (items)
-  if(entry.items && entry.items.length > 0){
-    const entryItemsKey = _normItems(entry.items);
-    const dup3 = invoices.find(e=>
-      e.items && e.items.length > 0 &&
-      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
-      _normItems(e.items)===entryItemsKey
-    );
-    if(dup3){
-      const who3 = DB.supervisors.find(s=>s.id==dup3.supId)?.name||'مشرف آخر';
-      alert('⚠️ تكرار — نفس المكونات والمبلغ\nتم تسجيل فاتورة بنفس البنود والمبلغ مسبقاً\nعند: '+who3+' | تاريخ: '+dup3.date);
-      return;
-    }
-  }
-
-  // 4. نفس المبلغ + نفس التاريخ + نفس المشرف
-  if(entry.total && entry.date){
-    const dup4 = invoices.find(e=>
-      e.supId==entry.supId &&
-      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
-      e.date===entry.date &&
-      _norm(e.supplier||'')===_norm(entry.supplier||'')
-    );
-    if(dup4 && dup4.invoiceNo!==entry.invoiceNo){
-      const who4 = DB.supervisors.find(s=>s.id==dup4.supId)?.name||'مشرف';
-      alert('⚠️ تكرار محتمل\nيوجد فاتورة بنفس المبلغ والتاريخ والمورد عند '+who4+'\nرقم الفاتورة السابقة: '+(dup4.invoiceNo||'غير محدد'));
-      return;
-    }
-  }
-
-  // ── Client-side duplicate check: رقم + مبلغ + مورد فقط (بدون تاريخ) ──
-  const normalize = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
-  if(entry.invoiceNo && entry.invoiceNo.trim()){
-    const dup = DB.entries.find(e=>
-      e.invoiceNo && entry.invoiceNo &&
-      _norm(e.invoiceNo)===_norm(entry.invoiceNo) &&
-      e.date===(entry.date||today()) &&
-      Math.abs((e.total||0)-(entry.total||0))<0.5 &&
-      _norm(e.supplier||e.desc||'')===_norm(entry.supplier||entry.desc||'')
-    );
-    if(dup){
-      const dupSup = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
-      alert('⚠️ فاتورة مكررة\nرقم: '+entry.invoiceNo+'\nتاريخ: '+dup.date+'\nمسجلة عند: '+dupSup);
-      return;
-    }
-  }
-  if(entry.supplier && entry.total && entry.date){
-    const dup2 = null; // تم دمج هذا الفحص مع الفحص الأول
-    if(dup2){
-      const dupSup2 = DB.supervisors.find(s=>s.id==dup2.supId)?.name||'مشرف آخر';
-      alert('⚠️ فاتورة مكررة! نفس المورد والمبلغ والتاريخ مسجلة مسبقاً عند '+dupSup2); return;
     }
   }
   document.getElementById('ss2').style.display='none';
@@ -6565,11 +6504,19 @@ async function pickBulkFile(input){
 function saveBulkInvoices(){
   if(!_bulkParsed.length){alert('لا توجد فواتير للحفظ');return;}
   const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
-  const existing=new Set(sales.map(s=>(s.invoiceNo||'').toLowerCase().trim()).filter(Boolean));
+  // تكرار فقط لو نفس رقم الفاتورة + نفس التاريخ + نفس المبلغ معاً
+  const _mkSalesKey=s=>{
+    const invNo=(s.invoiceNo||'').toLowerCase().trim();
+    const date=(s.date||'').trim();
+    const amt=Math.round((s.total||0)*100);
+    if(!invNo||!date) return '';
+    return invNo+'|'+date+'|'+amt;
+  };
+  const existing=new Set(sales.map(_mkSalesKey).filter(Boolean));
   let added=0,skipped=0;
   const project=document.getElementById('s-proj')?.value||'';
   _bulkParsed.forEach(inv=>{
-    const key=(inv.invoiceNo||'').toLowerCase().trim();
+    const key=_mkSalesKey(inv);
     if(key&&existing.has(key)){skipped++;return;}
     sales.push({id:'s-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),...inv,project,createdAt:new Date().toISOString()});
     if(key)existing.add(key);added++;
@@ -6699,10 +6646,18 @@ async function analyzeBulkReturns(input){
 function saveBulkReturns(){
   if(!_bulkRetParsed.length)return;
   const returns=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
-  const existing=new Set(returns.map(r=>r.invoiceNo?.toLowerCase().trim()).filter(Boolean));
+  // تكرار فقط لو نفس رقم الفاتورة + نفس التاريخ + نفس المبلغ معاً
+  const _mkRetKey=r=>{
+    const invNo=(r.invoiceNo||'').toLowerCase().trim();
+    const date=(r.date||'').trim();
+    const amt=Math.round((r.total||0)*100);
+    if(!invNo||!date) return '';
+    return invNo+'|'+date+'|'+amt;
+  };
+  const existing=new Set(returns.map(_mkRetKey).filter(Boolean));
   let added=0,skipped=0;
   _bulkRetParsed.forEach(r=>{
-    const key=(r.invoiceNo||'').toLowerCase().trim();
+    const key=_mkRetKey(r);
     if(key&&existing.has(key)){skipped++;return;}
     returns.push({id:'r-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),...r,createdAt:new Date().toISOString()});
     if(key)existing.add(key);
@@ -7127,29 +7082,26 @@ async function pickPurchBulkFile(input){
       if(!_purchBulkParsed.length)throw new Error('لم يتم استخراج أي فاتورة');
 
 
-      // فحص التكرار: رقم الفاتورة + المبلغ + اسم المورد
-      // مفتاح التكرار: رقم الفاتورة + المبلغ + اسم المورد (بدون تاريخ)
-      // مفتاح التكرار: رقم الفاتورة + التاريخ + المبلغ + المورد
+      // فحص التكرار: رفض فقط لو نفس رقم الفاتورة + نفس التاريخ + نفس المبلغ معاً
       const _mkDupKey = inv => {
         const invNo = (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase();
         const date  = (inv.date||'').trim();
         const amt   = Math.round((inv.total||inv.subtotal||0)*100);
-        const sup   = (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20);
-        if(!invNo && !amt) return '';
-        return invNo+'|'+date+'|'+amt+'|'+sup;
+        if(!invNo || !date) return ''; // لازم رقم فاتورة وتاريخ للمطابقة
+        return invNo+'|'+date+'|'+amt;
       };
       const _existDupKeys = new Set(
         DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkDupKey({
           invoiceNo:e.invoiceNo||e.invoiceCode||'',
-          total:e.total||0,
-          supplier:e.supplier||e.desc||''
+          date:e.date||'',
+          total:e.total||0
         })).filter(Boolean)
       );
       const _seenDupKeys = new Set();
       let _dupCount=0;
       _purchBulkParsed=_purchBulkParsed.filter(inv=>{
         const k=_mkDupKey(inv);
-        if(k==='||') return true; // مفيش بيانات كافية — نحتفظ بها
+        if(!k) return true; // مفيش رقم فاتورة أو تاريخ — نحتفظ بها
         if(_existDupKeys.has(k)||_seenDupKeys.has(k)){_dupCount++;return false;}
         _seenDupKeys.add(k);
         return true;
@@ -7186,19 +7138,18 @@ async function savePurchBulk(){
   const sup=DB.supervisors.find(s=>s.id===supId);
   const btn=document.getElementById('pb-save-btn');
   btn.textContent='⏳ جاري الحفظ...';btn.disabled=true;
-  // فحص التكرار: رقم الفاتورة + التاريخ + المبلغ + المورد
+  // فحص التكرار: رفض فقط لو نفس رقم الفاتورة + نفس التاريخ + نفس المبلغ معاً
   const _mkKey2 = inv => {
     const invNo = (inv.invoiceNo||inv.invoiceCode||'').trim().toLowerCase();
     const date  = (inv.date||'').trim();
     const amt   = Math.round((inv.total||inv.subtotal||0)*100);
-    const sup   = (inv.supplier||inv.desc||'').trim().toLowerCase().slice(0,20);
-    if(!invNo && !amt) return '';
-    return invNo+'|'+date+'|'+amt+'|'+sup;
+    if(!invNo || !date) return '';
+    return invNo+'|'+date+'|'+amt;
   };
   const _saveSet=new Set(
     DB.entries.filter(e=>e.type==='petty'||e.type==='tax').map(e=>_mkKey2({
-      invoiceNo:e.invoiceNo||e.invoiceCode||'',total:e.total||0,supplier:e.supplier||e.desc||''
-    })).filter(k=>k!=='||')
+      invoiceNo:e.invoiceNo||e.invoiceCode||'',date:e.date||'',total:e.total||0
+    })).filter(Boolean)
   );
   const _seenSave=new Set();
   let added=0,skipped=0,failed=0;
