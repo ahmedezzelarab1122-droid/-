@@ -2007,7 +2007,7 @@ function rManagerGovernance(){
           <div><div style="font-size:12px;font-weight:700">${w.note||'سحب'}</div><div style="font-size:10px;color:rgba(255,255,255,.5)">${w.date}${w.ref?' · '+w.ref:''}</div></div>
           <div style="display:flex;align-items:center;gap:6px">
             <strong style="color:#f87171">${fmt(w.amount)} ﷼</strong>
-            ${ROLE==='manager'?'<button onclick="deleteWithdrawal('+w.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
+            ${ROLE==='manager'?'<button onclick="editWithdrawal('+w.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">✏️</button><button onclick="deleteWithdrawal('+w.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
           </div>
         </div>
       </div>`).join('')}
@@ -2018,7 +2018,7 @@ function rManagerGovernance(){
           <div><div style="font-size:12px;font-weight:700">${e.note||'مصروف'}</div><div style="font-size:10px;color:rgba(255,255,255,.5)">${e.date}${e.ref?' · '+e.ref:''}</div></div>
           <div style="display:flex;align-items:center;gap:6px">
             <strong style="color:#70B5FF">${fmt(e.amount)} ﷼</strong>
-            ${ROLE==='manager'?'<button onclick="deleteOwnerExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
+            ${ROLE==='manager'?'<button onclick="editOwnerExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">✏️</button><button onclick="deleteOwnerExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
           </div>
         </div>
       </div>`).join('')}
@@ -2029,7 +2029,7 @@ function rManagerGovernance(){
           <div><div style="font-size:12px;font-weight:700">${e.note||'مصروف'}</div><div style="font-size:10px;color:rgba(255,255,255,.5)">${e.date}${e.ref?' · '+e.ref:''}</div></div>
           <div style="display:flex;align-items:center;gap:6px">
             <strong style="color:#f5c842">${fmt(e.amount)} ﷼</strong>
-            ${ROLE==='manager'?'<button onclick="deleteOwnerExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
+            ${ROLE==='manager'?'<button onclick="editOwnerExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">✏️</button><button onclick="deleteOwnerExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
           </div>
         </div>
       </div>`).join('')}
@@ -2130,6 +2130,107 @@ function deleteOwnerExpense(id){
   const exps=JSON.parse(localStorage.getItem('kayan_owner_expenses')||'[]').filter(x=>x.id!==id);
   localStorage.setItem('kayan_owner_expenses',JSON.stringify(exps));
   api('/api/owner-expenses','POST',{expenses:exps}).catch(()=>{});
+  rManagerGovernance();
+}
+
+function editWithdrawal(id){
+  const w=JSON.parse(localStorage.getItem('kayan_owner_withdrawals')||'[]');
+  const item=w.find(x=>x.id===id);
+  if(!item) return;
+  const old=document.getElementById('edit-gov-modal'); if(old) old.remove();
+  const m=document.createElement('div');
+  m.id='edit-gov-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:700;color:#f87171">✏️ تعديل السحب</div>'
+    +'<button onclick="document.getElementById(\'edit-gov-modal\').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button></div>'
+    +'<div class="fg2"><div><label class="lbl">التاريخ</label><input type="date" id="ew-date" value="'+(item.date||'')+'"></div>'
+    +'<div><label class="lbl">المبلغ ﷼</label><input type="number" id="ew-amount" value="'+(item.amount||0)+'" step="0.01"></div></div>'
+    +'<div class="fg2"><div><label class="lbl">رقم المرجع</label><input id="ew-ref" value="'+(item.ref||'')+'"></div>'
+    +'<div><label class="lbl">ملاحظة</label><input id="ew-note" value="'+(item.note||'')+'"></div></div>'
+    +'<div class="err" id="ew-err" style="display:none"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +'<button onclick="saveWithdrawalEdit('+id+')" class="btn bp" style="flex:1">💾 حفظ</button>'
+    +'<button onclick="document.getElementById(\'edit-gov-modal\').remove()" style="padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:Tajawal,sans-serif">إلغاء</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+
+function saveWithdrawalEdit(id){
+  const date=document.getElementById('ew-date')?.value;
+  const amount=parseFloat(document.getElementById('ew-amount')?.value)||0;
+  const ref=document.getElementById('ew-ref')?.value.trim();
+  const note=document.getElementById('ew-note')?.value.trim();
+  const err=document.getElementById('ew-err');
+  if(!amount||amount<=0){err.style.display='block';err.textContent='⚠️ أدخل المبلغ';return;}
+  if(!date){err.style.display='block';err.textContent='⚠️ أدخل التاريخ';return;}
+  const w=JSON.parse(localStorage.getItem('kayan_owner_withdrawals')||'[]');
+  const idx=w.findIndex(x=>x.id===id);
+  if(idx>=0){ w[idx]={...w[idx],date,amount,ref:ref||null,note:note||'سحب المالك'}; }
+  localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(w));
+  api('/api/owner-withdrawals','POST',{withdrawals:w}).catch(()=>{});
+  const el=document.getElementById('edit-gov-modal'); if(el) el.remove();
+  rManagerGovernance();
+}
+
+function editOwnerExpense(id){
+  const exps=JSON.parse(localStorage.getItem('kayan_owner_expenses')||'[]');
+  const item=exps.find(x=>x.id===id);
+  if(!item) return;
+  const old=document.getElementById('edit-gov-modal'); if(old) old.remove();
+  const m=document.createElement('div');
+  m.id='edit-gov-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  const isCompany=item.category==='company';
+  m.innerHTML='<div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:700;color:#70B5FF">✏️ تعديل المصروف</div>'
+    +'<button onclick="document.getElementById(\'edit-gov-modal\').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button></div>'
+    +'<div class="lbl" style="margin-bottom:5px">نوع المصروف *</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:12px">'
+    +'<button type="button" id="ee-cat-company" onclick="setEditExpCat(\'company\')" style="flex:1;padding:10px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif;border:1px solid '+(isCompany?'#70B5FF':'rgba(112,181,255,.3)')+';background:'+(isCompany?'rgba(112,181,255,.25)':'rgba(112,181,255,.08)')+';color:#70B5FF">🏢 على الشركة</button>'
+    +'<button type="button" id="ee-cat-home" onclick="setEditExpCat(\'home\')" style="flex:1;padding:10px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif;border:1px solid '+(!isCompany?'#f5c842':'rgba(245,200,66,.3)')+';background:'+(!isCompany?'rgba(245,200,66,.25)':'rgba(245,200,66,.08)')+';color:#f5c842">🏠 مصروفات البيت</button>'
+    +'</div><input type="hidden" id="ee-cat" value="'+(item.category||'')+'">'
+    +'<div class="fg2"><div><label class="lbl">التاريخ</label><input type="date" id="ee-date" value="'+(item.date||'')+'"></div>'
+    +'<div><label class="lbl">المبلغ ﷼</label><input type="number" id="ee-amount" value="'+(item.amount||0)+'" step="0.01"></div></div>'
+    +'<div class="fg2"><div><label class="lbl">رقم الفاتورة</label><input id="ee-ref" value="'+(item.ref||'')+'"></div>'
+    +'<div><label class="lbl">الوصف</label><input id="ee-note" value="'+(item.note||'')+'"></div></div>'
+    +'<div class="err" id="ee-err" style="display:none"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +'<button onclick="saveOwnerExpenseEdit('+id+')" class="btn bp" style="flex:1">💾 حفظ</button>'
+    +'<button onclick="document.getElementById(\'edit-gov-modal\').remove()" style="padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:Tajawal,sans-serif">إلغاء</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+
+function setEditExpCat(cat){
+  document.getElementById('ee-cat').value = cat;
+  const co=document.getElementById('ee-cat-company'), ho=document.getElementById('ee-cat-home');
+  if(cat==='company'){
+    co.style.background='rgba(112,181,255,.25)'; co.style.borderColor='#70B5FF';
+    ho.style.background='rgba(245,200,66,.08)'; ho.style.borderColor='rgba(245,200,66,.3)';
+  }else{
+    ho.style.background='rgba(245,200,66,.25)'; ho.style.borderColor='#f5c842';
+    co.style.background='rgba(112,181,255,.08)'; co.style.borderColor='rgba(112,181,255,.3)';
+  }
+  const err=document.getElementById('ee-err'); if(err) err.style.display='none';
+}
+
+function saveOwnerExpenseEdit(id){
+  const category=document.getElementById('ee-cat')?.value;
+  const date=document.getElementById('ee-date')?.value;
+  const amount=parseFloat(document.getElementById('ee-amount')?.value)||0;
+  const ref=document.getElementById('ee-ref')?.value.trim();
+  const note=document.getElementById('ee-note')?.value.trim();
+  const err=document.getElementById('ee-err');
+  if(!category){err.style.display='block';err.textContent='⚠️ حدد نوع المصروف: شركة أو بيت';return;}
+  if(!amount||amount<=0){err.style.display='block';err.textContent='⚠️ أدخل المبلغ';return;}
+  if(!date){err.style.display='block';err.textContent='⚠️ أدخل التاريخ';return;}
+  const exps=JSON.parse(localStorage.getItem('kayan_owner_expenses')||'[]');
+  const idx=exps.findIndex(x=>x.id===id);
+  if(idx>=0){ exps[idx]={...exps[idx],category,date,amount,ref:ref||null,note:note||(category==='company'?'مصروف شركة':'مصروف بيت')}; }
+  localStorage.setItem('kayan_owner_expenses',JSON.stringify(exps));
+  api('/api/owner-expenses','POST',{expenses:exps}).catch(()=>{});
+  const el=document.getElementById('edit-gov-modal'); if(el) el.remove();
   rManagerGovernance();
 }
 
