@@ -784,7 +784,7 @@ api('/api/db').then(function(d){
         api('/api/contracts').then(cr=>{if(cr&&cr.contracts&&cr.contracts.length>0)localStorage.setItem('kayan_contracts',JSON.stringify(cr.contracts));}).catch(()=>{});
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
         api('/api/owner-withdrawals').then(wr=>{if(wr&&wr.withdrawals)localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(wr.withdrawals));}).catch(()=>{});
-        api('/api/owner-withdrawals').then(er=>{if(er&&er.expenses)localStorage.setItem('kayan_owner_expenses',JSON.stringify(er.expenses));}).catch(()=>{});
+        api('/api/owner-expenses').then(er=>{if(er&&er.expenses)localStorage.setItem('kayan_owner_expenses',JSON.stringify(er.expenses));}).catch(()=>{});
         api('/api/pending').then(pr=>{if(pr&&pr.pending){_pendingRequests=pr.pending;localStorage.setItem('kayan_pending',JSON.stringify(pr.pending));}}).catch(()=>{});
         api('/api/pending-history').then(hr=>{if(hr&&hr.history)localStorage.setItem('kayan_my_requests',JSON.stringify(hr.history));}).catch(()=>{});
         return;
@@ -1081,16 +1081,16 @@ function startAutoRefresh(){
         }
       }
       // Sync shared collections
-      const [wPmts,pending,history,ownerW,ownerE] = await Promise.allSettled([
+      const [wPmts,pending,ownerW,ownerE] = await Promise.allSettled([
         api('/api/worker-payments'),
         api('/api/pending'),
-        
         api('/api/owner-withdrawals'),
-        api('/api/owner-withdrawals')
+        api('/api/owner-expenses')
       ]);
       if(wPmts.value?.payments)  localStorage.setItem('kayan_worker_payments', JSON.stringify(wPmts.value.payments));
       if(pending.value?.pending) localStorage.setItem('kayan_pending',         JSON.stringify(pending.value.pending));
       if(ownerW.value?.withdrawals) localStorage.setItem('kayan_owner_withdrawals', JSON.stringify(ownerW.value.withdrawals));
+      if(ownerE.value?.expenses) localStorage.setItem('kayan_owner_expenses', JSON.stringify(ownerE.value.expenses));
     } catch(e){}
   }, 30000); // كل 30 ثانية
 }
@@ -1102,7 +1102,7 @@ async function syncAll(){
     if(db&&db.supervisors){ DB=db; localStorage.setItem('kayan_db_cache',JSON.stringify(db)); }
     const [sales,returns,contracts,ownerW,ownerE,wPmts,pending,history] = await Promise.allSettled([
       api('/api/sales'), api('/api/sales-returns'), api('/api/contracts'),
-      api('/api/owner-withdrawals'), api('/api/owner-withdrawals'),
+      api('/api/owner-withdrawals'), api('/api/owner-expenses'),
       api('/api/worker-payments'), api('/api/pending'), api('/api/pending-history')
     ]);
     if(sales.value?.sales)         localStorage.setItem('kayan_sales',            JSON.stringify(sales.value.sales));
@@ -1949,15 +1949,19 @@ function rCostCenterOwner(){
 function rManagerGovernance(){
   const withdrawals = JSON.parse(localStorage.getItem('kayan_owner_withdrawals')||'[]');
   const expenses    = JSON.parse(localStorage.getItem('kayan_owner_expenses')||'[]');
+  const companyExp  = expenses.filter(e=>e.category==='company');
+  const homeExp     = expenses.filter(e=>e.category==='home');
   const totalW = withdrawals.reduce((a,w)=>a+(w.amount||0),0);
-  const totalE = expenses.reduce((a,e)=>a+(e.amount||0),0);
-  const remaining = totalW - totalE;
+  const totalCompany = companyExp.reduce((a,e)=>a+(e.amount||0),0);
+  const totalHome = homeExp.reduce((a,e)=>a+(e.amount||0),0);
+  const remaining = totalW - totalCompany - totalHome;
   document.getElementById('mc').innerHTML = `
     <div class="ctitle">🏦 حساب المالك</div>
     <div class="sg" style="margin-bottom:14px">
       <div class="stat"><div class="sl">إجمالي السحوبات</div><div class="sv" style="color:#f87171">${fmt(totalW)} ﷼</div></div>
-      <div class="stat"><div class="sl">مصروفات على الشركة</div><div class="sv" style="color:#70B5FF">${fmt(totalE)} ﷼</div></div>
-      <div class="stat" style="grid-column:span 2"><div class="sl">الباقي مع المالك</div><div class="sv" style="color:${remaining>=0?'#f5c842':'#f87171'};font-size:20px">${remaining>=0?'+':''}${fmt(remaining)} ﷼</div></div>
+      <div class="stat"><div class="sl">مصروفات على الشركة</div><div class="sv" style="color:#70B5FF">${fmt(totalCompany)} ﷼</div></div>
+      <div class="stat"><div class="sl">مصروفات البيت</div><div class="sv" style="color:#f5c842">${fmt(totalHome)} ﷼</div></div>
+      <div class="stat"><div class="sl">متبقي (مصروفات شخصية)</div><div class="sv" style="color:${remaining>=0?'#34d399':'#f87171'}">${remaining>=0?'+':''}${fmt(remaining)} ﷼</div></div>
     </div>
     ${ROLE==='manager'?`
     <div class="card" style="margin-bottom:10px">
@@ -1976,8 +1980,14 @@ function rManagerGovernance(){
       <button onclick="saveWithdrawal()" style="width:100%;padding:10px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.4);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 تسجيل السحب</button>
     </div>
     <div class="card" style="margin-bottom:10px">
-      <div class="ctitle" style="margin-bottom:8px">🧾 تسجيل مصروف على الشركة</div>
-      <div class="fg"><div class="drop" onclick="document.getElementById('exp-file').click()" style="cursor:pointer;padding:10px"><div style="font-size:20px;margin-bottom:3px" id="exp-icon">📷</div><div id="exp-txt" style="font-size:11px;color:rgba(255,255,255,.5)">ارفع فاتورة أو إيصال — AI يقرأ تلقائياً</div></div><input type="file" id="exp-file" accept="image/*,.pdf" style="display:none" onchange="pickGovFile(this,'e')"></div>
+      <div class="ctitle" style="margin-bottom:8px">🧾 تسجيل مصروف (شركة أو بيت)</div>
+      <div class="lbl" style="margin-bottom:5px">نوع المصروف *</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button type="button" id="exp-cat-company" onclick="setExpCat('company')" style="flex:1;padding:10px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;border:1px solid rgba(112,181,255,.3);background:rgba(112,181,255,.08);color:#70B5FF">🏢 على الشركة</button>
+        <button type="button" id="exp-cat-home" onclick="setExpCat('home')" style="flex:1;padding:10px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;border:1px solid rgba(245,200,66,.3);background:rgba(245,200,66,.08);color:#f5c842">🏠 مصروفات البيت</button>
+      </div>
+      <input type="hidden" id="exp-cat" value="">
+      <div class="fg"><div class="drop" onclick="document.getElementById('exp-file').click()" style="cursor:pointer;padding:10px"><div style="font-size:20px;margin-bottom:3px" id="exp-icon">📷</div><div id="exp-txt" style="font-size:11px;color:rgba(255,255,255,.5)">ارفع فاتورة أو إيصال — AI يقرأ المبلغ والتاريخ تلقائياً</div></div><input type="file" id="exp-file" accept="image/*,.pdf" style="display:none" onchange="pickGovFile(this,'e')"></div>
       <div id="exp-ai-status" style="display:none;margin-bottom:6px;padding:6px 10px;background:rgba(112,181,255,.08);border-radius:8px;font-size:11px;color:#70B5FF"></div>
       <div class="fg2">
         <div><label class="lbl">التاريخ</label><input type="date" id="exp-date" value="${today()}"></div>
@@ -1985,7 +1995,7 @@ function rManagerGovernance(){
       </div>
       <div class="fg2">
         <div><label class="lbl">رقم الفاتورة</label><input id="exp-ref" placeholder="اختياري"></div>
-        <div><label class="lbl">الوصف</label><input id="exp-note" placeholder="مثال: مواد بناء"></div>
+        <div><label class="lbl">الوصف</label><input id="exp-note" placeholder="مثال: مواد بناء / فاتورة كهرباء البيت"></div>
       </div>
       <div class="err" id="exp-err" style="display:none"></div>
       <button onclick="saveOwnerExpense()" style="width:100%;padding:10px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 تسجيل المصروف</button>
@@ -2001,8 +2011,8 @@ function rManagerGovernance(){
           </div>
         </div>
       </div>`).join('')}
-    <div class="shdr" style="margin-top:10px">🧾 مصروفات على الشركة (${expenses.length})</div>
-    ${expenses.length===0?'<div class="empty">لا توجد مصروفات</div>':expenses.slice().reverse().map(e=>`
+    <div class="shdr" style="margin-top:10px">🏢 مصروفات على الشركة (${companyExp.length})</div>
+    ${companyExp.length===0?'<div class="empty">لا توجد مصروفات على الشركة</div>':companyExp.slice().reverse().map(e=>`
       <div class="card" style="padding:9px 12px;margin-bottom:6px">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div><div style="font-size:12px;font-weight:700">${e.note||'مصروف'}</div><div style="font-size:10px;color:rgba(255,255,255,.5)">${e.date}${e.ref?' · '+e.ref:''}</div></div>
@@ -2012,16 +2022,46 @@ function rManagerGovernance(){
           </div>
         </div>
       </div>`).join('')}
+    <div class="shdr" style="margin-top:10px">🏠 مصروفات البيت (${homeExp.length})</div>
+    ${homeExp.length===0?'<div class="empty">لا توجد مصروفات بيت</div>':homeExp.slice().reverse().map(e=>`
+      <div class="card" style="padding:9px 12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:12px;font-weight:700">${e.note||'مصروف'}</div><div style="font-size:10px;color:rgba(255,255,255,.5)">${e.date}${e.ref?' · '+e.ref:''}</div></div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <strong style="color:#f5c842">${fmt(e.amount)} ﷼</strong>
+            ${ROLE==='manager'?'<button onclick="deleteOwnerExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
+          </div>
+        </div>
+      </div>`).join('')}
     <button onclick="exportGovernancePDF()" style="width:100%;margin-top:12px;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير حساب المالك</button>
   `;
 }
 
+function setExpCat(cat){
+  document.getElementById('exp-cat').value = cat;
+  const co=document.getElementById('exp-cat-company'), ho=document.getElementById('exp-cat-home');
+  if(cat==='company'){
+    co.style.background='rgba(112,181,255,.25)'; co.style.borderColor='#70B5FF';
+    ho.style.background='rgba(245,200,66,.08)'; ho.style.borderColor='rgba(245,200,66,.3)';
+  }else{
+    ho.style.background='rgba(245,200,66,.25)'; ho.style.borderColor='#f5c842';
+    co.style.background='rgba(112,181,255,.08)'; co.style.borderColor='rgba(112,181,255,.3)';
+  }
+  const err=document.getElementById('exp-err'); if(err) err.style.display='none';
+}
 
-async function pickGovFile(input){
+async function pickGovFile(input, kind){
   const file=input.files[0]; if(!file) return;
   const isPdf=file.type==='application/pdf';
-  const st=document.getElementById('gov-ai-status');
-  document.getElementById('gov-icon').textContent='⏳';
+  const isW = kind==='w';
+  const iconId = isW?'gov-icon':'exp-icon';
+  const txtId  = isW?'gov-txt':'exp-txt';
+  const stId   = isW?'gov-ai-status':'exp-ai-status';
+  const dateId = isW?'gov-date':'exp-date';
+  const amtId  = isW?'gov-amount':'exp-amount';
+  const refId  = isW?'gov-ref':'exp-ref';
+  const st=document.getElementById(stId);
+  document.getElementById(iconId).textContent='⏳';
   st.style.display='block'; st.textContent='⏳ جاري قراءة الإيصال...';
   const reader=new FileReader();
   reader.onload=async ev=>{
@@ -2029,15 +2069,15 @@ async function pickGovFile(input){
     try{
       const res=await api('/api/analyze-transfer','POST',{b64,isPdf});
       if(res.error) throw new Error(res.error);
-      if(res.total){const a=document.getElementById('gov-amount');if(a)a.value=res.total;}
-      if(res.date){const d=document.getElementById('gov-date');if(d)d.value=_fixDate(res.date);}
-      if(res.invoiceNo){const r=document.getElementById('gov-ref');if(r)r.value=res.invoiceNo;}
+      if(res.total){const a=document.getElementById(amtId);if(a)a.value=res.total;}
+      if(res.date){const d=document.getElementById(dateId);if(d)d.value=_fixDate(res.date);}
+      if(res.invoiceNo){const r=document.getElementById(refId);if(r)r.value=res.invoiceNo;}
       st.innerHTML='<span style="color:#34d399">✅ تم استخراج البيانات</span>';
-      document.getElementById('gov-icon').textContent='✅';
-      document.getElementById('gov-txt').textContent=file.name;
+      document.getElementById(iconId).textContent='✅';
+      document.getElementById(txtId).textContent=file.name;
     }catch(e){
       st.innerHTML='<span style="color:#f87171">❌ '+e.message+'</span>';
-      document.getElementById('gov-icon').textContent='❌';
+      document.getElementById(iconId).textContent='❌';
     }
   };
   reader.readAsDataURL(file);
@@ -2067,21 +2107,60 @@ function deleteWithdrawal(id){
   rManagerGovernance();
 }
 
+function saveOwnerExpense(){
+  const category=document.getElementById('exp-cat')?.value;
+  const date=document.getElementById('exp-date')?.value;
+  const amount=parseFloat(document.getElementById('exp-amount')?.value)||0;
+  const ref=document.getElementById('exp-ref')?.value.trim();
+  const note=document.getElementById('exp-note')?.value.trim();
+  const err=document.getElementById('exp-err');
+  if(!category){err.style.display='block';err.textContent='⚠️ حدد نوع المصروف: شركة أو بيت';return;}
+  if(!amount||amount<=0){err.style.display='block';err.textContent='⚠️ أدخل المبلغ';return;}
+  if(!date){err.style.display='block';err.textContent='⚠️ أدخل التاريخ';return;}
+  const exps=JSON.parse(localStorage.getItem('kayan_owner_expenses')||'[]');
+  exps.push({id:Date.now(),category,date,amount,ref:ref||null,note:note||(category==='company'?'مصروف شركة':'مصروف بيت')});
+  localStorage.setItem('kayan_owner_expenses',JSON.stringify(exps));
+  api('/api/owner-expenses','POST',{expenses:exps}).catch(()=>{});
+  err.style.display='none';
+  rManagerGovernance();
+}
+
+function deleteOwnerExpense(id){
+  if(!confirm('حذف هذا المصروف؟')) return;
+  const exps=JSON.parse(localStorage.getItem('kayan_owner_expenses')||'[]').filter(x=>x.id!==id);
+  localStorage.setItem('kayan_owner_expenses',JSON.stringify(exps));
+  api('/api/owner-expenses','POST',{expenses:exps}).catch(()=>{});
+  rManagerGovernance();
+}
+
 function exportGovernancePDF(){
   const w=JSON.parse(localStorage.getItem('kayan_owner_withdrawals')||'[]');
   const exps=JSON.parse(localStorage.getItem('kayan_owner_expenses')||'[]');
+  const companyExp=exps.filter(e=>e.category==='company');
+  const homeExp=exps.filter(e=>e.category==='home');
   const totalW=w.reduce((a,x)=>a+(x.amount||0),0);
-  const totalE=exps.reduce((a,x)=>a+(x.amount||0),0);
-  const rem=totalW-totalE;
+  const totalCompany=companyExp.reduce((a,x)=>a+(x.amount||0),0);
+  const totalHome=homeExp.reduce((a,x)=>a+(x.amount||0),0);
+  const rem=totalW-totalCompany-totalHome;
   const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const tbl=(title,color,bg,rows,totLabel,tot)=> rows.length? '<h2 style="background:'+bg+';color:'+color+';padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">'+title+' ('+rows.length+')</h2>'
+    +'<table><tr><th>التاريخ</th><th>الوصف</th><th>رقم المرجع</th><th>المبلغ</th></tr>'
+    +rows.slice().reverse().map(x=>'<tr><td>'+x.date+'</td><td>'+(x.note||'—')+'</td><td>'+(x.ref||'—')+'</td><td style="font-weight:700;color:'+color+'">'+fmt(x.amount)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="3">'+totLabel+'</td><td>'+fmt(tot)+' ﷼</td></tr></table>' : '';
   const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير حساب المالك</title>'
-    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.diff{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:900;color:#111">🏗️ كيان وبناء للمقاولات</div>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.diff{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:900;color:#111">🏗️ كيان وبناء للمقاولات</div>'
     +'<h1>تقرير حساب المالك</h1><div style="font-size:11px;color:#555;margin-bottom:12px">شركة كيان وبناء للمقاولات · '+now+'</div>'
-    +'<div class="sum"><div class="box"><div class="bl">إجمالي السحوبات</div><div class="bv" style="color:#D93025">'+fmt(totalW)+' ﷼</div></div><div class="box"><div class="bl">مصروفات على الشركة</div><div class="bv" style="color:#1d4ed8">'+fmt(totalE)+' ﷼</div></div><div class="box"><div class="bl">الباقي مع المالك</div><div class="bv" style="color:'+(rem>=0?'#b45309':'#166534')+'">'+fmt(Math.abs(rem))+' ﷼</div></div></div>'
+    +'<div class="sum"><div class="box"><div class="bl">إجمالي السحوبات</div><div class="bv" style="color:#D93025">'+fmt(totalW)+' ﷼</div></div><div class="box"><div class="bl">مصروفات الشركة</div><div class="bv" style="color:#1d4ed8">'+fmt(totalCompany)+' ﷼</div></div><div class="box"><div class="bl">مصروفات البيت</div><div class="bv" style="color:#b45309">'+fmt(totalHome)+' ﷼</div></div><div class="box"><div class="bl">متبقي شخصي</div><div class="bv" style="color:'+(rem>=0?'#166534':'#D93025')+'">'+fmt(Math.abs(rem))+' ﷼</div></div></div>'
+    +'<div class="diff" style="background:'+(rem>=0?'#dcfce7':'#fee2e2')+';border-color:'+(rem>=0?'#166534':'#D93025')+'">'
+    +'<div style="font-size:11px;color:#555;margin-bottom:4px">السحوبات '+fmt(totalW)+' − مصروفات الشركة '+fmt(totalCompany)+' − مصروفات البيت '+fmt(totalHome)+' = المتبقي (مصروفات شخصية)</div>'
+    +'<div style="font-size:20px;font-weight:900;color:'+(rem>=0?'#166534':'#D93025')+'">'+(rem>=0?'+':'')+fmt(rem)+' ﷼</div>'
+    +'</div>'
     +'<h2 style="margin:12px 0 6px;font-size:13px">سجل السحوبات</h2>'
     +'<table><tr><th>التاريخ</th><th>الملاحظة</th><th>رقم المرجع</th><th>المبلغ</th></tr>'
     +w.slice().reverse().map(x=>'<tr><td>'+x.date+'</td><td>'+(x.note||'—')+'</td><td>'+(x.ref||'—')+'</td><td style="font-weight:700;color:#D93025">'+fmt(x.amount)+' ﷼</td></tr>').join('')
     +'<tr class="tr"><td colspan="3">الإجمالي</td><td>'+fmt(totalW)+' ﷼</td></tr></table>'
+    +tbl('🏢 مصروفات على الشركة','#1d4ed8','#dbeafe',companyExp,'الإجمالي',totalCompany)
+    +tbl('🏠 مصروفات البيت','#b45309','#fef3c7',homeExp,'الإجمالي',totalHome)
     +'</body></html>';
   const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
 }
