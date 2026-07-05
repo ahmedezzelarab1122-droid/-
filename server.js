@@ -253,7 +253,13 @@ async function analyzeInvoice(b64, text, isPdf=false) {
       res.on('end', () => {
         try {
           const json = JSON.parse(data);
-          if (json.error) return reject(new Error(json.error.message));
+          if (json.error) {
+            let em = json.error.message || 'خطأ غير معروف';
+            if (/page/i.test(em) || /too large/i.test(em) || /exceeds/i.test(em)) {
+              em = 'الملف كبير جداً أو عدد صفحاته أكثر من الحد المسموح (100 صفحة/32 ميجا) — قسّم الملف لأجزاء أصغر أو أدخل البيانات يدوياً. [تفاصيل: '+em+']';
+            }
+            return reject(new Error(em));
+          }
           const raw = json.content.map(x => x.text || '').join('');
           let parsed = null;
           try { parsed = JSON.parse(raw.trim()); }
@@ -605,7 +611,7 @@ const server = http.createServer(async (req, res) => {
         const body = JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 300, messages: [{ role: 'user', content }] });
         const r2 = https.request({ hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) } }, res2 => {
           let data = ''; res2.on('data', d => data += d);
-          res2.on('end', () => { try { const json = JSON.parse(data); if (json.error) return reject(new Error(json.error.message)); const raw = json.content.map(x => x.text || '').join(''); const match = raw.match(/\{[\s\S]*\}/); if (!match) return reject(new Error('لم يُستخرج JSON')); const parsed = JSON.parse(match[0]); parsed.total = parseFloat(String(parsed.total || '0').replace(/[^0-9.]/g, '')) || 0; if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0]; resolve(parsed); } catch (e) { reject(e); } });
+          res2.on('end', () => { try { const json = JSON.parse(data); if (json.error) { let em = json.error.message || 'خطأ غير معروف'; if (/page/i.test(em) || /too large/i.test(em) || /exceeds/i.test(em)) { em = 'الملف كبير جداً أو عدد صفحاته أكثر من الحد المسموح — قسّم الملف أو أدخل البيانات يدوياً. [تفاصيل: '+em+']'; } return reject(new Error(em)); } const raw = json.content.map(x => x.text || '').join(''); const match = raw.match(/\{[\s\S]*\}/); if (!match) return reject(new Error('لم يُستخرج JSON')); const parsed = JSON.parse(match[0]); parsed.total = parseFloat(String(parsed.total || '0').replace(/[^0-9.]/g, '')) || 0; if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0]; resolve(parsed); } catch (e) { reject(e); } });
         }); r2.on('error', reject); r2.write(body); r2.end();
       });
       return sendJSON(res, result);
