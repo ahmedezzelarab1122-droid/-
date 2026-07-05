@@ -744,6 +744,34 @@ const server = http.createServer(async (req, res) => {
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
 
+  // Director (manager) cash & expenses — حسابات المدير
+  if (pathname === '/api/director-cash' && req.method === 'POST') {
+    try {
+      const { cash } = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{directorCash:cash||[]}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  if (pathname === '/api/director-cash' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, { cash: cfg?.directorCash||[] });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  if (pathname === '/api/director-expenses' && req.method === 'POST') {
+    try {
+      const { expenses } = await parseBody(req);
+      await db.collection('config').updateOne({_id:'main'},{$set:{directorExpenses:expenses||[]}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  if (pathname === '/api/director-expenses' && req.method === 'GET') {
+    try {
+      const cfg = await db.collection('config').findOne({_id:'main'});
+      return sendJSON(res, { expenses: cfg?.directorExpenses||[] });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+
   // Accountant pending requests
   if (pathname === '/api/pending' && req.method === 'GET') {
     try {
