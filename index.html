@@ -763,7 +763,7 @@ const _lastTab = localStorage.getItem('kayan_last_tab');
 function _goDefault(){if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}
 if(_lastTab){
   try{
-    const _map2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+    const _map2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
     if(_map2[_lastTab]) _map2[_lastTab](); else _goDefault();
     // Update active nav button
     setTimeout(function(){
@@ -781,7 +781,7 @@ api('/api/db').then(function(d){
   if(d&&d.supervisors){DB=d;localStorage.setItem('kayan_db_cache',JSON.stringify(d));}
   try{
     const _lt=localStorage.getItem('kayan_last_tab');
-    const _m2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+    const _m2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
     if(_lt&&_m2[_lt])_m2[_lt](); else _goDefault();
   }catch(e){}
 }).catch(function(){});
@@ -789,6 +789,8 @@ api('/api/db').then(function(d){
         api('/api/sales').then(sr=>{if(sr&&sr.sales&&sr.sales.length>0)localStorage.setItem('kayan_sales',JSON.stringify(sr.sales));}).catch(()=>{});
         api('/api/owner-withdrawals').then(wr=>{if(wr&&wr.withdrawals)localStorage.setItem('kayan_owner_withdrawals',JSON.stringify(wr.withdrawals));}).catch(()=>{});
         api('/api/owner-expenses').then(er=>{if(er&&er.expenses)localStorage.setItem('kayan_owner_expenses',JSON.stringify(er.expenses));}).catch(()=>{});
+        api('/api/director-cash').then(dc=>{if(dc&&dc.cash)localStorage.setItem('kayan_director_cash',JSON.stringify(dc.cash));}).catch(()=>{});
+        api('/api/director-expenses').then(de=>{if(de&&de.expenses)localStorage.setItem('kayan_director_expenses',JSON.stringify(de.expenses));}).catch(()=>{});
         api('/api/pending').then(pr=>{if(pr&&pr.pending){_pendingRequests=pr.pending;localStorage.setItem('kayan_pending',JSON.stringify(pr.pending));}}).catch(()=>{});
         api('/api/pending-history').then(hr=>{if(hr&&hr.history)localStorage.setItem('kayan_my_requests',JSON.stringify(hr.history));}).catch(()=>{});
         return;
@@ -981,6 +983,7 @@ function showApp(){
     { label:'فواتير المشتريات', items:[['purchases','🛒','فواتير المشتريات']] },
     { label:'المبيعات', items:[['sales','🧾','فواتير المبيعات'],['trial-balance','⚖️','ميزان المراجعة']] },
     { label:'حساب المالك', items:[['manager-governance','🏦','حساب المالك']] },
+    { label:'حسابات المدير', items:[['director-accounts','👔','حسابات المدير']] },
     { label:'طلبات المحاسب', items:[['pending-requests','📋','طلبات المحاسب']] },
     { label:'العمال الخارجيون', items:[['ext-workers','👷','حسابات العمال الخارجيين']] },
     { label:'المحاسبون', items:[['accountants-mgr','📒','إدارة المحاسبين']] },
@@ -991,6 +994,7 @@ function showApp(){
     { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
     { label:'العمال الخارجيون', items:[['ext-workers','👷','حسابات العمال الخارجيين']] },
     { label:'حساب المالك', items:[['manager-governance','🏦','حساب المالك']] },
+    { label:'حسابات المدير', items:[['director-accounts','👔','حسابات المدير']] },
   ] : ROLE==='accountant' ? [
     { label:'الرئيسية', items:[['dash','🏠','الرئيسية']] },
     { label:'المالية', items:[['txns','📄','المعاملات'],['reports','📊','التقارير'],['transfer','💸','التحويلات']] },
@@ -1085,16 +1089,20 @@ function startAutoRefresh(){
         }
       }
       // Sync shared collections
-      const [wPmts,pending,ownerW,ownerE] = await Promise.allSettled([
+      const [wPmts,pending,ownerW,ownerE,dirC,dirE] = await Promise.allSettled([
         api('/api/worker-payments'),
         api('/api/pending'),
         api('/api/owner-withdrawals'),
-        api('/api/owner-expenses')
+        api('/api/owner-expenses'),
+        api('/api/director-cash'),
+        api('/api/director-expenses')
       ]);
       if(wPmts.value?.payments)  localStorage.setItem('kayan_worker_payments', JSON.stringify(wPmts.value.payments));
       if(pending.value?.pending) localStorage.setItem('kayan_pending',         JSON.stringify(pending.value.pending));
       if(ownerW.value?.withdrawals) localStorage.setItem('kayan_owner_withdrawals', JSON.stringify(ownerW.value.withdrawals));
       if(ownerE.value?.expenses) localStorage.setItem('kayan_owner_expenses', JSON.stringify(ownerE.value.expenses));
+      if(dirC.value?.cash) localStorage.setItem('kayan_director_cash', JSON.stringify(dirC.value.cash));
+      if(dirE.value?.expenses) localStorage.setItem('kayan_director_expenses', JSON.stringify(dirE.value.expenses));
     } catch(e){}
   }, 30000); // كل 30 ثانية
 }
@@ -1104,10 +1112,11 @@ async function syncAll(){
   try {
     const db = await api('/api/db');
     if(db&&db.supervisors){ DB=db; localStorage.setItem('kayan_db_cache',JSON.stringify(db)); }
-    const [sales,returns,contracts,ownerW,ownerE,wPmts,pending,history] = await Promise.allSettled([
+    const [sales,returns,contracts,ownerW,ownerE,wPmts,pending,history,dirC,dirE] = await Promise.allSettled([
       api('/api/sales'), api('/api/sales-returns'), api('/api/contracts'),
       api('/api/owner-withdrawals'), api('/api/owner-expenses'),
-      api('/api/worker-payments'), api('/api/pending'), api('/api/pending-history')
+      api('/api/worker-payments'), api('/api/pending'), api('/api/pending-history'),
+      api('/api/director-cash'), api('/api/director-expenses')
     ]);
     if(sales.value?.sales)         localStorage.setItem('kayan_sales',            JSON.stringify(sales.value.sales));
     if(returns.value?.returns)     localStorage.setItem('kayan_sales_returns',     JSON.stringify(returns.value.returns));
@@ -1117,6 +1126,8 @@ async function syncAll(){
     if(wPmts.value?.payments)      localStorage.setItem('kayan_worker_payments',   JSON.stringify(wPmts.value.payments));
     if(pending.value?.pending)     localStorage.setItem('kayan_pending',           JSON.stringify(pending.value.pending));
     if(history.value?.history)     localStorage.setItem('kayan_my_requests',       JSON.stringify(history.value.history));
+    if(dirC.value?.cash)           localStorage.setItem('kayan_director_cash',     JSON.stringify(dirC.value.cash));
+    if(dirE.value?.expenses)       localStorage.setItem('kayan_director_expenses', JSON.stringify(dirE.value.expenses));
   } catch(e){}
 }
 
@@ -1126,10 +1137,10 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','my-requests':'طلباتي','manager-governance':'حساب المالك','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','my-requests':'طلباتي','manager-governance':'حساب المالك','director-accounts':'حسابات المدير','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
   // Sync from server then render
   if(map[id]) map[id]();
 }
@@ -1137,7 +1148,7 @@ function goBNav(id,btn){
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
   if(map[id]) map[id]();
 }
 
@@ -2278,6 +2289,275 @@ function exportGovernancePDF(){
     +tbl('🏠 مصروفات البيت','#b45309','#fef3c7',homeExp,'الإجمالي',totalHome)
     +'</body></html>';
   const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
+}
+
+// ── DIRECTOR (المدير) ACCOUNTS ──────────────────────
+function rDirectorAccounts(){
+  const cash = JSON.parse(localStorage.getItem('kayan_director_cash')||'[]');
+  const exps = JSON.parse(localStorage.getItem('kayan_director_expenses')||'[]');
+  const totalCash = cash.reduce((a,c)=>a+(c.amount||0),0);
+  const totalExp  = exps.reduce((a,e)=>a+(e.amount||0),0);
+  const remaining = totalCash - totalExp;
+  document.getElementById('mc').innerHTML = `
+    <div class="ctitle">👔 حسابات المدير</div>
+    <div class="sg" style="margin-bottom:14px">
+      <div class="stat"><div class="sl">إجمالي الكاش المستلم</div><div class="sv" style="color:#34d399">${fmt(totalCash)} ﷼</div></div>
+      <div class="stat"><div class="sl">إجمالي المصروف</div><div class="sv" style="color:#70B5FF">${fmt(totalExp)} ﷼</div></div>
+      <div class="stat" style="grid-column:span 2"><div class="sl">المتبقي مع المدير</div><div class="sv" style="color:${remaining>=0?'#f5c842':'#f87171'};font-size:20px">${remaining>=0?'+':''}${fmt(remaining)} ﷼</div></div>
+    </div>
+    ${ROLE==='manager'?`
+    <div class="card" style="margin-bottom:10px">
+      <div class="ctitle" style="margin-bottom:8px">💵 تسجيل كاش للمدير</div>
+      <div class="fg"><div class="drop" onclick="document.getElementById('dir-cash-file').click()" style="cursor:pointer;padding:10px"><div style="font-size:20px;margin-bottom:3px" id="dc-icon">📷</div><div id="dc-txt" style="font-size:11px;color:rgba(255,255,255,.5)">ارفع إيصال التسليم — AI يقرأ تلقائياً (اختياري)</div></div><input type="file" id="dir-cash-file" accept="image/*,.pdf" style="display:none" onchange="pickDirFile(this,'c')"></div>
+      <div id="dc-ai-status" style="display:none;margin-bottom:6px;padding:6px 10px;background:rgba(52,211,153,.08);border-radius:8px;font-size:11px;color:#34d399"></div>
+      <div class="fg2">
+        <div><label class="lbl">التاريخ</label><input type="date" id="dc-date" value="${today()}"></div>
+        <div><label class="lbl">المبلغ ﷼</label><input type="number" id="dc-amount" placeholder="0.00" step="0.01"></div>
+      </div>
+      <div class="fg2">
+        <div><label class="lbl">رقم المرجع</label><input id="dc-ref" placeholder="اختياري"></div>
+        <div><label class="lbl">ملاحظة</label><input id="dc-note" placeholder="كاش للمدير"></div>
+      </div>
+      <div class="err" id="dc-err" style="display:none"></div>
+      <button onclick="saveDirectorCash()" style="width:100%;padding:10px;background:rgba(52,211,153,.18);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 تسجيل الكاش</button>
+    </div>
+    <div class="card" style="margin-bottom:10px">
+      <div class="ctitle" style="margin-bottom:8px">🧾 تسجيل مصروف المدير</div>
+      <div class="fg"><div class="drop" onclick="document.getElementById('dir-exp-file').click()" style="cursor:pointer;padding:10px"><div style="font-size:20px;margin-bottom:3px" id="de-icon">📷</div><div id="de-txt" style="font-size:11px;color:rgba(255,255,255,.5)">ارفع فاتورة أو إيصال — AI يقرأ المبلغ والتاريخ تلقائياً</div></div><input type="file" id="dir-exp-file" accept="image/*,.pdf" style="display:none" onchange="pickDirFile(this,'e')"></div>
+      <div id="de-ai-status" style="display:none;margin-bottom:6px;padding:6px 10px;background:rgba(112,181,255,.08);border-radius:8px;font-size:11px;color:#70B5FF"></div>
+      <div class="fg2">
+        <div><label class="lbl">التاريخ</label><input type="date" id="de-date" value="${today()}"></div>
+        <div><label class="lbl">المبلغ ﷼</label><input type="number" id="de-amount" placeholder="0.00" step="0.01"></div>
+      </div>
+      <div class="fg2">
+        <div><label class="lbl">رقم الفاتورة</label><input id="de-ref" placeholder="اختياري"></div>
+        <div><label class="lbl">الوصف</label><input id="de-note" placeholder="وصف المصروف"></div>
+      </div>
+      <div class="err" id="de-err" style="display:none"></div>
+      <button onclick="saveDirectorExpense()" style="width:100%;padding:10px;background:rgba(112,181,255,.15);color:#70B5FF;border:1px solid rgba(112,181,255,.3);border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 تسجيل المصروف</button>
+    </div>`:''}
+    <div class="shdr">💵 الكاش المستلم (${cash.length})</div>
+    ${cash.length===0?'<div class="empty">لا يوجد كاش مسجل</div>':cash.slice().reverse().map(c=>`
+      <div class="card" style="padding:9px 12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:12px;font-weight:700">${c.note||'كاش'}</div><div style="font-size:10px;color:rgba(255,255,255,.5)">${c.date}${c.ref?' · '+c.ref:''}</div></div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <strong style="color:#34d399">${fmt(c.amount)} ﷼</strong>
+            ${ROLE==='manager'?'<button onclick="editDirectorCash('+c.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">✏️</button><button onclick="deleteDirectorCash('+c.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
+          </div>
+        </div>
+      </div>`).join('')}
+    <div class="shdr" style="margin-top:10px">🧾 مصروفات المدير (${exps.length})</div>
+    ${exps.length===0?'<div class="empty">لا توجد مصروفات</div>':exps.slice().reverse().map(e=>`
+      <div class="card" style="padding:9px 12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:12px;font-weight:700">${e.note||'مصروف'}</div><div style="font-size:10px;color:rgba(255,255,255,.5)">${e.date}${e.ref?' · '+e.ref:''}</div></div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <strong style="color:#70B5FF">${fmt(e.amount)} ﷼</strong>
+            ${ROLE==='manager'?'<button onclick="editDirectorExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">✏️</button><button onclick="deleteDirectorExpense('+e.id+')" style="border:none;background:none;color:rgba(255,255,255,.3);cursor:pointer">🗑</button>':''}
+          </div>
+        </div>
+      </div>`).join('')}
+    <button onclick="exportDirectorPDF()" style="width:100%;margin-top:12px;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير حسابات المدير</button>
+  `;
+}
+
+async function pickDirFile(input, kind){
+  const file=input.files[0]; if(!file) return;
+  const isPdf=file.type==='application/pdf';
+  const isC = kind==='c';
+  const iconId = isC?'dc-icon':'de-icon';
+  const txtId  = isC?'dc-txt':'de-txt';
+  const stId   = isC?'dc-ai-status':'de-ai-status';
+  const dateId = isC?'dc-date':'de-date';
+  const amtId  = isC?'dc-amount':'de-amount';
+  const refId  = isC?'dc-ref':'de-ref';
+  const st=document.getElementById(stId);
+  st.style.display='block';
+
+  const maxBytes = 25*1024*1024;
+  if(file.size > maxBytes){
+    const sizeMB=(file.size/1024/1024).toFixed(1);
+    st.innerHTML='<span style="color:#f87171">❌ حجم الملف كبير جداً ('+sizeMB+' ميجا) — أدخل البيانات يدوياً</span>';
+    document.getElementById(iconId).textContent='❌';
+    return;
+  }
+
+  document.getElementById(iconId).textContent='⏳';
+  st.textContent='⏳ جاري قراءة الإيصال...';
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const b64=ev.target.result.split(',')[1];
+    try{
+      const res=await api('/api/analyze-transfer','POST',{b64,isPdf});
+      if(res.error) throw new Error(res.error);
+      if(res.total){const a=document.getElementById(amtId);if(a)a.value=res.total;}
+      if(res.date){const d=document.getElementById(dateId);if(d)d.value=_fixDate(res.date);}
+      if(res.invoiceNo){const r=document.getElementById(refId);if(r)r.value=res.invoiceNo;}
+      st.innerHTML='<span style="color:#34d399">✅ تم استخراج البيانات</span>';
+      document.getElementById(iconId).textContent='✅';
+      document.getElementById(txtId).textContent=file.name;
+    }catch(e){
+      st.innerHTML='<span style="color:#f87171">❌ '+e.message+'</span>';
+      document.getElementById(iconId).textContent='❌';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveDirectorCash(){
+  const date=document.getElementById('dc-date')?.value;
+  const amount=parseFloat(document.getElementById('dc-amount')?.value)||0;
+  const ref=document.getElementById('dc-ref')?.value.trim();
+  const note=document.getElementById('dc-note')?.value.trim();
+  const err=document.getElementById('dc-err');
+  if(!amount||amount<=0){err.style.display='block';err.textContent='⚠️ أدخل المبلغ';return;}
+  if(!date){err.style.display='block';err.textContent='⚠️ أدخل التاريخ';return;}
+  const cash=JSON.parse(localStorage.getItem('kayan_director_cash')||'[]');
+  cash.push({id:Date.now(),date,amount,ref:ref||null,note:note||'كاش للمدير'});
+  localStorage.setItem('kayan_director_cash',JSON.stringify(cash));
+  api('/api/director-cash','POST',{cash}).catch(()=>{});
+  err.style.display='none';
+  rDirectorAccounts();
+}
+
+function deleteDirectorCash(id){
+  if(!confirm('حذف هذا السجل؟')) return;
+  const cash=JSON.parse(localStorage.getItem('kayan_director_cash')||'[]').filter(x=>x.id!==id);
+  localStorage.setItem('kayan_director_cash',JSON.stringify(cash));
+  api('/api/director-cash','POST',{cash}).catch(()=>{});
+  rDirectorAccounts();
+}
+
+function editDirectorCash(id){
+  const cash=JSON.parse(localStorage.getItem('kayan_director_cash')||'[]');
+  const item=cash.find(x=>x.id===id);
+  if(!item) return;
+  const old=document.getElementById('edit-dir-modal'); if(old) old.remove();
+  const m=document.createElement('div');
+  m.id='edit-dir-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:700;color:#34d399">✏️ تعديل الكاش</div>'
+    +'<button onclick="document.getElementById(\'edit-dir-modal\').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button></div>'
+    +'<div class="fg2"><div><label class="lbl">التاريخ</label><input type="date" id="edc-date" value="'+(item.date||'')+'"></div>'
+    +'<div><label class="lbl">المبلغ ﷼</label><input type="number" id="edc-amount" value="'+(item.amount||0)+'" step="0.01"></div></div>'
+    +'<div class="fg2"><div><label class="lbl">رقم المرجع</label><input id="edc-ref" value="'+(item.ref||'')+'"></div>'
+    +'<div><label class="lbl">ملاحظة</label><input id="edc-note" value="'+(item.note||'')+'"></div></div>'
+    +'<div class="err" id="edc-err" style="display:none"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +'<button onclick="saveDirectorCashEdit('+id+')" class="btn bp" style="flex:1">💾 حفظ</button>'
+    +'<button onclick="document.getElementById(\'edit-dir-modal\').remove()" style="padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:Tajawal,sans-serif">إلغاء</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+
+function saveDirectorCashEdit(id){
+  const date=document.getElementById('edc-date')?.value;
+  const amount=parseFloat(document.getElementById('edc-amount')?.value)||0;
+  const ref=document.getElementById('edc-ref')?.value.trim();
+  const note=document.getElementById('edc-note')?.value.trim();
+  const err=document.getElementById('edc-err');
+  if(!amount||amount<=0){err.style.display='block';err.textContent='⚠️ أدخل المبلغ';return;}
+  if(!date){err.style.display='block';err.textContent='⚠️ أدخل التاريخ';return;}
+  const cash=JSON.parse(localStorage.getItem('kayan_director_cash')||'[]');
+  const idx=cash.findIndex(x=>x.id===id);
+  if(idx>=0){ cash[idx]={...cash[idx],date,amount,ref:ref||null,note:note||'كاش للمدير'}; }
+  localStorage.setItem('kayan_director_cash',JSON.stringify(cash));
+  api('/api/director-cash','POST',{cash}).catch(()=>{});
+  const el=document.getElementById('edit-dir-modal'); if(el) el.remove();
+  rDirectorAccounts();
+}
+
+function saveDirectorExpense(){
+  const date=document.getElementById('de-date')?.value;
+  const amount=parseFloat(document.getElementById('de-amount')?.value)||0;
+  const ref=document.getElementById('de-ref')?.value.trim();
+  const note=document.getElementById('de-note')?.value.trim();
+  const err=document.getElementById('de-err');
+  if(!amount||amount<=0){err.style.display='block';err.textContent='⚠️ أدخل المبلغ';return;}
+  if(!date){err.style.display='block';err.textContent='⚠️ أدخل التاريخ';return;}
+  const exps=JSON.parse(localStorage.getItem('kayan_director_expenses')||'[]');
+  exps.push({id:Date.now(),date,amount,ref:ref||null,note:note||'مصروف المدير'});
+  localStorage.setItem('kayan_director_expenses',JSON.stringify(exps));
+  api('/api/director-expenses','POST',{expenses:exps}).catch(()=>{});
+  err.style.display='none';
+  rDirectorAccounts();
+}
+
+function deleteDirectorExpense(id){
+  if(!confirm('حذف هذا المصروف؟')) return;
+  const exps=JSON.parse(localStorage.getItem('kayan_director_expenses')||'[]').filter(x=>x.id!==id);
+  localStorage.setItem('kayan_director_expenses',JSON.stringify(exps));
+  api('/api/director-expenses','POST',{expenses:exps}).catch(()=>{});
+  rDirectorAccounts();
+}
+
+function editDirectorExpense(id){
+  const exps=JSON.parse(localStorage.getItem('kayan_director_expenses')||'[]');
+  const item=exps.find(x=>x.id===id);
+  if(!item) return;
+  const old=document.getElementById('edit-dir-modal'); if(old) old.remove();
+  const m=document.createElement('div');
+  m.id='edit-dir-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:14px"><div style="font-size:14px;font-weight:700;color:#70B5FF">✏️ تعديل المصروف</div>'
+    +'<button onclick="document.getElementById(\'edit-dir-modal\').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button></div>'
+    +'<div class="fg2"><div><label class="lbl">التاريخ</label><input type="date" id="ede-date" value="'+(item.date||'')+'"></div>'
+    +'<div><label class="lbl">المبلغ ﷼</label><input type="number" id="ede-amount" value="'+(item.amount||0)+'" step="0.01"></div></div>'
+    +'<div class="fg2"><div><label class="lbl">رقم الفاتورة</label><input id="ede-ref" value="'+(item.ref||'')+'"></div>'
+    +'<div><label class="lbl">الوصف</label><input id="ede-note" value="'+(item.note||'')+'"></div></div>'
+    +'<div class="err" id="ede-err" style="display:none"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +'<button onclick="saveDirectorExpenseEdit('+id+')" class="btn bp" style="flex:1">💾 حفظ</button>'
+    +'<button onclick="document.getElementById(\'edit-dir-modal\').remove()" style="padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:Tajawal,sans-serif">إلغاء</button>'
+    +'</div></div>';
+  document.body.appendChild(m);
+}
+
+function saveDirectorExpenseEdit(id){
+  const date=document.getElementById('ede-date')?.value;
+  const amount=parseFloat(document.getElementById('ede-amount')?.value)||0;
+  const ref=document.getElementById('ede-ref')?.value.trim();
+  const note=document.getElementById('ede-note')?.value.trim();
+  const err=document.getElementById('ede-err');
+  if(!amount||amount<=0){err.style.display='block';err.textContent='⚠️ أدخل المبلغ';return;}
+  if(!date){err.style.display='block';err.textContent='⚠️ أدخل التاريخ';return;}
+  const exps=JSON.parse(localStorage.getItem('kayan_director_expenses')||'[]');
+  const idx=exps.findIndex(x=>x.id===id);
+  if(idx>=0){ exps[idx]={...exps[idx],date,amount,ref:ref||null,note:note||'مصروف المدير'}; }
+  localStorage.setItem('kayan_director_expenses',JSON.stringify(exps));
+  api('/api/director-expenses','POST',{expenses:exps}).catch(()=>{});
+  const el=document.getElementById('edit-dir-modal'); if(el) el.remove();
+  rDirectorAccounts();
+}
+
+function exportDirectorPDF(){
+  const cash=JSON.parse(localStorage.getItem('kayan_director_cash')||'[]');
+  const exps=JSON.parse(localStorage.getItem('kayan_director_expenses')||'[]');
+  const totalCash=cash.reduce((a,x)=>a+(x.amount||0),0);
+  const totalExp=exps.reduce((a,x)=>a+(x.amount||0),0);
+  const rem=totalCash-totalExp;
+  const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير حسابات المدير</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.diff{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:900;color:#111">🏗️ كيان وبناء للمقاولات</div>'
+    +'<h1>تقرير حسابات المدير</h1><div style="font-size:11px;color:#555;margin-bottom:12px">شركة كيان وبناء للمقاولات · '+now+'</div>'
+    +'<div class="sum"><div class="box"><div class="bl">إجمالي الكاش المستلم</div><div class="bv" style="color:#166534">'+fmt(totalCash)+' ﷼</div></div><div class="box"><div class="bl">إجمالي المصروف</div><div class="bv" style="color:#1d4ed8">'+fmt(totalExp)+' ﷼</div></div><div class="box"><div class="bl">المتبقي مع المدير</div><div class="bv" style="color:'+(rem>=0?'#b45309':'#D93025')+'">'+fmt(Math.abs(rem))+' ﷼</div></div></div>'
+    +'<div class="diff" style="background:'+(rem>=0?'#fef3c7':'#fee2e2')+';border-color:'+(rem>=0?'#b45309':'#D93025')+'">'
+    +'<div style="font-size:11px;color:#555;margin-bottom:4px">الكاش '+fmt(totalCash)+' − المصروف '+fmt(totalExp)+' = المتبقي مع المدير</div>'
+    +'<div style="font-size:20px;font-weight:900;color:'+(rem>=0?'#b45309':'#D93025')+'">'+(rem>=0?'+':'')+fmt(rem)+' ﷼</div>'
+    +'</div>'
+    +'<h2 style="margin:12px 0 6px;font-size:13px">سجل الكاش المستلم</h2>'
+    +'<table><tr><th>التاريخ</th><th>الملاحظة</th><th>رقم المرجع</th><th>المبلغ</th></tr>'
+    +cash.slice().reverse().map(x=>'<tr><td>'+x.date+'</td><td>'+(x.note||'—')+'</td><td>'+(x.ref||'—')+'</td><td style="font-weight:700;color:#166534">'+fmt(x.amount)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="3">الإجمالي</td><td>'+fmt(totalCash)+' ﷼</td></tr></table>'
+    +'<h2 style="margin:12px 0 6px;font-size:13px">سجل المصروفات</h2>'
+    +'<table><tr><th>التاريخ</th><th>الوصف</th><th>رقم الفاتورة</th><th>المبلغ</th></tr>'
+    +exps.slice().reverse().map(x=>'<tr><td>'+x.date+'</td><td>'+(x.note||'—')+'</td><td>'+(x.ref||'—')+'</td><td style="font-weight:700;color:#1d4ed8">'+fmt(x.amount)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="3">الإجمالي</td><td>'+fmt(totalExp)+' ﷼</td></tr></table>'
+    +'</body></html>';
+  const win2=window.open('','_blank');win2.document.write(html);win2.document.close();setTimeout(()=>win2.print(),700);
 }
 
 
