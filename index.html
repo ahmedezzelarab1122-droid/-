@@ -662,7 +662,11 @@ async function api(p,m='GET',b=null){
   if(b)o.body=JSON.stringify(b);
   const url=p.startsWith('http')?p:SERVER+p;
   const r=await fetch(url,o);
-  if(!r.ok) throw new Error('HTTP '+r.status);
+  if(!r.ok){
+    let msg='HTTP '+r.status;
+    try{ const j=await r.json(); if(j&&j.error) msg=j.error; }catch(_){}
+    throw new Error(msg);
+  }
   return r.json();
 }
 const fmt=n=>{const v=Number(n||0);return v.toLocaleString('en-US',{minimumFractionDigits:v%1===0?0:2,maximumFractionDigits:2});};
@@ -2061,8 +2065,18 @@ async function pickGovFile(input, kind){
   const amtId  = isW?'gov-amount':'exp-amount';
   const refId  = isW?'gov-ref':'exp-ref';
   const st=document.getElementById(stId);
+  st.style.display='block';
+
+  const maxBytes = 25*1024*1024;
+  if(file.size > maxBytes){
+    const sizeMB=(file.size/1024/1024).toFixed(1);
+    st.innerHTML='<span style="color:#f87171">❌ حجم الملف كبير جداً ('+sizeMB+' ميجا) — أدخل البيانات يدوياً</span>';
+    document.getElementById(iconId).textContent='❌';
+    return;
+  }
+
   document.getElementById(iconId).textContent='⏳';
-  st.style.display='block'; st.textContent='⏳ جاري قراءة الإيصال...';
+  st.textContent='⏳ جاري قراءة الإيصال...';
   const reader=new FileReader();
   reader.onload=async ev=>{
     const b64=ev.target.result.split(',')[1];
@@ -2720,6 +2734,16 @@ async function analyzeContract(input){
   const icon = document.getElementById('contract-icon');
   const txt = document.getElementById('contract-txt');
   status.style.display='block';
+
+  // فحص حجم الملف قبل الرفع — Claude API بيرفض أكتر من 100 صفحة أو ~30 ميجا للملف
+  const maxBytes = 25*1024*1024; // 25 ميجا (تتحول لـ~33 ميجا بعد base64، قريب من حد الـAPI)
+  if(file.size > maxBytes){
+    const sizeMB = (file.size/1024/1024).toFixed(1);
+    status.innerHTML = '<span style="color:#f87171">❌ حجم الملف كبير جداً ('+sizeMB+' ميجا) — الحد الأقصى تقريباً 25 ميجا أو 100 صفحة. جرب تقسيم العقد لصفحات أقل أو ضغط الملف، أو أدخل البيانات يدوياً</span>';
+    icon.textContent='❌';
+    return;
+  }
+
   status.textContent='⏳ جاري قراءة العقد...';
   icon.textContent='⏳';
 
