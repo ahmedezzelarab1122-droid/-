@@ -4320,7 +4320,7 @@ function showResult(){
   }
 
   // ── Date check for supervisor ──
-  if(ROLE==='supervisor'){
+  if(ROLE==='supervisor' && (CU?.name||'').trim()!=='الشيخ علي'){
     const todayStr = today();
     if(parsed.date && parsed.date !== todayStr){
       document.getElementById('ss1').style.display='block';
@@ -4344,7 +4344,7 @@ function showResult(){
     <div class="fr"><span style="color:rgba(255,255,255,.75)">الوصف</span><span style="font-weight:600">${parsed.desc||'—'}</span></div>
     <div class="fr"><span style="color:rgba(255,255,255,.75)">المورد</span><span>${parsed.supplier||'—'}</span></div>
     <div class="fr"><span style="color:rgba(255,255,255,.75)">رقم الفاتورة</span><span>${parsed.invoiceNo||'—'}</span></div>
-    <div class="fr"><span style="color:rgba(255,255,255,.75)">تاريخ الفاتورة</span><span style="color:${ROLE==='supervisor'&&parsed.date!==today()?'#f87171':'rgba(255,255,255,.9)'}">${parsed.date}</span></div>
+    <div class="fr"><span style="color:rgba(255,255,255,.75)">تاريخ الفاتورة</span><span style="color:${ROLE==='supervisor'&&(CU?.name||'').trim()!=='الشيخ علي'&&parsed.date!==today()?'#f87171':'rgba(255,255,255,.9)'}">${parsed.date}</span></div>
     <div class="fr"><span style="color:rgba(255,255,255,.75)">النوع</span>${tb(parsed.type)}</div>
     <div class="fr"><span style="color:rgba(255,255,255,.75)">الدفع</span>${pb(parsed.payMethod)}</div>
     <div class="sep"></div>
@@ -4401,8 +4401,9 @@ async function saveEntry(){
     closeScan();
     return;
   }
-  // ── فحص وقت الرفع (للمشرف فقط) ──
-  if(ROLE==='supervisor'){
+  // ── فحص وقت الرفع (للمشرف فقط) ── الشيخ علي مستثنى ──
+  const _isExemptSup = ROLE==='supervisor' && (DB.supervisors.find(s=>s.id==supId)?.name||'').trim()==='الشيخ علي';
+  if(ROLE==='supervisor' && !_isExemptSup){
     const nowHour = new Date().getHours();
     if(nowHour < 6 || nowHour >= 18){
       const timeStr = new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
@@ -4410,7 +4411,7 @@ async function saveEntry(){
       return;
     }
   }
-  if(ROLE==='supervisor'){
+  if(ROLE==='supervisor' && !_isExemptSup){
     const entryDate=parsed.date||'';
     const todayStr=today();
     if(entryDate&&entryDate!==todayStr){
