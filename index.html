@@ -724,7 +724,7 @@ async function restoreSession(){
     const sess=JSON.parse(s);
     if(!sess||!sess.ROLE)return false;
     // Restore from saved session immediately (no server wait)
-    CU={id:sess.supId||0, name:sess.name||'', budget:sess.budget||0};
+    CU={id:sess.supId||0, name:sess.name||'', budget:sess.budget||0, permissions:sess.permissions||[]};
     ROLE=sess.ROLE;
     // Then reload DB in background
     api('/api/db').then(d=>{
@@ -751,7 +751,7 @@ async function start(){
     try{
       const _sd=JSON.parse(_ks);
       if(_sd&&_sd.ROLE&&_sd.name){
-        CU={id:_sd.supId||0,name:_sd.name,budget:_sd.budget||0};
+        CU={id:_sd.supId||0,name:_sd.name,budget:_sd.budget||0,permissions:_sd.permissions||[]};
         ROLE=_sd.ROLE;
         document.getElementById('lview').style.display='none';
         showApp();
@@ -889,9 +889,9 @@ async function doLogin(){
     const res=await api('/api/login','POST',body);
     if(!res.ok){err.style.display='block';err.textContent=res.error||'كلمة المرور خاطئة';return;}
     err.style.display='none';
-    CU={id:res.supId||0,name:res.name,budget:res.budget||0};
+    CU={id:res.supId||0,name:res.name,budget:res.budget||0,permissions:res.permissions||[]};
     ROLE=res.role;
-    localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId,name:CU.name,budget:CU.budget}));
+    localStorage.setItem('ks',JSON.stringify({ROLE,pw,supId,name:CU.name,budget:CU.budget,permissions:CU.permissions}));
     // Reload DB after login to ensure fresh data
     try{ const d=await api('/api/db'); if(d&&d.supervisors) DB=d; }catch(e){}
     showApp();
@@ -1002,6 +1002,7 @@ function showApp(){
     { label:'المرتجعات', items:[['returns','↩️','فواتير المرتجعات']] },
     { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
     { label:'العمال الخارجيون', items:[['ext-workers','👷','حسابات العمال الخارجيين']] },
+    ...(((CU&&CU.permissions)||[]).includes('director-accounts') ? [{ label:'حسابات المدير', items:[['director-accounts','👔','حسابات المدير']] }] : []),
     { label:'طلباتي', items:[['my-requests','📋','طلباتي']] },
   ] : [
     { label:'الرئيسية', items:[['home','🏠','الرئيسية'],['bal','💰','رصيدي']] },
@@ -2298,6 +2299,7 @@ function rDirectorAccounts(){
   const totalCash = cash.reduce((a,c)=>a+(c.amount||0),0);
   const totalExp  = exps.reduce((a,e)=>a+(e.amount||0),0);
   const remaining = totalCash - totalExp;
+  const _canAddDir = ROLE==='manager' || (ROLE==='accountant' && ((CU&&CU.permissions)||[]).includes('director-accounts'));
   document.getElementById('mc').innerHTML = `
     <div class="ctitle">👔 حسابات المدير</div>
     <div class="sg" style="margin-bottom:14px">
@@ -2305,7 +2307,7 @@ function rDirectorAccounts(){
       <div class="stat"><div class="sl">إجمالي المصروف</div><div class="sv" style="color:#70B5FF">${fmt(totalExp)} ﷼</div></div>
       <div class="stat" style="grid-column:span 2"><div class="sl">المتبقي مع المدير</div><div class="sv" style="color:${remaining>=0?'#f5c842':'#f87171'};font-size:20px">${remaining>=0?'+':''}${fmt(remaining)} ﷼</div></div>
     </div>
-    ${ROLE==='manager'?`
+    ${_canAddDir?`
     <div class="card" style="margin-bottom:10px">
       <div class="ctitle" style="margin-bottom:8px">💵 تسجيل كاش للمدير</div>
       <div class="fg"><div class="drop" onclick="document.getElementById('dir-cash-file').click()" style="cursor:pointer;padding:10px"><div style="font-size:20px;margin-bottom:3px" id="dc-icon">📷</div><div id="dc-txt" style="font-size:11px;color:rgba(255,255,255,.5)">ارفع إيصال التسليم — AI يقرأ تلقائياً (اختياري)</div></div><input type="file" id="dir-cash-file" accept="image/*,.pdf" style="display:none" onchange="pickDirFile(this,'c')"></div>
@@ -3627,7 +3629,7 @@ function _renderMyRequests(){
 // ── ACCOUNTANTS MANAGEMENT ──
 function rAccountantsMgr(){
   const accs = DB.accountants||[];
-  const permLabel = {txns:'المعاملات',reports:'التقارير',transfer:'التحويلات','labor-mgr':'العمالة',returns:'المرتجعات','inventory-mgr':'المخزون','cost-center':'مركز التكلفة',purchases:'المشتريات',sales:'المبيعات','trial-balance':'ميزان المراجعة',projects:'المشاريع'};
+  const permLabel = {txns:'المعاملات',reports:'التقارير',transfer:'التحويلات','labor-mgr':'العمالة',returns:'المرتجعات','inventory-mgr':'المخزون','cost-center':'مركز التكلفة',purchases:'المشتريات',sales:'المبيعات','trial-balance':'ميزان المراجعة',projects:'المشاريع','ext-workers':'العمال الخارجيون','director-accounts':'حسابات المدير (إضافة فقط)'};
 
   document.getElementById('mc').innerHTML =
     '<div class="ctitle">📒 إدارة المحاسبين</div>'
@@ -3649,6 +3651,7 @@ function rAccountantsMgr(){
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="trial-balance" class="new-perm"> ميزان المراجعة</label>'
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="projects" class="new-perm"> إدارة المشاريع</label>'
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="ext-workers" class="new-perm"> العمال الخارجيون</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="director-accounts" class="new-perm"> حسابات المدير (إضافة فقط)</label>'
     
     +'</div></div>'
     +'<div class="err" id="new-acc-err" style="display:none"></div>'
@@ -3717,6 +3720,8 @@ function editAccountant(accId){
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="sales" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('sales')?' checked':'')+'>  فواتير المبيعات</label>'
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="trial-balance" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('trial-balance')?' checked':'')+'>  ميزان المراجعة</label>'
     +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="projects" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('projects')?' checked':'')+'>  إدارة المشاريع</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="ext-workers" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('ext-workers')?' checked':'')+'>  العمال الخارجيون</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" value="director-accounts" class="edit-perm"'+(acc.permissions&&acc.permissions.includes('director-accounts')?' checked':'')+'>  حسابات المدير (إضافة فقط)</label>'
     
     +'</div></div>'
     +'<div style="display:flex;gap:8px;margin-top:12px">'
