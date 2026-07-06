@@ -887,7 +887,6 @@ async function doLogin(){
   }
   try{
     const res=await api('/api/login','POST',body);
-    if(!res.ok){err.style.display='block';err.textContent=res.error||'كلمة المرور خاطئة';return;}
     err.style.display='none';
     CU={id:res.supId||0,name:res.name,budget:res.budget||0,permissions:res.permissions||[]};
     ROLE=res.role;
@@ -895,7 +894,7 @@ async function doLogin(){
     // Reload DB after login to ensure fresh data
     try{ const d=await api('/api/db'); if(d&&d.supervisors) DB=d; }catch(e){}
     showApp();
-  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+  }catch(e){err.style.display='block';err.textContent=e.message||'خطأ في الاتصال';}
 }
 
 function doLogout(){
