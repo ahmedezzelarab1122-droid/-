@@ -217,6 +217,17 @@ function getFallback() {
   return { supervisors: [{ id: 1, name: 'المشرف', budget: 10000, password: '1234' }], projects: ['المشروع الأول'], entries: [], managerPassword: 'admin123', nextId: 1 };
 }
 
+// يكتشف نوع الصورة الحقيقي من أول بايتات base64 بدل افتراض JPEG دايماً
+// (مهم لأن صور الآيفون/الأندرويد كتير بتكون PNG أو WEBP مش JPEG)
+function detectImageMediaType(b64) {
+  if (!b64) return 'image/jpeg';
+  if (b64.startsWith('iVBORw0KGgo')) return 'image/png';
+  if (b64.startsWith('/9j/')) return 'image/jpeg';
+  if (b64.startsWith('R0lGOD')) return 'image/gif';
+  if (b64.startsWith('UklGR')) return 'image/webp';
+  return 'image/jpeg'; // افتراضي احتياطي
+}
+
 async function analyzeInvoice(b64, text, isPdf=false) {
   const { default: https } = await import('https');
   const currentYear = new Date().getFullYear();
@@ -235,7 +246,7 @@ async function analyzeInvoice(b64, text, isPdf=false) {
   const content = b64
     ? isPdf
       ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }]
-      : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]
+      : [{ type: 'image', source: { type: 'base64', media_type: detectImageMediaType(b64), data: b64 } }, { type: 'text', text: prompt }]
     : [{ type: 'text', text: prompt }];
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
@@ -326,7 +337,7 @@ async function uploadToCloudinary(b64, isPdf=false) {
   const boundary = 'CloudinaryBoundary' + Date.now();
   const fileData = Buffer.from(b64, 'base64');
   const fileName = isPdf ? 'invoice.pdf' : 'invoice.jpg';
-  const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+  const mimeType = isPdf ? 'application/pdf' : detectImageMediaType(b64);
   const resourceType = isPdf ? 'raw' : 'image';
   const textField = (name, value) => Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`);
   const filePart = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: ${mimeType}\r\n\r\n`);
@@ -380,11 +391,11 @@ const server = http.createServer(async (req, res) => {
     const { role, password, supId } = await parseBody(req);
     const data = await loadDB();
     if (role === 'owner') {
-      if (password === (data.ownerPassword || 'owner123')) return sendJSON(res, { ok: true, role: 'owner', name: 'المالك' });
+      if ((password||'').trim() === ((data.ownerPassword || 'owner123')).trim()) return sendJSON(res, { ok: true, role: 'owner', name: 'المالك' });
       return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
     }
     if (role === 'manager') {
-      if (password === data.managerPassword) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
+      if ((password||'').trim() === (data.managerPassword||'').trim()) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
       return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
     }
     if (role === 'accountant') {
@@ -395,14 +406,14 @@ const server = http.createServer(async (req, res) => {
       if(accountants.length===0 && cfg?.accountant){
         accountants.push({id:'acc_1', name:cfg.accountant.name||'إسلام', password:cfg.accountant.password||'i1234', permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr','ext-workers']});
       }
-      const acc = accountants.find(a=>a.password===password);
+      const acc = accountants.find(a=>(a.password||'').trim()===(password||'').trim());
       if(acc) return sendJSON(res, { ok: true, role: 'accountant', name: acc.name, accId: acc.id, permissions: acc.permissions||[] });
       return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
     }
     if (role === 'supervisor') {
       const sup = data.supervisors.find(s => s.id === parseInt(supId));
       if (!sup) return sendJSON(res, { ok: false, error: 'المشرف غير موجود' }, 404);
-      if (sup.password !== password) return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
+      if ((sup.password||'').trim() !== (password||'').trim()) return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
       return sendJSON(res, { ok: true, role: 'supervisor', name: sup.name, supId: sup.id, budget: sup.budget });
     }
     return sendJSON(res, { ok: false, error: 'بيانات خاطئة' }, 400);
@@ -606,7 +617,7 @@ const server = http.createServer(async (req, res) => {
       const { b64, isPdf } = await parseBody(req);
       const { default: https } = await import('https');
       const prompt = 'هذا إيصال حوالة بنكية أو تحويل مالي. استخرج فقط: المبلغ المحول (total كرقم)، تاريخ التحويل (date بصيغة YYYY-MM-DD)، رقم المرجع (invoiceNo)، اسم البنك (supplier). أخرج JSON نقي فقط.';
-      const content = b64 ? (isPdf ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }] : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }, { type: 'text', text: prompt }]) : [{ type: 'text', text: prompt }];
+      const content = b64 ? (isPdf ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }] : [{ type: 'image', source: { type: 'base64', media_type: detectImageMediaType(b64), data: b64 } }, { type: 'text', text: prompt }]) : [{ type: 'text', text: prompt }];
       const result = await new Promise((resolve, reject) => {
         const body = JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 300, messages: [{ role: 'user', content }] });
         const r2 = https.request({ hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(body) } }, res2 => {
