@@ -228,7 +228,16 @@ function detectImageMediaType(b64) {
   return 'image/jpeg'; // افتراضي احتياطي
 }
 
+// يتحقق إن الملف فعلاً صورة معروفة (مش Word/Excel/ملف عشوائي اتبعت غلط)
+function isRecognizedImage(b64) {
+  if (!b64) return false;
+  return b64.startsWith('iVBORw0KGgo') || b64.startsWith('/9j/') || b64.startsWith('R0lGOD') || b64.startsWith('UklGR') || b64.startsWith('Qk0') /*BMP*/;
+}
+
 async function analyzeInvoice(b64, text, isPdf=false) {
+  if (b64 && !isPdf && !isRecognizedImage(b64)) {
+    return Promise.reject(new Error('الملف المرفوع ليس صورة أو PDF صالح — تأكد إنك رفعت صورة الفاتورة أو ملف PDF (مش Word أو Excel أو نوع ملف تاني)'));
+  }
   const { default: https } = await import('https');
   const currentYear = new Date().getFullYear();
   const currentDate = new Date().toISOString().split('T')[0];
@@ -615,6 +624,9 @@ const server = http.createServer(async (req, res) => {
     if (!API_KEY) return sendJSON(res, { error: 'ANTHROPIC_API_KEY غير موجود' }, 500);
     try {
       const { b64, isPdf } = await parseBody(req);
+      if (b64 && !isPdf && !isRecognizedImage(b64)) {
+        return sendJSON(res, { error: 'الملف المرفوع ليس صورة أو PDF صالح — تأكد إنك رفعت صورة الإيصال أو ملف PDF (مش Word أو Excel أو نوع ملف تاني)' }, 400);
+      }
       const { default: https } = await import('https');
       const prompt = 'هذا إيصال حوالة بنكية أو تحويل مالي. استخرج فقط: المبلغ المحول (total كرقم)، تاريخ التحويل (date بصيغة YYYY-MM-DD)، رقم المرجع (invoiceNo)، اسم البنك (supplier). أخرج JSON نقي فقط.';
       const content = b64 ? (isPdf ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }] : [{ type: 'image', source: { type: 'base64', media_type: detectImageMediaType(b64), data: b64 } }, { type: 'text', text: prompt }]) : [{ type: 'text', text: prompt }];
