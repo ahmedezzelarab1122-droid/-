@@ -875,7 +875,7 @@ async function selRole(r){
 
 async function doLogin(){
   const err=document.getElementById('lerr');
-  const pw=document.getElementById('pw-inp').value;
+  const pw=document.getElementById('pw-inp').value.trim();
   if(!SR){err.style.display='block';err.textContent='اختر صفتك أولاً';return;}
   if(!pw){err.style.display='block';err.textContent='أدخل كلمة المرور';return;}
   const body={role:SR,password:pw};
@@ -1371,6 +1371,14 @@ let returnParsed_2 = null;
 async function handleReturnFile2(input){
   const file = input.files[0];
   if(!file) return;
+  const isValid = file.type==='application/pdf' || file.type.startsWith('image/');
+  if(!isValid){
+    const err=document.getElementById('ret-err2');
+    err.style.display='block';
+    err.textContent='⚠️ الملف المرفوع ("'+file.name+'") مش صورة ولا PDF — الرجاء رفع صورة الفاتورة أو ملف PDF فقط';
+    input.value='';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = function(ev){
     returnB64_2 = ev.target.result.split(',')[1];
@@ -3443,6 +3451,14 @@ function rReturns(){
 async function handleReturnFile(input){
   const file = input.files[0];
   if(!file) return;
+  const isValid = file.type==='application/pdf' || file.type.startsWith('image/');
+  if(!isValid){
+    const err=document.getElementById('ret-err');
+    err.style.display='block';
+    err.textContent='⚠️ الملف المرفوع ("'+file.name+'") مش صورة ولا PDF — الرجاء رفع صورة الفاتورة أو ملف PDF فقط';
+    input.value='';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = function(ev){
     returnB64 = ev.target.result.split(',')[1];
