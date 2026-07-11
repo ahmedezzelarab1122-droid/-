@@ -3462,17 +3462,106 @@ function rReturns(){
         ? '<div class="empty">لا توجد مرتجعات بعد</div>'
         : DB.entries.filter(e=>e.type==='return').sort((a,b)=>b.id-a.id).map(e=>`
           <div style="padding:10px;border-bottom:1px solid rgba(255,255,255,.06)">
-            <div style="display:flex;justify-content:space-between">
+            <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
                 <div style="font-weight:700;font-size:13px">${e.desc}</div>
                 <div style="font-size:11px;color:rgba(255,255,255,.5)">${e.date} · ${gn(e.supId)} · ${e.project}</div>
                 ${e.origInvoiceId?`<div style="font-size:11px;color:#70B5FF">↩ مرتجع من فاتورة #${e.origInvoiceId}</div>`:''}
               </div>
-              <div style="color:#34d399;font-weight:700">+${fmt(e.total)} ﷼</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="color:#34d399;font-weight:700">+${fmt(e.total)} ﷼</div>
+                ${ROLE==='manager'?`<button onclick="editReturnEntry(${e.id})" style="border:none;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:14px">✏️</button><button onclick="deleteReturnEntry(${e.id})" style="border:none;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:14px">🗑</button>`:''}
+              </div>
             </div>
           </div>`).join('')}
     </div>
   `;
+}
+
+function editReturnEntry(entryId){
+  const e = DB.entries.find(x=>x.id===entryId);
+  if(!e){alert('لم يتم العثور على المرتجع');return;}
+  const supOpts = DB.supervisors.map(s=>`<option value="${s.id}" ${s.id==e.supId?'selected':''}>${s.name}</option>`).join('');
+  const projOpts = DB.projects.map(p=>`<option ${p===e.project?'selected':''}>${p}</option>`).join('');
+  const old = document.getElementById('edit-ret-modal');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'edit-ret-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = `
+    <div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:700;color:#34d399">✏️ تعديل المرتجع</div>
+        <button onclick="document.getElementById('edit-ret-modal').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button>
+      </div>
+      <div class="fg"><label class="lbl">الوصف / المورد</label>
+        <input id="ered-desc" value="${e.desc||e.supplier||''}"></div>
+      <div class="fg"><label class="lbl">رقم فاتورة المرتجع</label>
+        <input id="ered-invno" value="${e.invoiceNo||''}"></div>
+      <div class="fg2">
+        <div><label class="lbl">التاريخ</label>
+          <input type="date" id="ered-date" value="${e.date||''}"></div>
+        <div><label class="lbl">المبلغ ﷼</label>
+          <input type="number" id="ered-total" value="${e.total||0}" step="0.01"></div>
+      </div>
+      <div class="fg"><label class="lbl">المشرف</label>
+        <select id="ered-sup" style="color:#fff;background:rgba(255,255,255,.08)">${supOpts}</select></div>
+      <div class="fg"><label class="lbl">المشروع</label>
+        <select id="ered-proj" style="color:#fff;background:rgba(255,255,255,.08)">${projOpts}</select></div>
+      <div class="fg"><label class="lbl">رقم الفاتورة الأصلية (اختياري)</label>
+        <input type="number" id="ered-orig" value="${e.origInvoiceId||''}" placeholder="ID الفاتورة الأصلية"></div>
+      <div class="err" id="ered-err" style="display:none"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="saveReturnEdit(${entryId})" style="flex:1;padding:11px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 حفظ التعديل</button>
+        <button onclick="document.getElementById('edit-ret-modal').remove()" style="padding:11px 14px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+async function saveReturnEdit(entryId){
+  const desc    = document.getElementById('ered-desc')?.value.trim();
+  const invNo   = document.getElementById('ered-invno')?.value.trim();
+  const date    = document.getElementById('ered-date')?.value;
+  const total   = parseFloat(document.getElementById('ered-total')?.value)||0;
+  const supId   = parseInt(document.getElementById('ered-sup')?.value);
+  const project = document.getElementById('ered-proj')?.value;
+  const origRaw = document.getElementById('ered-orig')?.value;
+  const origInvoiceId = origRaw?parseInt(origRaw):null;
+  const err     = document.getElementById('ered-err');
+  const sup     = DB.supervisors.find(s=>s.id===supId);
+
+  if(!date||!total){
+    err.style.display='block';
+    err.textContent='⚠️ التاريخ والمبلغ مطلوبان';
+    return;
+  }
+  try{
+    const res = await api('/api/entries/'+entryId,'PATCH',{
+      desc, invoiceNo:invNo||null, date,
+      supId, supName:sup?.name||'', project,
+      total, subtotal:total, origInvoiceId
+    });
+    if(res.error) throw new Error(res.error);
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+    document.getElementById('edit-ret-modal').remove();
+    rReturns();
+  }catch(e){
+    err.style.display='block';
+    err.textContent='❌ '+e.message;
+  }
+}
+
+async function deleteReturnEntry(entryId){
+  if(!confirm('هل أنت متأكد من حذف هذا المرتجع؟ سيتم تقليل رصيد المشرف بمقدار قيمته')) return;
+  try{
+    const res = await api('/api/entries/'+entryId,'DELETE');
+    if(res&&res.error) throw new Error(res.error);
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+    rReturns();
+  }catch(e){
+    alert('❌ '+e.message);
+  }
 }
 
 async function handleReturnFile(input){
