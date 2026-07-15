@@ -309,8 +309,9 @@ async function analyzeInvoice(b64, text, isPdf=false) {
             parsed.items = parsed.items.map(it => ({ ...it, qty: fixNum(it.qty), unitPrice: fixNum(it.unitPrice), total: fixNum(it.total) }));
           }
           if (!parsed.total || parsed.total === 0) parsed.total = parsed.subtotal + parsed.taxAmt;
-          if (!parsed.date) parsed.date = new Date().toISOString().split('T')[0];
-          else {
+          // ملحوظة: لا نضع تاريخ افتراضي (تاريخ اليوم) عند عدم وجود تاريخ في الفاتورة —
+          // نترك parsed.date فارغاً عمداً حتى يرفض التطبيق الفاتورة لعدم وضوح التاريخ
+          if (parsed.date) {
             // Fix Arabic date formats
             const arM = {'يناير':'01','فبراير':'02','مارس':'03','أبريل':'04','ابريل':'04','مايو':'05','يونيو':'06','يونيه':'06','يوليو':'07','يوليه':'07','أغسطس':'08','اغسطس':'08','سبتمبر':'09','أكتوبر':'10','اكتوبر':'10','نوفمبر':'11','ديسمبر':'12'};
             let ds = String(parsed.date).trim()
@@ -327,7 +328,7 @@ async function analyzeInvoice(b64, text, isPdf=false) {
               const mn=ds.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
               if(mn) ds=mn[3]+'-'+mn[2].padStart(2,'0')+'-'+mn[1].padStart(2,'0');
               if(/^\d{4}-\d{2}-\d{2}$/.test(ds)) parsed.date=ds;
-              else parsed.date=new Date().toISOString().split('T')[0];
+              else parsed.date=null; // تنسيق غير مفهوم — نتركه فارغاً بدل افتراض تاريخ اليوم
             }
           }
           resolve(parsed);
