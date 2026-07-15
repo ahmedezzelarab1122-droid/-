@@ -5407,6 +5407,76 @@ function buildLaborTable(laborEntries, fromDate, toDate){
       </div>`).join('')}`;
 }
 
+// ── تقرير عمالة PDF لكل مشروع (عمالة داخلية وخارجية) ──
+function exportProjectLaborPDF(project, fromDate, toDate){
+  if(!project){alert('يرجى اختيار مشروع أولاً');return;}
+  let laborEntries = DB.entries.filter(e=>(e.type==='labor'||e.type==='labor_waiting')&&e.project===project);
+  if(fromDate) laborEntries = laborEntries.filter(e=>e.date>=fromDate);
+  if(toDate) laborEntries = laborEntries.filter(e=>e.date<=toDate);
+  laborEntries.sort((a,b)=>a.date.localeCompare(b.date));
+
+  if(!laborEntries.length){alert('لا توجد سجلات عمالة لهذا المشروع في الفترة المحددة');return;}
+
+  const externalRate = (DB.laborRates||{}).external||150;
+  const companyRate = (DB.laborRates||{}).company||100;
+
+  const extW={}, compW={};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList){
+      e.laborDetails.externalWorkersList.forEach(w=>{
+        const k=w.name+'||'+w.jobTitle;
+        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[]};
+        extW[k].days++; extW[k].total+=externalRate;
+        if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
+      });
+    }
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!compW[w.name])compW[w.name]={name:w.name,jobTitle:w.jobTitle||'',days:0,total:0,dates:[]};
+        compW[w.name].days++; compW[w.name].total+=companyRate;
+        if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+      });
+    }
+  });
+  const extList = Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList = Object.values(compW).sort((a,b)=>b.days-a.days);
+  const totalExtDays = extList.reduce((a,w)=>a+w.days,0);
+  const totalCompDays = compList.reduce((a,w)=>a+w.days,0);
+  const totalExtCost = extList.reduce((a,w)=>a+w.total,0);
+  const totalCompCost = compList.reduce((a,w)=>a+w.total,0);
+  const grandTotal = totalExtCost+totalCompCost;
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const periodStr = (fromDate||toDate) ? ((fromDate||'البداية')+' → '+(toDate||'الآن')) : 'كل الفترات';
+
+  const workerTable = (title,color,bg,list,showCost)=> list.length ? `
+    <h2 style="background:${bg};color:${color};padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">${title} (${list.length})</h2>
+    <table><tr><th>الاسم</th>${list.some(w=>w.jobTitle)?'<th>الصفة</th>':''}<th>عدد الأيام</th>${showCost?'<th>الإجمالي</th>':''}<th>التواريخ</th></tr>
+    ${list.map(w=>`<tr><td style="font-weight:700">${w.name}</td>${list.some(x=>x.jobTitle)?'<td>'+(w.jobTitle||'—')+'</td>':''}<td style="text-align:center">${w.days}</td>${showCost?'<td style="font-weight:700;color:'+color+'">'+fmt(w.total)+' ﷼</td>':''}<td style="font-size:10px">${w.dates.sort().join('، ')}</td></tr>`).join('')}
+    <tr class="tr"><td colspan="${1+(list.some(w=>w.jobTitle)?1:0)}">الإجمالي</td><td style="text-align:center">${list.reduce((a,w)=>a+w.days,0)} يوم</td>${showCost?'<td>'+fmt(list.reduce((a,w)=>a+w.total,0))+' ﷼</td>':''}<td></td></tr>
+    </table>` : '';
+
+  const dailyLog = laborEntries.map(e=>{
+    const comp = e.laborDetails?.presentWorkers?.map(w=>w.name).join('، ')||'—';
+    const ext = e.laborDetails?.externalWorkersList?.map(w=>w.name+' ('+w.jobTitle+')').join('، ')||'—';
+    return `<tr><td>${e.date}</td><td style="font-size:11px">${comp}</td><td style="font-size:11px">${ext}</td><td style="font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</td></tr>`;
+  }).join('');
+
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير عمالة المشروع</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}</style></head><body>'
+    +'<div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:900;color:#111">🏗️ كيان وبناء للمقاولات</div>'
+    +'<h1>تقرير عمالة المشروع</h1><div style="font-size:13px;font-weight:700;margin-bottom:2px">المشروع: '+project+'</div>'
+    +'<div style="font-size:11px;color:#555;margin-bottom:12px">الفترة: '+periodStr+' · صدر بتاريخ '+now+'</div>'
+    +'<div class="sum"><div class="box"><div class="bl">أيام عمال الشركة</div><div class="bv" style="color:#1d4ed8">'+totalCompDays+' يوم</div></div><div class="box"><div class="bl">أيام العمال الخارجيين</div><div class="bv" style="color:#b45309">'+totalExtDays+' يوم</div></div><div class="box"><div class="bl">الإجمالي المالي</div><div class="bv" style="color:#D93025">'+fmt(grandTotal)+' ﷼</div></div></div>'
+    +workerTable('👷 العمال الخارجيون','#b45309','#fef3c7',extList,true)
+    +workerTable('🏢 عمال الشركة (داخلية)','#1d4ed8','#dbeafe',compList,false)
+    +'<h2 style="margin:14px 0 6px;font-size:13px">📅 السجل اليومي التفصيلي</h2>'
+    +'<table><tr><th>التاريخ</th><th>عمال الشركة</th><th>العمال الخارجيون</th><th>تكلفة اليوم</th></tr>'
+    +dailyLog
+    +'<tr class="tr"><td colspan="3">الإجمالي</td><td>'+fmt(grandTotal)+' ﷼</td></tr></table>'
+    +'</body></html>';
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
+}
+
 // ── LABOR MANAGER ──────────────────────
 function rLaborMgr(){
   const rates = DB.laborRates || {company:100, external:150};
@@ -5467,6 +5537,18 @@ function rLaborMgr(){
         </div>
       </div>
       ${mgrFrom||mgrTo?`<div style="margin-top:8px;font-size:11px;color:#1A7A3C;font-weight:600">📅 ${mgrFrom||'البداية'} → ${mgrTo||'الآن'} — ${laborEntries.length} سجل</div>`:''}
+    </div>
+
+    <!-- Project Labor PDF Export -->
+    <div class="card" style="padding:12px 14px;margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:8px">📄 تقرير عمالة PDF لكل مشروع</div>
+      <div class="fg"><label class="lbl">اختر المشروع</label>
+        <select id="mgr-labor-pdf-proj" style="color:#fff;background:rgba(255,255,255,.08)">
+          <option value="">-- اختر مشروع --</option>
+          ${DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('')}
+        </select>
+      </div>
+      <button onclick="exportProjectLaborPDF(document.getElementById('mgr-labor-pdf-proj').value, window._mgrLaborFrom||'', window._mgrLaborTo||'')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير عمالة المشروع (عمالة داخلية وخارجية)</button>
     </div>
 
     <!-- Summary Stats -->
@@ -6073,6 +6155,16 @@ function rOwnerLabor(){
           <input type="date" id="labor-to" value="${window._laborTo||''}" onchange="window._laborFrom=this.value;rOwnerLabor()" style="font-size:12px;padding:8px 10px">
         </div>
       </div>
+    </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:8px">📄 تقرير عمالة PDF لكل مشروع</div>
+      <div class="fg"><label class="lbl">اختر المشروع</label>
+        <select id="labor-pdf-proj" style="color:#fff;background:rgba(255,255,255,.08)">
+          <option value="">-- اختر مشروع --</option>
+          ${DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('')}
+        </select>
+      </div>
+      <button onclick="exportProjectLaborPDF(document.getElementById('labor-pdf-proj').value, window._laborFrom||'', window._laborTo||'')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير عمالة المشروع (عمالة داخلية وخارجية)</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div class="stat"><div class="sl">أيام الشركة</div><div class="sv" style="color:rgba(255,255,255,.9)">${totalComp} يوم</div></div>
@@ -7004,7 +7096,7 @@ function setReturnMode(mode){
 // ── Shared helpers for bulk parsing ──
 const _fixNum = v => parseFloat(String(v||'0').replace(/,/g,'').replace(/[^0-9.]/g,''))||0;
 const _fixDate = d => {
-  if(!d) return today();
+  if(!d) return ''; // لا تفترض تاريخ اليوم — اتركه فارغاً ليتم رفض الفاتورة
   // Convert Arabic-Indic numerals to Western
   let s = String(d).trim()
     .replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
@@ -7052,7 +7144,7 @@ const _fixDate = d => {
   const m3=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2})$/);
   if(m3) return '20'+m3[3]+'-'+m3[2].padStart(2,'0')+'-'+m3[1].padStart(2,'0');
   if(s.length>=10) return s.slice(0,10).replace(/\//g,'-');
-  return today();
+  return ''; // تنسيق غير مفهوم — نتركه فارغاً بدل افتراض تاريخ اليوم
 };
 const _fixPay = v => {
   const p=String(v||'').toLowerCase();
@@ -7718,6 +7810,19 @@ async function pickPurchBulkFile(input){
 
       if(!_purchBulkParsed.length)throw new Error('لم يتم استخراج أي فاتورة');
 
+      // رفض الفواتير اللي مفيش فيها تاريخ واضح خالص
+      let _noDateCount=0;
+      _purchBulkParsed=_purchBulkParsed.filter(inv=>{
+        if(!inv.date){_noDateCount++;return false;}
+        return true;
+      });
+      if(!_purchBulkParsed.length){
+        const msg='⚠️ تم رفض كل الفواتير ('+_noDateCount+') لعدم وجود تاريخ واضح في أي منها — يرجى رفع صورة أوضح أو إدخال التاريخ يدوياً';
+        st.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.15);border-radius:8px;font-size:12px;color:#f87171">'+msg+'</div>';
+        icon.textContent='❌';
+        return;
+      }
+
 
       // فحص التكرار: رفض فقط لو نفس رقم الفاتورة + نفس التاريخ + نفس المبلغ معاً
       const _mkDupKey = inv => {
@@ -7757,7 +7862,12 @@ async function pickPurchBulkFile(input){
         +'<div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(248,113,113,.08);border-radius:8px;margin-top:6px;font-size:13px">'
         +'<span>إجمالي '+_purchBulkParsed.length+' فاتورة</span><span style="font-weight:700;color:#f87171">'+fmt(gTotal)+' ﷼</span></div>';
       document.getElementById('pb-save-btn').style.display='block';
-      st.innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">✅ راجع الفواتير وأكد الحفظ</div>';
+      let _statusMsg='✅ راجع الفواتير وأكد الحفظ';
+      const _rejParts=[];
+      if(_dupCount>0) _rejParts.push(_dupCount+' مكررة');
+      if(_noDateCount>0) _rejParts.push(_noDateCount+' بدون تاريخ واضح');
+      if(_rejParts.length) _statusMsg+=' — تم تجاهل '+_rejParts.join(' و ');
+      st.innerHTML='<div style="padding:8px 12px;background:rgba(52,211,153,.1);border-radius:8px;font-size:12px;color:#34d399">'+_statusMsg+'</div>';
       icon.textContent='✅';
     }catch(e){
       st.innerHTML='<div style="padding:8px 12px;background:rgba(248,113,113,.12);border-radius:8px;font-size:12px;color:#f87171">❌ '+e.message+'</div>';
