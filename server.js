@@ -723,6 +723,88 @@ const server = http.createServer(async (req, res) => {
     await saveConfig(data);
     return sendJSON(res, { ok: true, entry, total });
   }
+
+  // نقل عامل واحد بعينه من سجل عمالة لمشروع تاني (مش السجل كامل)
+  if (pathname === '/api/labor/move-worker' && req.method === 'POST') {
+    try {
+      const { entryId, workerType, name, jobTitle, targetProject } = await parseBody(req);
+      const data = await loadDB();
+      const rates = data.laborRates || { company: 100, external: 150 };
+      const srcIdx = data.entries.findIndex(e => e.id === entryId);
+      if (srcIdx === -1) return sendJSON(res, { error: 'السجل غير موجود' }, 404);
+      const src = data.entries[srcIdx];
+      if (!targetProject) return sendJSON(res, { error: 'يرجى اختيار المشروع الهدف' }, 400);
+      if (targetProject === src.project) return sendJSON(res, { error: 'العامل مسجل بالفعل في هذا المشروع' }, 400);
+
+      let movedWorker = null;
+      if (workerType === 'company') {
+        const list = src.laborDetails?.presentWorkers || [];
+        const idx = list.findIndex(w => w.name === name);
+        if (idx === -1) return sendJSON(res, { error: 'العامل غير موجود في هذا السجل' }, 404);
+        movedWorker = list.splice(idx, 1)[0];
+      } else {
+        const list = src.laborDetails?.externalWorkersList || [];
+        const idx = list.findIndex(w => w.name === name && (w.jobTitle || '') === (jobTitle || ''));
+        if (idx === -1) return sendJSON(res, { error: 'العامل غير موجود في هذا السجل' }, 404);
+        movedWorker = list.splice(idx, 1)[0];
+      }
+
+      const recompute = (entry) => {
+        const pw = entry.laborDetails.presentWorkers || [];
+        const ew = entry.laborDetails.externalWorkersList || [];
+        const companyCount = pw.length, externalCount = ew.length;
+        const externalTotal = externalCount * rates.external;
+        const total = companyCount * rates.company + externalTotal;
+        entry.laborDetails.companyCount = companyCount;
+        entry.laborDetails.externalCount = externalCount;
+        entry.laborDetails.laborTotal = total;
+        entry.laborDetails.companyNames = pw.map(w => w.name).join('، ');
+        entry.laborDetails.externalNames = ew.map(w => `${w.name} (${w.jobTitle})`).join('، ');
+        entry.subtotal = externalTotal;
+        entry.total = externalTotal;
+        entry.items = [...pw.map(w => ({ desc: w.name, qty: 1, unit: 'يوم', unitPrice: rates.company, total: rates.company, type: 'company' })), ...ew.map(w => ({ desc: `${w.name} - ${w.jobTitle}`, qty: 1, unit: 'يوم', unitPrice: rates.external, total: rates.external, type: 'external' }))];
+      };
+      recompute(src);
+
+      if (src.laborDetails.companyCount + src.laborDetails.externalCount === 0) {
+        await deleteEntry(src.id);
+        data.entries.splice(srcIdx, 1);
+      } else {
+        await updateEntry(src.id, { laborDetails: src.laborDetails, items: src.items, subtotal: src.subtotal, total: src.total });
+      }
+
+      // ابحث عن سجل موجود بنفس التاريخ والمشرف والمشروع الهدف، أو أنشئ سجل جديد
+      let target = data.entries.find(e => e.type === 'labor' && e.date === src.date && e.supId === src.supId && e.project === targetProject);
+      if (target) {
+        if (workerType === 'company') {
+          target.laborDetails.presentWorkers = target.laborDetails.presentWorkers || [];
+          target.laborDetails.presentWorkers.push(movedWorker);
+        } else {
+          target.laborDetails.externalWorkersList = target.laborDetails.externalWorkersList || [];
+          target.laborDetails.externalWorkersList.push(movedWorker);
+        }
+        recompute(target);
+        await updateEntry(target.id, { laborDetails: target.laborDetails, items: target.items, subtotal: target.subtotal, total: target.total });
+      } else {
+        const presentWorkers = workerType === 'company' ? [movedWorker] : [];
+        const externalWorkersList = workerType === 'external' ? [movedWorker] : [];
+        const companyCount = presentWorkers.length, externalCount = externalWorkersList.length;
+        const externalTotal = externalCount * rates.external;
+        const total = companyCount * rates.company + externalTotal;
+        const newEntry = {
+          id: data.nextId++, supId: src.supId, supName: src.supName, project: targetProject, type: 'labor',
+          desc: `عمالة ${src.date}`, supplier: '', invoiceNo: 'LAB-' + Date.now(), date: src.date, payMethod: 'cash',
+          subtotal: externalTotal, taxRate: 0, taxAmt: 0, total: externalTotal,
+          items: [...presentWorkers.map(w => ({ desc: w.name, qty: 1, unit: 'يوم', unitPrice: rates.company, total: rates.company, type: 'company' })), ...externalWorkersList.map(w => ({ desc: `${w.name} - ${w.jobTitle}`, qty: 1, unit: 'يوم', unitPrice: rates.external, total: rates.external, type: 'external' }))],
+          laborDetails: { presentWorkers, externalWorkersList, companyCount, externalCount, companyRate: rates.company, externalRate: rates.external, laborTotal: total, companyNames: presentWorkers.map(w => w.name).join('، '), externalNames: externalWorkersList.map(w => `${w.name} (${w.jobTitle})`).join('، ') }
+        };
+        await addEntry(newEntry);
+      }
+      await saveConfig(data);
+      _cache = null;
+      return sendJSON(res, { ok: true });
+    } catch (e) { return sendJSON(res, { error: e.message }, 500); }
+  }
   if (pathname === '/api/transfer' && req.method === 'POST') {
     const { fromId, toId, amount, note } = await parseBody(req);
     const data = await loadDB();
