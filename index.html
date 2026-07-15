@@ -5424,52 +5424,62 @@ function buildLaborTable(laborEntries, fromDate, toDate){
 function editLaborProject(entryId){
   const e = DB.entries.find(x=>x.id===entryId);
   if(!e){alert('لم يتم العثور على السجل');return;}
-  const projOpts = DB.projects.map(p=>`<option ${p===e.project?'selected':''}>${p}</option>`).join('');
-  const workerNames = [
-    ...(e.laborDetails?.presentWorkers||[]).map(w=>'🏢 '+w.name),
-    ...(e.laborDetails?.externalWorkersList||[]).map(w=>'👷 '+w.name+' ('+w.jobTitle+')')
-  ];
+  const projOpts = otherProj => DB.projects.filter(p=>p!==e.project).map(p=>`<option>${p}</option>`).join('');
+  const compWorkers = e.laborDetails?.presentWorkers||[];
+  const extWorkers = e.laborDetails?.externalWorkersList||[];
   const old = document.getElementById('edit-labor-modal');
   if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'edit-labor-modal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  const workerRow = (type, w, idx) => `
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+      <div style="flex:1;font-size:12px">${type==='company'?'🏢':'👷'} ${w.name}${type==='external'?' ('+w.jobTitle+')':''}</div>
+      <select id="mv-proj-${type}-${idx}" style="flex:1;font-size:11px;color:#fff;background:rgba(255,255,255,.08)">
+        <option value="">-- انقل إلى --</option>
+        ${projOpts()}
+      </select>
+      <button onclick="moveWorkerToProject(${entryId},'${type}',${idx})" style="border:none;background:rgba(112,181,255,.2);color:#70B5FF;padding:6px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;white-space:nowrap">نقل</button>
+    </div>`;
   m.innerHTML = `
-    <div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div style="font-size:14px;font-weight:700;color:#70B5FF">✏️ نقل العمالة لمشروع آخر</div>
+    <div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:700;color:#70B5FF">✏️ نقل عامل بعينه لمشروع آخر</div>
         <button onclick="document.getElementById('edit-labor-modal').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button>
       </div>
-      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">التاريخ: ${e.date} · المشرف: ${gn(e.supId)}</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.8);margin-bottom:14px;background:rgba(255,255,255,.05);border-radius:8px;padding:8px 10px">
-        العمال في هذا السجل:<br>${workerNames.join('<br>')||'—'}
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">التاريخ: ${e.date} · المشرف: ${gn(e.supId)} · المشروع الحالي: ${e.project}</div>
+      <div id="mv-err" class="err" style="display:none"></div>
+      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:6px 10px;margin-bottom:8px">
+        ${compWorkers.length?'<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);margin-top:6px">عمال الشركة</div>'+compWorkers.map((w,i)=>workerRow('company',w,i)).join(''):''}
+        ${extWorkers.length?'<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);margin-top:6px">العمال الخارجيون</div>'+extWorkers.map((w,i)=>workerRow('external',w,i)).join(''):''}
+        ${(!compWorkers.length&&!extWorkers.length)?'<div style="padding:8px;font-size:11px;color:rgba(255,255,255,.4)">لا يوجد عمال في هذا السجل</div>':''}
       </div>
-      <div class="fg"><label class="lbl">المشروع الحالي</label>
-        <input value="${e.project}" disabled style="opacity:.6"></div>
-      <div class="fg"><label class="lbl">انقل إلى المشروع</label>
-        <select id="elp-proj" style="color:#fff;background:rgba(255,255,255,.08)">${projOpts}</select></div>
-      <div class="err" id="elp-err" style="display:none"></div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button onclick="saveLaborProjectChange(${entryId})" style="flex:1;padding:11px;background:rgba(112,181,255,.2);color:#70B5FF;border:1px solid rgba(112,181,255,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 حفظ النقل</button>
-        <button onclick="document.getElementById('edit-labor-modal').remove()" style="padding:11px 14px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء</button>
+      <div style="text-align:left">
+        <button onclick="document.getElementById('edit-labor-modal').remove()" style="padding:9px 16px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:12px">إغلاق</button>
       </div>
     </div>`;
   document.body.appendChild(m);
 }
 
-async function saveLaborProjectChange(entryId){
-  const newProject = document.getElementById('elp-proj')?.value;
-  const err = document.getElementById('elp-err');
-  if(!newProject){err.style.display='block';err.textContent='⚠️ اختر مشروعاً';return;}
+async function moveWorkerToProject(entryId, workerType, idx){
+  const e = DB.entries.find(x=>x.id===entryId);
+  if(!e){return;}
+  const w = workerType==='company' ? (e.laborDetails?.presentWorkers||[])[idx] : (e.laborDetails?.externalWorkersList||[])[idx];
+  if(!w){return;}
+  const targetProject = document.getElementById('mv-proj-'+workerType+'-'+idx)?.value;
+  const err = document.getElementById('mv-err');
+  if(!targetProject){err.style.display='block';err.textContent='⚠️ اختر مشروعاً لنقل العامل إليه';return;}
   try{
-    const res = await api('/api/entries/'+entryId,'PATCH',{project:newProject});
+    const res = await api('/api/labor/move-worker','POST',{
+      entryId, workerType, name:w.name, jobTitle:w.jobTitle||'', targetProject
+    });
     if(res.error) throw new Error(res.error);
     DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     document.getElementById('edit-labor-modal').remove();
     rLaborMgr();
-  }catch(e){
+  }catch(ex){
     err.style.display='block';
-    err.textContent='❌ '+e.message;
+    err.textContent='❌ '+ex.message;
   }
 }
 
