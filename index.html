@@ -3702,6 +3702,17 @@ function rReports(){
       </div>
       ${rFrom||rTo?`<div style="margin-top:8px;font-size:11px;color:#1A7A3C;font-weight:600">📅 يعرض من ${rFrom||'البداية'} إلى ${rTo||'الآن'}</div>`:''}
     </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:8px">📄 تقرير شامل لكل مشروع</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">كل شيء مسجل على المشروع: فواتير، مرتجعات، عمالة (داخلية وخارجية)، مبيعات، عقود</div>
+      <div class="fg"><label class="lbl">اختر المشروع</label>
+        <select id="rep-proj-full-pdf" style="color:#fff;background:rgba(255,255,255,.08)">
+          <option value="">-- اختر مشروع --</option>
+          ${DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('')}
+        </select>
+      </div>
+      <button onclick="exportProjectFullReportPDF(document.getElementById('rep-proj-full-pdf').value, window._reportFrom||'', window._reportTo||'')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير التقرير الشامل</button>
+    </div>
     <div class="card" style="background:transparent"><div class="ctitle">تقرير المشرفين</div>
     ${DB.supervisors.map((s,i)=>{
       const sp=gs(s.id),rem=getBalance(s.id),
@@ -5477,6 +5488,110 @@ function exportProjectLaborPDF(project, fromDate, toDate){
   const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
 }
 
+// ── تقرير شامل للمشروع: كل شيء مسجل عليه (فواتير، مرتجعات، عمالة، مبيعات، عقود) ──
+function exportProjectFullReportPDF(project, fromDate, toDate){
+  if(!project){alert('يرجى اختيار مشروع أولاً');return;}
+
+  let entries = DB.entries.filter(e=>e.project===project);
+  if(fromDate) entries = entries.filter(e=>e.date>=fromDate);
+  if(toDate) entries = entries.filter(e=>e.date<=toDate);
+
+  const expenseEntries = entries.filter(e=>e.type==='petty'||e.type==='tax').sort((a,b)=>a.date.localeCompare(b.date));
+  const returnEntries  = entries.filter(e=>e.type==='return').sort((a,b)=>a.date.localeCompare(b.date));
+  const laborEntries   = entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').sort((a,b)=>a.date.localeCompare(b.date));
+
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]').filter(s=>s.project===project);
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]').filter(c=>c.project===project);
+
+  if(!expenseEntries.length && !returnEntries.length && !laborEntries.length && !sales.length && !contracts.length){
+    alert('لا توجد أي بيانات مسجلة على هذا المشروع في الفترة المحددة');
+    return;
+  }
+
+  const totalExpense = expenseEntries.reduce((a,e)=>a+(e.total||0),0);
+  const totalReturns  = returnEntries.reduce((a,e)=>a+(e.total||0),0);
+  const totalLabor    = laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const totalSales    = sales.reduce((a,s)=>a+(s.total||0),0);
+  const totalContracts= contracts.reduce((a,c)=>a+(c.value||0),0);
+  const netCost       = totalExpense - totalReturns + totalLabor;
+
+  // Labor breakdown (company & external)
+  const externalRate = (DB.laborRates||{}).external||150;
+  const companyRate  = (DB.laborRates||{}).company||100;
+  const extW={}, compW={};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList){
+      e.laborDetails.externalWorkersList.forEach(w=>{
+        const k=w.name+'||'+w.jobTitle;
+        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0};
+        extW[k].days++; extW[k].total+=externalRate;
+      });
+    }
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!compW[w.name])compW[w.name]={name:w.name,days:0,total:0};
+        compW[w.name].days++; compW[w.name].total+=companyRate;
+      });
+    }
+  });
+  const extList = Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList = Object.values(compW).sort((a,b)=>b.days-a.days);
+
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const periodStr = (fromDate||toDate) ? ((fromDate||'البداية')+' → '+(toDate||'الآن')) : 'كل الفترات';
+
+  const expTable = expenseEntries.length ? `
+    <h2 style="background:#dbeafe;color:#1d4ed8;padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">🧾 الفواتير والمصروفات (${expenseEntries.length})</h2>
+    <table><tr><th>التاريخ</th><th>الوصف/المورد</th><th>رقم الفاتورة</th><th>النوع</th><th>المبلغ</th></tr>
+    ${expenseEntries.map(e=>`<tr><td>${e.date}</td><td style="font-size:11px">${e.desc||e.supplier||'—'}</td><td>${e.invoiceNo||'—'}</td><td>${e.type==='tax'?'ضريبية':'نثرية'}</td><td style="font-weight:700;color:#D93025">${fmt(e.total)} ﷼</td></tr>`).join('')}
+    <tr class="tr"><td colspan="4">الإجمالي</td><td>${fmt(totalExpense)} ﷼</td></tr></table>` : '';
+
+  const retTable = returnEntries.length ? `
+    <h2 style="background:#dcfce7;color:#166534;padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">↩️ المرتجعات (${returnEntries.length})</h2>
+    <table><tr><th>التاريخ</th><th>الوصف/المورد</th><th>رقم الفاتورة</th><th>المبلغ</th></tr>
+    ${returnEntries.map(e=>`<tr><td>${e.date}</td><td style="font-size:11px">${e.desc||e.supplier||'—'}</td><td>${e.invoiceNo||'—'}</td><td style="font-weight:700;color:#166534">+${fmt(e.total)} ﷼</td></tr>`).join('')}
+    <tr class="tr"><td colspan="3">الإجمالي</td><td>${fmt(totalReturns)} ﷼</td></tr></table>` : '';
+
+  const laborTables = (extList.length||compList.length) ? `
+    <h2 style="background:#fef3c7;color:#b45309;padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">👷 العمالة (داخلية وخارجية)</h2>
+    ${extList.length?`<table><tr><th>عامل خارجي</th><th>الصفة</th><th>أيام</th><th>التكلفة</th></tr>
+    ${extList.map(w=>`<tr><td style="font-weight:700">${w.name}</td><td>${w.jobTitle}</td><td style="text-align:center">${w.days}</td><td style="font-weight:700;color:#b45309">${fmt(w.total)} ﷼</td></tr>`).join('')}
+    <tr class="tr"><td colspan="2">الإجمالي</td><td style="text-align:center">${extList.reduce((a,w)=>a+w.days,0)} يوم</td><td>${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</td></tr></table>`:''}
+    ${compList.length?`<table style="margin-top:6px"><tr><th>عامل شركة (داخلي)</th><th>أيام</th></tr>
+    ${compList.map(w=>`<tr><td style="font-weight:700">${w.name}</td><td style="text-align:center">${w.days}</td></tr>`).join('')}
+    <tr class="tr"><td>الإجمالي</td><td style="text-align:center">${compList.reduce((a,w)=>a+w.days,0)} يوم</td></tr></table>`:''}
+    <div style="text-align:left;margin-top:4px;font-weight:800;color:#b45309;font-size:13px">إجمالي تكلفة العمالة: ${fmt(totalLabor)} ﷼</div>` : '';
+
+  const salesTable = sales.length ? `
+    <h2 style="background:#ede9fe;color:#7c3aed;padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">💰 المبيعات (${sales.length})</h2>
+    <table><tr><th>التاريخ</th><th>العميل</th><th>رقم الفاتورة</th><th>المبلغ</th></tr>
+    ${sales.map(s=>`<tr><td>${s.date}</td><td style="font-size:11px">${s.client||'—'}</td><td>${s.invoiceNo||'—'}</td><td style="font-weight:700;color:#7c3aed">${fmt(s.total)} ﷼</td></tr>`).join('')}
+    <tr class="tr"><td colspan="3">الإجمالي</td><td>${fmt(totalSales)} ﷼</td></tr></table>` : '';
+
+  const contractsTable = contracts.length ? `
+    <h2 style="background:#e0e7ff;color:#4338ca;padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">📋 العقود (${contracts.length})</h2>
+    <table><tr><th>العميل</th><th>التاريخ</th><th>قيمة العقد</th><th>المُحصّل</th></tr>
+    ${contracts.map(c=>{
+      const received=(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0);
+      return `<tr><td style="font-weight:700">${c.clientName||'—'}</td><td>${c.date||'—'}</td><td>${fmt(c.value||0)} ﷼</td><td style="color:#166534;font-weight:700">${fmt(received)} ﷼</td></tr>`;
+    }).join('')}
+    <tr class="tr"><td colspan="2">الإجمالي</td><td>${fmt(totalContracts)} ﷼</td><td></td></tr></table>` : '';
+
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير شامل للمشروع</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.net{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid #D93025;background:#fee2e2}</style></head><body>'
+    +'<div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:900;color:#111">🏗️ كيان وبناء للمقاولات</div>'
+    +'<h1>تقرير شامل للمشروع</h1><div style="font-size:13px;font-weight:700;margin-bottom:2px">المشروع: '+project+'</div>'
+    +'<div style="font-size:11px;color:#555;margin-bottom:12px">الفترة: '+periodStr+' · صدر بتاريخ '+now+'</div>'
+    +'<div class="sum"><div class="box"><div class="bl">إجمالي الفواتير</div><div class="bv" style="color:#1d4ed8">'+fmt(totalExpense)+' ﷼</div></div><div class="box"><div class="bl">إجمالي المرتجعات</div><div class="bv" style="color:#166534">'+fmt(totalReturns)+' ﷼</div></div><div class="box"><div class="bl">تكلفة العمالة</div><div class="bv" style="color:#b45309">'+fmt(totalLabor)+' ﷼</div></div>'
+    +(sales.length?'<div class="box"><div class="bl">إجمالي المبيعات</div><div class="bv" style="color:#7c3aed">'+fmt(totalSales)+' ﷼</div></div>':'')
+    +(contracts.length?'<div class="box"><div class="bl">قيمة العقود</div><div class="bv" style="color:#4338ca">'+fmt(totalContracts)+' ﷼</div></div>':'')
+    +'</div>'
+    +'<div class="net"><div style="font-size:11px;color:#555;margin-bottom:4px">صافي التكلفة = فواتير '+fmt(totalExpense)+' − مرتجعات '+fmt(totalReturns)+' + عمالة '+fmt(totalLabor)+'</div><div style="font-size:20px;font-weight:900;color:#D93025">'+fmt(netCost)+' ﷼</div></div>'
+    +expTable+retTable+laborTables+salesTable+contractsTable
+    +'</body></html>';
+  const win2=window.open('','_blank');win2.document.write(html);win2.document.close();setTimeout(()=>win2.print(),700);
+}
+
 // ── LABOR MANAGER ──────────────────────
 function rLaborMgr(){
   const rates = DB.laborRates || {company:100, external:150};
@@ -6038,9 +6153,23 @@ function rOwnerProj(){
   });
   const sorted=Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
   document.getElementById('mc').innerHTML=`
+    <div class="card" style="padding:12px 14px;margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:8px">📄 تقرير شامل لكل مشروع</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px">كل شيء مسجل على المشروع: فواتير، مرتجعات، عمالة (داخلية وخارجية)، مبيعات، عقود</div>
+      <div class="fg"><label class="lbl">اختر المشروع</label>
+        <select id="proj-full-pdf" style="color:#fff;background:rgba(255,255,255,.08)">
+          <option value="">-- اختر مشروع --</option>
+          ${DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('')}
+        </select>
+      </div>
+      <button onclick="exportProjectFullReportPDF(document.getElementById('proj-full-pdf').value,'','')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير التقرير الشامل</button>
+    </div>
     <div class="shdr">تقرير المشاريع</div>
     ${sorted.map(([proj,d])=>`<div class="card">
-      <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:8px">${proj}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9)">${proj}</div>
+        <button onclick="exportProjectFullReportPDF('${proj.replace(/'/g,"\\'")}','','')" style="border:none;background:rgba(245,200,66,.15);color:#f5c842;padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تقرير شامل</button>
+      </div>
       <div class="sg">
         <div class="stat"><div class="sl">إجمالي</div><div class="sv" style="color:var(--r);font-size:15px">${fmt(d.total)} ﷼</div></div>
         <div class="stat"><div class="sl">عدد المعاملات</div><div class="sv" style="font-size:15px">${d.count}</div></div>
