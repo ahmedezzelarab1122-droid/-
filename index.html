@@ -5410,12 +5410,67 @@ function buildLaborTable(laborEntries, fromDate, toDate){
       <div class="card" style="padding:12px 14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
           <div style="font-weight:800;color:rgba(255,255,255,.9)">${e.date}</div>
-          <div style="font-size:12px;color:var(--red);font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:12px;color:var(--red);font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
+            ${ROLE==='manager'?`<button onclick="editLaborProject(${e.id})" style="border:none;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:14px">✏️</button>`:''}
+          </div>
         </div>
         <div style="font-size:11px;color:rgba(255,255,255,.75);margin-bottom:5px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}</div>
         ${e.laborDetails?.presentWorkers?.length?`<div style="background:rgba(245,200,66,.1);border-radius:7px;padding:6px 10px;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.9)">🏢 (${e.laborDetails.companyCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</span></div>`:''}
         ${e.laborDetails?.externalWorkersList?.length?`<div style="background:rgba(112,181,255,.12);border-radius:7px;padding:6px 10px"><span style="font-size:11px;font-weight:700;color:var(--blue)">👷 (${e.laborDetails.externalCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.externalWorkersList.map(w=>w.name+' ('+w.jobTitle+')').join(' · ')}</span></div>`:''}
       </div>`).join('')}`;
+}
+
+function editLaborProject(entryId){
+  const e = DB.entries.find(x=>x.id===entryId);
+  if(!e){alert('لم يتم العثور على السجل');return;}
+  const projOpts = DB.projects.map(p=>`<option ${p===e.project?'selected':''}>${p}</option>`).join('');
+  const workerNames = [
+    ...(e.laborDetails?.presentWorkers||[]).map(w=>'🏢 '+w.name),
+    ...(e.laborDetails?.externalWorkersList||[]).map(w=>'👷 '+w.name+' ('+w.jobTitle+')')
+  ];
+  const old = document.getElementById('edit-labor-modal');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'edit-labor-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = `
+    <div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:700;color:#70B5FF">✏️ نقل العمالة لمشروع آخر</div>
+        <button onclick="document.getElementById('edit-labor-modal').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">التاريخ: ${e.date} · المشرف: ${gn(e.supId)}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.8);margin-bottom:14px;background:rgba(255,255,255,.05);border-radius:8px;padding:8px 10px">
+        العمال في هذا السجل:<br>${workerNames.join('<br>')||'—'}
+      </div>
+      <div class="fg"><label class="lbl">المشروع الحالي</label>
+        <input value="${e.project}" disabled style="opacity:.6"></div>
+      <div class="fg"><label class="lbl">انقل إلى المشروع</label>
+        <select id="elp-proj" style="color:#fff;background:rgba(255,255,255,.08)">${projOpts}</select></div>
+      <div class="err" id="elp-err" style="display:none"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="saveLaborProjectChange(${entryId})" style="flex:1;padding:11px;background:rgba(112,181,255,.2);color:#70B5FF;border:1px solid rgba(112,181,255,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 حفظ النقل</button>
+        <button onclick="document.getElementById('edit-labor-modal').remove()" style="padding:11px 14px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+async function saveLaborProjectChange(entryId){
+  const newProject = document.getElementById('elp-proj')?.value;
+  const err = document.getElementById('elp-err');
+  if(!newProject){err.style.display='block';err.textContent='⚠️ اختر مشروعاً';return;}
+  try{
+    const res = await api('/api/entries/'+entryId,'PATCH',{project:newProject});
+    if(res.error) throw new Error(res.error);
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+    document.getElementById('edit-labor-modal').remove();
+    rLaborMgr();
+  }catch(e){
+    err.style.display='block';
+    err.textContent='❌ '+e.message;
+  }
 }
 
 // ── تقرير عمالة PDF لكل مشروع (عمالة داخلية وخارجية) ──
