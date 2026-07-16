@@ -4981,7 +4981,7 @@ async function doDeductBudget(){
     DB=await api('/api/db');if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     document.getElementById('deduct-budget-form').remove();
     rSetup();
-  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+  }catch(e){err.style.display='block';err.textContent=e.message||'خطأ في الاتصال';}
 }
 
 // ── ADD BUDGET ─────────────────────────
@@ -5009,7 +5009,7 @@ async function doAddBudget(){
     DB=await api('/api/db');
     document.getElementById('add-budget-form').style.display='none';
     rSetup();
-  }catch(e){err.style.display='block';err.textContent='خطأ في الاتصال';}
+  }catch(e){err.style.display='block';err.textContent=e.message||'خطأ في الاتصال';}
 }
 
 // ── MANAGER TRANSFER ──────────────────
@@ -5098,7 +5098,7 @@ async function doTransfer(){
     ok.style.display='flex';
     setTimeout(()=>{ok.style.display='none';rTransfer();},2500);
   }catch(e){
-    err.style.display='block';err.textContent='خطأ في الاتصال';
+    err.style.display='block';err.textContent=e.message||'خطأ في الاتصال';
   }
 }
 
@@ -5179,7 +5179,7 @@ async function doSTransfer(){
     ok.style.display='flex';
     setTimeout(()=>{ok.style.display='none';rSTransfer();},2500);
   }catch(e){
-    err.style.display='block';err.textContent='خطأ في الاتصال';
+    err.style.display='block';err.textContent=e.message||'خطأ في الاتصال';
   }
 }
 
@@ -5982,7 +5982,7 @@ async function submitWaitingLabor(){
     document.getElementById('wait-ext-list').innerHTML='';
     setTimeout(()=>{ok.style.display='none';rLaborMgr();},2000);
   }catch(e){
-    err.style.display='block';err.textContent='خطأ في الاتصال';
+    err.style.display='block';err.textContent=e.message||'خطأ في الاتصال';
   }
 }
 
@@ -6141,7 +6141,7 @@ async function submitLabor(){
     ok.style.display='flex';
     setTimeout(()=>{ok.style.display='none';rLaborSup();},2000);
   }catch(e){
-    err.style.display='block';err.textContent='خطأ في الاتصال';
+    err.style.display='block';err.textContent=e.message||'خطأ في الاتصال';
   }
 }
 
