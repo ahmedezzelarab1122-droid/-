@@ -5794,7 +5794,10 @@ function rLaborMgr(){
       <div class="card" style="padding:12px 14px;background:transparent">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
           <div style="font-weight:800;color:rgba(255,255,255,.9);font-size:14px">${e.date}</div>
-          <div style="font-size:12px;color:#D93025;font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:12px;color:#D93025;font-weight:700">${fmt(e.laborDetails?.laborTotal||0)} ﷼</div>
+            ${ROLE==='manager'?`<button onclick="editLaborProject(${e.id})" style="border:none;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:14px">✏️</button>`:''}
+          </div>
         </div>
         <div style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:5px">${gn(e.supId)} · ${e.project}${e.laborDetails?.isWaiting?' · <span style="color:#FFB347;font-size:10px;font-weight:700">⏳ انتظار</span>':''}</div>
         ${e.laborDetails?.presentWorkers?.length?`<div style="background:rgba(245,200,66,.1);border-radius:8px;padding:7px 10px;margin-bottom:4px"><span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.9)">🏢 (${e.laborDetails.companyCount}): </span><span style="font-size:11px;color:rgba(255,255,255,.85)">${e.laborDetails.presentWorkers.map(w=>w.name).join(' · ')}</span></div>`:''}
