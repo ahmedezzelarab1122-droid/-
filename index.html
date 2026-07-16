@@ -6000,7 +6000,7 @@ async function saveLaborRates(){
 function rLaborSup(){
   const rates = DB.laborRates || {company:100,external:150};
   const workers = DB.companyWorkers || [];
-  const pOpts = DB.projects.map(p=>`<option>${p}</option>`).join('');
+  const pOpts = '<option value="">-- اختر المشروع --</option>'+DB.projects.map(p=>`<option>${p}</option>`).join('');
   const myLabor = DB.entries.filter(e=>e.supId==CU.id&&e.type==='labor').slice(-5).reverse();
   
   document.getElementById('mc').innerHTML=`
@@ -6098,6 +6098,11 @@ function calcLabor(){
 async function submitLabor(){
   if(ROLE==='accountant'){
     const proj = document.getElementById('lab-proj')?.value||'';
+    if(!proj){
+      const err = document.getElementById('lab-err');
+      if(err){err.style.display='block';err.textContent='⚠️ يجب اختيار المشروع أولاً قبل تسجيل العمالة';}
+      return;
+    }
     submitPendingRequest('submitLabor', 'تسجيل عمالة — '+proj, 0, {type:'labor',project:proj});
     return;
   }
@@ -6105,7 +6110,11 @@ async function submitLabor(){
   const err = document.getElementById('lab-err');
   const ok = document.getElementById('lab-ok');
   err.style.display='none'; ok.style.display='none';
-  
+
+  if(!project){
+    err.style.display='block';err.textContent='⚠️ يجب اختيار المشروع أولاً قبل تسجيل العمالة';return;
+  }
+
   // Collect present company workers
   const workers = DB.companyWorkers || [];
   const presentWorkers = workers.filter(w => document.getElementById('cw-'+w.id)?.checked).map(w=>({id:w.id,name:w.name,jobTitle:w.jobTitle}));
