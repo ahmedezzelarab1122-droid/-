@@ -3924,23 +3924,106 @@ async function saveWorkerPayment(workerKey, amount, note){
     return;
   }
   const payments = getWorkerPayments();
+  const paymentId = 'wp_'+Date.now();
+  // Also record as petty expense
+  const wName = workerKey.split('||')[0];
+  let entryId = null;
+  try{
+    const entryRes = await api('/api/entries','POST',{
+      supId:0, supName:'المدير', project:'مصروفات العمالة',
+      type:'petty', desc:'حساب عامل خارجي: '+wName,
+      date:today(), payMethod:'cash',
+      subtotal:amount, taxRate:0, taxAmt:0, total:amount
+    });
+    if(entryRes&&entryRes.entry) entryId = entryRes.entry.id;
+  }catch(e){}
   payments.push({
-    id:'wp_'+Date.now(),
+    id:paymentId,
     workerKey, amount, note:note||'حساب عامل خارجي',
-    date:today(), paidAt:new Date().toLocaleString('ar-SA')
+    date:today(), paidAt:new Date().toLocaleString('ar-SA'),
+    entryId
   });
   localStorage.setItem('kayan_worker_payments',JSON.stringify(payments));
   await api('/api/worker-payments','POST',{payments}).catch(()=>{});
-  // Also record as petty expense
-  const wName = workerKey.split('||')[0];
-  await api('/api/entries','POST',{
-    supId:0, supName:'المدير', project:'مصروفات العمالة',
-    type:'petty', desc:'حساب عامل خارجي: '+wName,
-    date:today(), payMethod:'cash',
-    subtotal:amount, taxRate:0, taxAmt:0, total:amount
-  }).catch(()=>{});
   DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   rExternalWorkersAccounting();
+}
+
+function editWorkerPayment(paymentId){
+  const payments = getWorkerPayments();
+  const p = payments.find(x=>x.id===paymentId);
+  if(!p){alert('لم يتم العثور على الدفعة');return;}
+  const old = document.getElementById('edit-wp-modal');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'edit-wp-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML = `
+    <div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:360px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:700;color:#34d399">✏️ تعديل الدفعة</div>
+        <button onclick="document.getElementById('edit-wp-modal').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">العامل: ${p.workerKey.split('||')[0]}</div>
+      <div class="fg2">
+        <div><label class="lbl">التاريخ</label><input type="date" id="ewp-date" value="${p.date||''}"></div>
+        <div><label class="lbl">المبلغ ﷼</label><input type="number" id="ewp-amount" value="${p.amount||0}" step="0.01"></div>
+      </div>
+      <div class="fg"><label class="lbl">ملاحظة</label><input id="ewp-note" value="${p.note||''}"></div>
+      <div class="err" id="ewp-err" style="display:none"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="saveWorkerPaymentEdit('${paymentId}')" style="flex:1;padding:11px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">💾 حفظ</button>
+        <button onclick="document.getElementById('edit-wp-modal').remove()" style="padding:11px 14px;background:transparent;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+async function saveWorkerPaymentEdit(paymentId){
+  const date = document.getElementById('ewp-date')?.value;
+  const amount = parseFloat(document.getElementById('ewp-amount')?.value)||0;
+  const note = document.getElementById('ewp-note')?.value.trim();
+  const err = document.getElementById('ewp-err');
+  if(!amount||amount<=0){err.style.display='block';err.textContent='⚠️ أدخل مبلغاً صحيحاً';return;}
+  if(!date){err.style.display='block';err.textContent='⚠️ أدخل التاريخ';return;}
+  const payments = getWorkerPayments();
+  const idx = payments.findIndex(x=>x.id===paymentId);
+  if(idx===-1){err.style.display='block';err.textContent='الدفعة غير موجودة';return;}
+  const p = payments[idx];
+  try{
+    if(p.entryId){
+      await api('/api/entries/'+p.entryId,'PATCH',{date,total:amount,subtotal:amount});
+    }
+    payments[idx] = {...p, date, amount, note: note||p.note};
+    localStorage.setItem('kayan_worker_payments',JSON.stringify(payments));
+    await api('/api/worker-payments','POST',{payments}).catch(()=>{});
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+    document.getElementById('edit-wp-modal').remove();
+    rExternalWorkersAccounting();
+  }catch(e){
+    err.style.display='block';
+    err.textContent='❌ '+e.message;
+  }
+}
+
+async function deleteWorkerPayment(paymentId){
+  if(!confirm('حذف هذه الدفعة؟ سيتم إرجاع المبلغ للمستحق على العامل')) return;
+  const payments = getWorkerPayments();
+  const idx = payments.findIndex(x=>x.id===paymentId);
+  if(idx===-1) return;
+  const p = payments[idx];
+  try{
+    if(p.entryId){
+      await api('/api/entries/'+p.entryId,'DELETE').catch(()=>{});
+    }
+    payments.splice(idx,1);
+    localStorage.setItem('kayan_worker_payments',JSON.stringify(payments));
+    await api('/api/worker-payments','POST',{payments}).catch(()=>{});
+    DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
+    rExternalWorkersAccounting();
+  }catch(e){
+    alert('❌ '+e.message);
+  }
 }
 
 
@@ -4089,8 +4172,13 @@ function _renderExtWorkers(){
 
           // Payment history
           +(workerPayments.length>0?
-            '<div style="margin-top:8px;font-size:10px;color:rgba(255,255,255,.4)">'
-            +workerPayments.map(function(p){return '• '+p.date+': '+fmt(p.amount)+' ﷼';}).join(' · ')
+            '<div style="margin-top:8px">'
+            +workerPayments.map(function(p){
+              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:10px;color:rgba(255,255,255,.6)">'
+                +'<span>• '+p.date+': '+fmt(p.amount)+' ﷼'+(p.note&&p.note!=='حساب عامل خارجي'?' — '+p.note:'')+'</span>'
+                +(canPay?'<span><button onclick="editWorkerPayment(\''+p.id+'\')" style="border:none;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:12px;padding:2px 4px">✏️</button><button onclick="deleteWorkerPayment(\''+p.id+'\')" style="border:none;background:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:12px;padding:2px 4px">🗑</button></span>':'')
+                +'</div>';
+            }).join('')
             +'</div>':''
           )
           +'</div>';
