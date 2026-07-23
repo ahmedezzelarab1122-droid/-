@@ -4027,6 +4027,9 @@ async function deleteWorkerPayment(paymentId){
 }
 
 
+// يجمع أيام العامل الخارجي على اسمه فقط بغض النظر عن اختلاف صيغة المهنة بين يوم وآخر
+const _normWorkerName = s => (s||'').toString().trim().replace(/\s+/g,' ');
+
 function exportExtWorkersPDF(){
   const laborEntries = DB.entries.filter(function(e){return e.type==='labor'&&!e.rejected;});
   const extRate = (DB.laborRates||{}).external||150;
@@ -4037,8 +4040,9 @@ function exportExtWorkersPDF(){
     var eDate=e.date||'';
     var eMonth=eDate.substring(0,7);
     e.laborDetails.externalWorkersList.forEach(function(w){
-      var k=w.name+'||'+(w.jobTitle||'');
-      if(!workers[k]) workers[k]={name:w.name,jobTitle:w.jobTitle||'',days:0,total:0,months:{}};
+      var k=_normWorkerName(w.name);
+      if(!workers[k]) workers[k]={name:_normWorkerName(w.name),jobTitles:new Set(),days:0,total:0,months:{}};
+      if(w.jobTitle) workers[k].jobTitles.add(w.jobTitle);
       workers[k].days++;
       workers[k].total+=(e.laborDetails.externalRate||extRate);
       if(!workers[k].months[eMonth]) workers[k].months[eMonth]=0;
@@ -4047,6 +4051,7 @@ function exportExtWorkersPDF(){
   });
 
   const payments=JSON.parse(localStorage.getItem('kayan_worker_payments')||'[]');
+  const _payForKey = k => payments.filter(function(p){return _normWorkerName((p.workerKey||'').split('||')[0])===k;});
   const list=Object.entries(workers).sort(function(a,b){return b[1].days-a[1].days;});
   const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   const totalDue=list.reduce(function(a,w){return a+w[1].total;},0);
@@ -4054,13 +4059,13 @@ function exportExtWorkersPDF(){
 
   var rows=list.map(function(entry){
     var k=entry[0],w=entry[1];
-    var paid=payments.filter(function(p){return p.workerKey===k;}).reduce(function(a,p){return a+p.amount;},0);
+    var paid=_payForKey(k).reduce(function(a,p){return a+p.amount;},0);
     var left=w.total-paid;
     var isPaid=paid>=w.total;
     var months=Object.entries(w.months).map(function(m){return m[0]+': '+m[1];}).join(' | ');
     return '<tr>'
       +'<td style="font-weight:700">'+(isPaid?'✅ ':'🔴 ')+w.name+'</td>'
-      +'<td>'+w.jobTitle+'</td>'
+      +'<td>'+Array.from(w.jobTitles).join('، ')+'</td>'
       +'<td style="text-align:center">'+w.days+'</td>'
       +'<td style="font-size:10px">'+months+'</td>'
       +'<td style="color:#b45309;font-weight:700">'+fmt(w.total)+' ﷼</td>'
@@ -4083,7 +4088,7 @@ function exportExtWorkersPDF(){
     +'<div style="color:#555;font-size:11px;margin-bottom:10px">شركة كيان وبناء للمقاولات · '+now+'</div>'
     +'<div class="sum">'
     +'<div class="box"><div class="bl">إجمالي العمال</div><div class="bv">'+list.length+'</div></div>'
-    +'<div class="box"><div class="bl">تم محاسبتهم</div><div class="bv" style="color:#166534">'+list.filter(function(w){var p=payments.filter(function(x){return x.workerKey===w[0];}).reduce(function(a,x){return a+x.amount;},0);return p>=w[1].total;}).length+'</div></div>'
+    +'<div class="box"><div class="bl">تم محاسبتهم</div><div class="bv" style="color:#166534">'+list.filter(function(w){var p=_payForKey(w[0]).reduce(function(a,x){return a+x.amount;},0);return p>=w[1].total;}).length+'</div></div>'
     +'<div class="box"><div class="bl">إجمالي المستحق</div><div class="bv" style="color:#991b1b">'+fmt(totalDue)+' ﷼</div></div>'
     +'<div class="box"><div class="bl">إجمالي المدفوع</div><div class="bv" style="color:#166534">'+fmt(totalPaid)+' ﷼</div></div>'
     +'</div>'
@@ -4112,8 +4117,9 @@ function _renderExtWorkers(){
   laborEntries.forEach(function(e){
     if(!e.laborDetails||!e.laborDetails.externalWorkersList) return;
     e.laborDetails.externalWorkersList.forEach(function(w){
-      const k = w.name+'||'+(w.jobTitle||'');
-      if(!workers[k]) workers[k]={name:w.name,jobTitle:w.jobTitle||'',days:0,total:0,dates:[]};
+      const k = _normWorkerName(w.name);
+      if(!workers[k]) workers[k]={name:k,jobTitles:new Set(),days:0,total:0,dates:[]};
+      if(w.jobTitle) workers[k].jobTitles.add(w.jobTitle);
       workers[k].days++;
       workers[k].total += (e.laborDetails.externalRate||extRate);
       workers[k].dates.push(e.date||'');
@@ -4121,6 +4127,7 @@ function _renderExtWorkers(){
   });
 
   const payments = getWorkerPayments();
+  const _payForKey = k => payments.filter(function(p){return _normWorkerName((p.workerKey||'').split('||')[0])===k;});
   const workerList = Object.entries(workers).sort(function(a,b){return b[1].days-a[1].days;});
 
   document.getElementById('mc').innerHTML =
@@ -4140,19 +4147,23 @@ function _renderExtWorkers(){
     +(workerList.length===0?'<div class="empty">لا توجد بيانات عمال خارجيين</div>'
       :workerList.map(function(entry){
         var k=entry[0], w=entry[1];
-        var workerPayments=payments.filter(function(p){return p.workerKey===k;});
+        var workerPayments=_payForKey(k);
         var totalPaid=workerPayments.reduce(function(a,p){return a+p.amount;},0);
         var remaining=w.total-totalPaid;
         var isPaid=totalPaid>=w.total;
+        var jobTitlesStr=Array.from(w.jobTitles).join('، ');
 
         return '<div class="card" style="margin-bottom:10px;border-right:3px solid '+(isPaid?'#34d399':'#f87171')+'">'
           // Header
           +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
           +'<div>'
           +'<div style="font-size:13px;font-weight:700">'+(isPaid?'✅ ':'🔴 ')+w.name+'</div>'
-          +'<div style="font-size:10px;color:rgba(255,255,255,.5)">'+w.jobTitle+' · '+w.days+' أيام · '+w.dates[0]+(w.dates.length>1?' → '+w.dates[w.dates.length-1]:'')+' </div>'
+          +'<div style="font-size:10px;color:rgba(255,255,255,.5)">'+(jobTitlesStr?jobTitlesStr+' · ':'')+w.days+' أيام · '+w.dates[0]+(w.dates.length>1?' → '+w.dates[w.dates.length-1]:'')+' </div>'
           +'</div>'
-          +'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;background:rgba('+(isPaid?'52,211,153':'248,113,113')+',.15);color:'+(isPaid?'#34d399':'#f87171')+'">'+(isPaid?'محاسَب':'باقي له')+' '+fmt(remaining)+' ﷼</span>'
+          +'<div style="display:flex;align-items:center;gap:6px">'
+          +'<button onclick="exportSingleExtWorkerPDF(\''+k.replace(/'/g,"\\'")+'\')" style="border:none;background:rgba(112,181,255,.15);color:#70B5FF;padding:4px 8px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;font-family:Tajawal,sans-serif;white-space:nowrap">📄 PDF</button>'
+          +'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;background:rgba('+(isPaid?'52,211,153':'248,113,113')+',.15);color:'+(isPaid?'#34d399':'#f87171')+';white-space:nowrap">'+(isPaid?'محاسَب':'باقي له')+' '+fmt(remaining)+' ﷼</span>'
+          +'</div>'
           +'</div>'
 
           // Amounts row
@@ -4183,6 +4194,52 @@ function _renderExtWorkers(){
           )
           +'</div>';
       }).join(''));
+}
+
+function exportSingleExtWorkerPDF(workerKey){
+  const laborEntries = DB.entries.filter(e=>e.type==='labor'&&!e.rejected);
+  const extRate = (DB.laborRates||{}).external||150;
+  const jobTitles = new Set();
+  const days = []; // {date, project, rate}
+  let total = 0;
+
+  laborEntries.forEach(e=>{
+    if(!e.laborDetails||!e.laborDetails.externalWorkersList) return;
+    e.laborDetails.externalWorkersList.forEach(w=>{
+      if(_normWorkerName(w.name)!==workerKey) return;
+      if(w.jobTitle) jobTitles.add(w.jobTitle);
+      const rate = e.laborDetails.externalRate||extRate;
+      days.push({date:e.date||'', project:e.project||'—', rate});
+      total += rate;
+    });
+  });
+  days.sort((a,b)=>a.date.localeCompare(b.date));
+
+  const payments = getWorkerPayments().filter(p=>_normWorkerName((p.workerKey||'').split('||')[0])===workerKey);
+  const totalPaid = payments.reduce((a,p)=>a+(p.amount||0),0);
+  const remaining = total-totalPaid;
+  const isPaid = totalPaid>=total;
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+
+  if(!days.length){alert('لا توجد بيانات لهذا العامل');return;}
+
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير عامل خارجي</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}</style></head><body>'
+    +'<div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:900;color:#111">🏗️ كيان وبناء للمقاولات</div>'
+    +'<h1>تقرير عامل خارجي: '+workerKey+'</h1>'
+    +'<div style="font-size:11px;color:#555;margin-bottom:12px">'+(jobTitles.size?'المهنة: '+Array.from(jobTitles).join('، ')+' · ':'')+'صدر بتاريخ '+now+'</div>'
+    +'<div class="sum"><div class="box"><div class="bl">إجمالي الأيام</div><div class="bv">'+days.length+' يوم</div></div><div class="box"><div class="bl">المستحق</div><div class="bv" style="color:#b45309">'+fmt(total)+' ﷼</div></div><div class="box"><div class="bl">'+(isPaid?'محاسَب بالكامل':'الباقي له')+'</div><div class="bv" style="color:'+(isPaid?'#166534':'#D93025')+'">'+fmt(isPaid?totalPaid:remaining)+' ﷼</div></div></div>'
+    +'<h2 style="margin:14px 0 6px;font-size:13px">📅 سجل الأيام</h2>'
+    +'<table><tr><th>التاريخ</th><th>المشروع</th><th>الأجر</th></tr>'
+    +days.map(d=>'<tr><td>'+d.date+'</td><td>'+d.project+'</td><td style="font-weight:700;color:#b45309">'+fmt(d.rate)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="2">الإجمالي</td><td>'+fmt(total)+' ﷼</td></tr></table>'
+    +(payments.length?'<h2 style="margin:14px 0 6px;font-size:13px">💰 سجل المدفوعات</h2>'
+      +'<table><tr><th>التاريخ</th><th>ملاحظة</th><th>المبلغ</th></tr>'
+      +payments.map(p=>'<tr><td>'+p.date+'</td><td>'+(p.note||'—')+'</td><td style="font-weight:700;color:#166534">'+fmt(p.amount)+' ﷼</td></tr>').join('')
+      +'<tr class="tr"><td colspan="2">إجمالي المدفوع</td><td>'+fmt(totalPaid)+' ﷼</td></tr></table>'
+      :'<div style="margin-top:10px;padding:8px;background:#fee2e2;border-radius:6px;color:#991b1b;font-size:11px">لم يتم صرف أي مبلغ لهذا العامل بعد</div>')
+    +'</body></html>';
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
 }
 
 
