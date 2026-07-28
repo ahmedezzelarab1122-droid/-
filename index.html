@@ -4999,6 +4999,23 @@ async function saveEntry(){
   if(ROLE==='accountant'){
     const total=parsed.total||parsed.subtotal||0;
     const desc=parsed.desc||parsed.supplier||'فاتورة من المحاسب';
+
+    // فحص التكرار قبل عرضها على المدير: نفس رقم الفاتورة + التاريخ + المبلغ
+    const _norm = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+    if(parsed.invoiceNo && parsed.date){
+      const dup = DB.entries.find(e=>
+        (e.type==='petty'||e.type==='tax') &&
+        e.invoiceNo && _norm(e.invoiceNo)===_norm(parsed.invoiceNo) &&
+        e.date===parsed.date &&
+        Math.abs((e.total||0)-total)<0.5
+      );
+      if(dup){
+        const who = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
+        alert('⚠️ هذه الفاتورة مكررة!\nرقم: '+parsed.invoiceNo+' | تاريخ: '+dup.date+'\nمسجلة مسبقاً عند: '+who+'\n\nلن يتم إرسالها للمدير.');
+        return;
+      }
+    }
+
     submitPendingRequest('add', desc+' — '+fmt(total)+' ﷼ ('+project+')', total, {
       supId, supName:DB.supervisors.find(s=>s.id===supId)?.name||'',
       project, type:parsed.type||'petty', desc, supplier:parsed.supplier||'',
