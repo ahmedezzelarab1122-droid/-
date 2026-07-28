@@ -2310,7 +2310,7 @@ function exportGovernancePDF(){
     +rows.slice().reverse().map(x=>'<tr><td>'+x.date+'</td><td>'+(x.note||'—')+'</td><td>'+(x.ref||'—')+'</td><td style="font-weight:700;color:'+color+'">'+fmt(x.amount)+' ﷼</td></tr>').join('')
     +'<tr class="tr"><td colspan="3">'+totLabel+'</td><td>'+fmt(tot)+' ﷼</td></tr></table>' : '';
   const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير حساب المالك</title>'
-    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.diff{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.diff{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>تقرير حساب المالك</h1><div style="font-size:11px;color:#555;margin-bottom:12px">شركة كيان وبناء للمقاولات · '+now+'</div>'
     +'<div class="sum"><div class="box"><div class="bl">إجمالي السحوبات</div><div class="bv" style="color:#D93025">'+fmt(totalW)+' ﷼</div></div><div class="box"><div class="bl">مصروفات الشركة</div><div class="bv" style="color:#1d4ed8">'+fmt(totalCompany)+' ﷼</div></div><div class="box"><div class="bl">مصروفات البيت</div><div class="bv" style="color:#b45309">'+fmt(totalHome)+' ﷼</div></div><div class="box"><div class="bl">متبقي شخصي</div><div class="bv" style="color:'+(rem>=0?'#166534':'#D93025')+'">'+fmt(Math.abs(rem))+' ﷼</div></div></div>'
     +'<div class="diff" style="background:'+(rem>=0?'#dcfce7':'#fee2e2')+';border-color:'+(rem>=0?'#166534':'#D93025')+'">'
@@ -2578,7 +2578,7 @@ function exportDirectorPDF(){
   const rem=totalCash-totalExp;
   const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير حسابات المدير</title>'
-    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.diff{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.diff{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>تقرير حسابات المدير</h1><div style="font-size:11px;color:#555;margin-bottom:12px">شركة كيان وبناء للمقاولات · '+now+'</div>'
     +'<div class="sum"><div class="box"><div class="bl">إجمالي الكاش المستلم</div><div class="bv" style="color:#166534">'+fmt(totalCash)+' ﷼</div></div><div class="box"><div class="bl">إجمالي المصروف</div><div class="bv" style="color:#1d4ed8">'+fmt(totalExp)+' ﷼</div></div><div class="box"><div class="bl">المتبقي مع المدير</div><div class="bv" style="color:'+(rem>=0?'#b45309':'#D93025')+'">'+fmt(Math.abs(rem))+' ﷼</div></div></div>'
     +'<div class="diff" style="background:'+(rem>=0?'#fef3c7':'#fee2e2')+';border-color:'+(rem>=0?'#b45309':'#D93025')+'">'
@@ -2953,7 +2953,7 @@ function exportQuarterlyPL(){
     +'th{background:#000;color:#fff;padding:10px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
     +'td{padding:9px 10px;border:1px solid #ddd}'
     +'tr:nth-child(even)td{background:#f9f9f9}'
-    +'.total td{background:#000;color:#fff;font-weight:800;font-size:14px}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'.total td{background:#000;color:#fff;font-weight:800;font-size:14px}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>تقرير المبيعات والمشتريات</h1>'
     +'<div style="font-size:12px;color:#555;margin-bottom:16px">شركة كيان وبناء للمقاولات · '+now+' · السنة '+year+'</div>'
     +'<table>'
@@ -3175,7 +3175,7 @@ function exportCostReport(contractId){
   tr:nth-child(even) td{background:#f9f9f9;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .total-row td{background:#e5e7eb;font-weight:800;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   @media print{body{padding:10px}}
-</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="${CO_LOGO}" style="max-width:200px;max-height:90px;height:auto"></div>
+</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="${CO_LOGO}" style="max-width:200px;max-height:90px;height:auto"></div>
 <h1>تقرير مركز التكلفة</h1>
 <div style="font-size:12px;color:#555;margin-bottom:14px">التقرير: ${now} | العميل: ${c.clientName} | المشروع: ${c.project}</div>
 
@@ -3384,7 +3384,7 @@ function exportContractPDF(contractId){
   tr:nth-child(even) td{background:#f9f9f9;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .total{background:#eee;font-weight:800;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   @media print{body{padding:10px}}
-</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="${CO_LOGO}" style="max-width:200px;max-height:90px;height:auto"></div>
+</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="${CO_LOGO}" style="max-width:200px;max-height:90px;height:auto"></div>
 <h1>كشف حساب العميل</h1>
 <div style="font-size:12px;color:#555;margin-bottom:16px">تاريخ الكشف: ${now}</div>
 <table style="margin-bottom:16px">
@@ -4084,7 +4084,7 @@ function exportExtWorkersPDF(){
     +'.bl{font-size:10px;color:#666;margin-bottom:3px}.bv{font-size:15px;font-weight:800}'
     +'table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}'
     +'th{background:#111;color:#fff;padding:7px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
-    +'td{padding:6px;border:1px solid #ddd}tr:nth-child(even)td{background:#fafafa}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'td{padding:6px;border:1px solid #ddd}tr:nth-child(even)td{background:#fafafa}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1 style="font-size:18px;font-weight:900;margin-bottom:4px">👷 تقرير العمال الخارجيين</h1>'
     +'<div style="color:#555;font-size:11px;margin-bottom:10px">شركة كيان وبناء للمقاولات · '+now+'</div>'
     +'<div class="sum">'
@@ -4226,7 +4226,7 @@ function exportSingleExtWorkerPDF(workerKey){
 
   const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير عامل خارجي</title>'
     +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}</style></head><body>'
-    +'<div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>تقرير عامل خارجي: '+workerKey+'</h1>'
     +'<div style="font-size:11px;color:#555;margin-bottom:12px">'+(jobTitles.size?'المهنة: '+Array.from(jobTitles).join('، ')+' · ':'')+'صدر بتاريخ '+now+'</div>'
     +'<div class="sum"><div class="box"><div class="bl">إجمالي الأيام</div><div class="bv">'+days.length+' يوم</div></div><div class="box"><div class="bl">المستحق</div><div class="bv" style="color:#b45309">'+fmt(total)+' ﷼</div></div><div class="box"><div class="bl">'+(isPaid?'محاسَب بالكامل':'الباقي له')+'</div><div class="bv" style="color:'+(isPaid?'#166534':'#D93025')+'">'+fmt(isPaid?totalPaid:remaining)+' ﷼</div></div></div>'
@@ -5685,7 +5685,7 @@ function exportProjectLaborPDF(project, fromDate, toDate){
 
   const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير عمالة المشروع</title>'
     +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:15px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}</style></head><body>'
-    +'<div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>تقرير عمالة المشروع</h1><div style="font-size:13px;font-weight:700;margin-bottom:2px">المشروع: '+project+'</div>'
     +'<div style="font-size:11px;color:#555;margin-bottom:12px">الفترة: '+periodStr+' · صدر بتاريخ '+now+'</div>'
     +'<div class="sum"><div class="box"><div class="bl">أيام عمال الشركة</div><div class="bv" style="color:#1d4ed8">'+totalCompDays+' يوم</div></div><div class="box"><div class="bl">أيام العمال الخارجيين</div><div class="bv" style="color:#b45309">'+totalExtDays+' يوم</div></div><div class="box"><div class="bl">الإجمالي المالي</div><div class="bv" style="color:#D93025">'+fmt(grandTotal)+' ﷼</div></div></div>'
@@ -5790,7 +5790,7 @@ function exportProjectFullReportPDF(project, fromDate, toDate){
 
   const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير شامل للمشروع</title>'
     +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}h1{font-size:18px;font-weight:900;margin-bottom:4px}h2{font-size:12px;font-weight:800}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.box{background:#f5f5f5;border:1px solid #ddd;border-radius:5px;padding:8px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#111;color:#fff;font-weight:800}.net{padding:12px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid #D93025;background:#fee2e2}</style></head><body>'
-    +'<div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>تقرير شامل للمشروع</h1><div style="font-size:13px;font-weight:700;margin-bottom:2px">المشروع: '+project+'</div>'
     +'<div style="font-size:11px;color:#555;margin-bottom:12px">الفترة: '+periodStr+' · صدر بتاريخ '+now+'</div>'
     +'<div class="sum"><div class="box"><div class="bl">إجمالي الفواتير</div><div class="bv" style="color:#1d4ed8">'+fmt(totalExpense)+' ﷼</div></div><div class="box"><div class="bl">إجمالي المرتجعات</div><div class="bv" style="color:#166534">'+fmt(totalReturns)+' ﷼</div></div><div class="box"><div class="bl">تكلفة العمالة</div><div class="bv" style="color:#b45309">'+fmt(totalLabor)+' ﷼</div></div>'
@@ -6593,7 +6593,7 @@ function exportPDF(){
   .header{margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #000}
   .red,.green,.blue{color:#000;font-weight:700}
   @media print{body{padding:8px}}
-</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="${CO_LOGO}" style="max-width:200px;max-height:90px;height:auto"></div>
+</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="${CO_LOGO}" style="max-width:200px;max-height:90px;height:auto"></div>
 <div class="header">
   <div>
     <h1>تقرير شركة كيان وبناء للمقاولات</h1>
@@ -6850,7 +6850,7 @@ function exportSupPDF(supId){
   .total-row td{background:#ddd;font-weight:800;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .red,.green,.blue{color:#000;font-weight:700}
   @media print{body{padding:8px}}
-</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="${CO_LOGO}" style="max-width:200px;max-height:90px;height:auto"></div>
+</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="${CO_LOGO}" style="max-width:200px;max-height:90px;height:auto"></div>
 <h1>تقرير المشرف: ${sup.name}</h1>
 <div class="sub">تاريخ التقرير: ${now}</div>
 
@@ -7090,7 +7090,7 @@ function deleteSalesInvoice(id){
 function printSaleInvoice(id){
   const s=JSON.parse(localStorage.getItem('kayan_sales')||'[]').find(s=>s.id===id);if(!s)return;
   const w=window.open('','_blank');
-  w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>'+s.invoiceNo+'</title><style>body{font-family:Tajawal,sans-serif;direction:rtl;padding:30px;font-size:13px;color:#000}table{width:100%;border-collapse:collapse;margin-top:12px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:8px;border:1px solid #ddd}.tot td{background:#e5e7eb;font-weight:800}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+  w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>'+s.invoiceNo+'</title><style>body{font-family:Tajawal,sans-serif;direction:rtl;padding:30px;font-size:13px;color:#000}table{width:100%;border-collapse:collapse;margin-top:12px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:8px;border:1px solid #ddd}.tot td{background:#e5e7eb;font-weight:800}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h3 style="margin-bottom:4px">شركة كيان وبناء للمقاولات — فاتورة مبيعات</h3>'
     +'<p style="color:#555;margin-bottom:14px">'+s.invoiceNo+' | '+s.date+'</p>'
     +'<table style="margin-bottom:12px"><tr><td><b>العميل</b></td><td>'+s.client+'</td></tr>'+(s.project?'<tr><td><b>المشروع</b></td><td>'+s.project+'</td></tr>':'')+'</table>'
@@ -7189,7 +7189,7 @@ function exportSalesPDFRange(from, to){
     +'.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}'
     +'table{width:100%;border-collapse:collapse;font-size:11px}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
     +'td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}'
-    +'h2{font-size:13px;font-weight:800;margin:14px 0 6px;border-bottom:2px solid #000;padding-bottom:3px}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'h2{font-size:13px;font-weight:800;margin:14px 0 6px;border-bottom:2px solid #000;padding-bottom:3px}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>تقرير المبيعات</h1>'
     +'<div class="period">شركة كيان وبناء للمقاولات · '+now+' · الفترة: '+(from||'البداية')+' → '+(to||'النهاية')+'</div>'
     +'<div class="sum">'
@@ -7211,14 +7211,16 @@ function exportSalesPDFRange(from, to){
   const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 
-function exportPurchPDFRange(from, to){
-  const entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
-  if(!entries.length){alert('لا توجد بيانات في هذه الفترة');return;}
+function exportPurchPDFRange(from, to, taxOnly){
+  let entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
+  if(taxOnly) entries = entries.filter(e=>e.type==='tax');
+  if(!entries.length){alert(taxOnly?'لا توجد فواتير ضريبية في هذه الفترة':'لا توجد بيانات في هذه الفترة');return;}
   const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   const total = entries.reduce((a,e)=>a+(e.total||0),0);
   const vat = entries.reduce((a,e)=>a+(e.taxAmt||0),0);
   const net = entries.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
-  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المشتريات</title>'
+  const reportTitle = taxOnly?'تقرير الفواتير الضريبية':'تقرير المشتريات';
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>'+reportTitle+'</title>'
     +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'
     +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}'
     +'h1{font-size:18px;font-weight:900;margin-bottom:2px}.period{font-size:12px;color:#555;margin-bottom:14px}'
@@ -7226,19 +7228,55 @@ function exportPurchPDFRange(from, to){
     +'.box{background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center}'
     +'.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}'
     +'table{width:100%;border-collapse:collapse;font-size:11px}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
-    +'td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
-    +'<h1>تقرير المشتريات</h1>'
+    +'td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<h1>'+reportTitle+'</h1>'
     +'<div class="period">شركة كيان وبناء للمقاولات · '+now+' · الفترة: '+(from||'البداية')+' → '+(to||'النهاية')+'</div>'
     +'<div class="sum">'
-    +'<div class="box"><div class="bl">إجمالي المشتريات</div><div class="bv" style="color:#D93025">'+fmt(total)+' ﷼</div></div>'
+    +'<div class="box"><div class="bl">'+(taxOnly?'إجمالي الفواتير الضريبية':'إجمالي المشتريات')+'</div><div class="bv" style="color:#D93025">'+fmt(total)+' ﷼</div></div>'
     +'<div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">'+fmt(net)+' ﷼</div></div>'
     +'<div class="box"><div class="bl">VAT المدفوعة</div><div class="bv" style="color:#1d4ed8">'+fmt(vat)+' ﷼</div></div>'
     +'</div>'
-    +'<table><tr><th>التاريخ</th><th>المورد/الوصف</th><th>رقم الفاتورة</th><th>المشرف</th><th>المشروع</th><th>النوع</th><th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>'
-    +entries.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>'<tr><td>'+(e.date||'—')+'</td><td>'+(e.desc||e.supplier||'—')+'</td><td>'+(e.invoiceNo||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td><td>'+(e.type==='tax'?'ضريبية':'نثرية')+'</td><td>'+fmt(e.subtotal||0)+' ﷼</td><td>'+fmt(e.taxAmt||0)+' ﷼</td><td style="font-weight:700;color:#D93025">'+fmt(e.total||0)+' ﷼</td></tr>').join('')
-    +'<tr class="tr"><td colspan="6">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td></tr>'
+    +'<table><tr><th>التاريخ</th><th>المورد/الوصف</th><th>رقم الفاتورة</th><th>المشرف</th><th>المشروع</th>'+(taxOnly?'':'<th>النوع</th>')+'<th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>'
+    +entries.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>'<tr><td>'+(e.date||'—')+'</td><td>'+(e.desc||e.supplier||'—')+'</td><td>'+(e.invoiceNo||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td>'+(taxOnly?'':'<td>'+(e.type==='tax'?'ضريبية':'نثرية')+'</td>')+'<td>'+fmt(e.subtotal||0)+' ﷼</td><td>'+fmt(e.taxAmt||0)+' ﷼</td><td style="font-weight:700;color:#D93025">'+fmt(e.total||0)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="'+(taxOnly?5:6)+'">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td></tr>'
     +'</table></body></html>';
   const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
+}
+
+function exportPurchExcelRange(from, to, taxOnly){
+  let entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
+  if(taxOnly) entries = entries.filter(e=>e.type==='tax');
+  if(!entries.length){alert(taxOnly?'لا توجد فواتير ضريبية في هذه الفترة':'لا توجد بيانات في هذه الفترة');return;}
+  entries = entries.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+
+  const rows = entries.map(e=>{
+    const row = {
+      'التاريخ': e.date||'',
+      'المورد/الوصف': e.desc||e.supplier||'',
+      'رقم الفاتورة': e.invoiceNo||'',
+      'المشرف': e.supName||'',
+      'المشروع': e.project||''
+    };
+    if(!taxOnly) row['النوع'] = e.type==='tax'?'ضريبية':'نثرية';
+    row['صافي'] = e.subtotal||0;
+    row['VAT'] = e.taxAmt||0;
+    row['الإجمالي'] = e.total||0;
+    return row;
+  });
+  const total = entries.reduce((a,e)=>a+(e.total||0),0);
+  const vat = entries.reduce((a,e)=>a+(e.taxAmt||0),0);
+  const net = entries.reduce((a,e)=>a+(e.subtotal||e.total||0),0);
+  const totalsRow = { 'التاريخ':'', 'المورد/الوصف':'الإجمالي', 'رقم الفاتورة':'', 'المشرف':'', 'المشروع':'' };
+  if(!taxOnly) totalsRow['النوع']='';
+  totalsRow['صافي']=net; totalsRow['VAT']=vat; totalsRow['الإجمالي']=total;
+  rows.push(totalsRow);
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:12},{wch:28},{wch:16},{wch:16},{wch:18},{wch:10},{wch:12},{wch:12},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, taxOnly?'فواتير ضريبية':'المشتريات');
+  const fname = (taxOnly?'تقرير_الفواتير_الضريبية_':'تقرير_المشتريات_')+(from||'البداية')+'_'+(to||'النهاية')+'.xlsx';
+  XLSX.writeFile(wb, fname);
 }
 
 
@@ -7261,7 +7299,7 @@ function exportSalesPDF(){
   const vat=sales.reduce((a,s)=>a+(s.taxAmt||0),0);
   const now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   const w=window.open('','_blank');
-  w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>Sales</title><style>body{font-family:Tajawal,sans-serif;direction:rtl;padding:24px;font-size:12px;color:#000}table{width:100%;border-collapse:collapse}th{background:#000;color:#fff;padding:7px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:6px;border:1px solid #ddd}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+  w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>Sales</title><style>body{font-family:Tajawal,sans-serif;direction:rtl;padding:24px;font-size:12px;color:#000}table{width:100%;border-collapse:collapse}th{background:#000;color:#fff;padding:7px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:6px;border:1px solid #ddd}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h2>تقرير فواتير المبيعات — '+now+'</h2>'
     +'<p style="margin:8px 0">إجمالي: '+fmt(total)+' | VAT: '+fmt(vat)+'</p>'
     +'<table><tr><th>تاريخ</th><th>عميل</th><th>VAT</th><th>إجمالي</th></tr>'
@@ -7770,7 +7808,7 @@ function printSalesReturn(id){
     +'.header{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #D93025}'
     +'.ret-badge{background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:4px;font-weight:700;font-size:13px}'
     +'table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#991b1b;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
-    +'td{padding:8px;border:1px solid #ddd}.total-row td{background:#fee2e2;font-weight:800}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'td{padding:8px;border:1px solid #ddd}.total-row td{background:#fee2e2;font-weight:800}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<div class="header"><div><div style="font-size:18px;font-weight:900">شركة كيان وبناء للمقاولات</div>'
     +'<div style="font-size:11px;color:#555;margin-top:3px">إشعار مرتجع مبيعات</div></div>'
     +'<div style="text-align:left"><span class="ret-badge">↩️ مرتجع</span><div style="font-size:14px;font-weight:700;margin-top:4px">'+r.invoiceNo+'</div></div></div>'
@@ -7820,10 +7858,20 @@ function rPurchases(){
         <button onclick="setPurchRepQ(4)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q4</button>
         <button onclick="setPurchRepQ(0)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">السنة كاملة</button>
       </div>
-      <button onclick="exportPurchPDFRange(document.getElementById('purch-rep-from').value,document.getElementById('purch-rep-to').value)"
-        style="width:100%;padding:10px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
-        📄 تصدير تقرير المشتريات
-      </button>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.8);margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" id="purch-rep-taxonly" style="width:16px;height:16px">
+        الفواتير الضريبية فقط (بدون النثرية)
+      </label>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportPurchPDFRange(document.getElementById('purch-rep-from').value,document.getElementById('purch-rep-to').value,document.getElementById('purch-rep-taxonly').checked)"
+          style="flex:1;padding:10px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
+          📄 PDF
+        </button>
+        <button onclick="exportPurchExcelRange(document.getElementById('purch-rep-from').value,document.getElementById('purch-rep-to').value,document.getElementById('purch-rep-taxonly').checked)"
+          style="flex:1;padding:10px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">
+          📊 Excel
+        </button>
+      </div>
     </div>
 
     ${purchases.length===0?'<div class="empty">لا توجد فواتير مشتريات</div>':`
@@ -8451,7 +8499,7 @@ function exportPurchPDF(){
   const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المشتريات</title>'
     +'<style>@import url(\'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap\');*{box-sizing:border-box;margin:0;padding:0}body{font-family:\'Tajawal\',sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}'
     +'h1{font-size:20px;font-weight:900;margin-bottom:4px}.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.box{background:#f5f5f5;border:1.5px solid #000;border-radius:6px;padding:10px;text-align:center}.bl{font-size:10px;color:#555;margin-bottom:3px;font-weight:600}.bv{font-size:17px;font-weight:900}'
-    +'table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:7px 8px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}td{padding:7px 8px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>تقرير فواتير المشتريات</h1>'
     +'<div style="font-size:12px;color:#555;margin-bottom:14px">شركة كيان وبناء للمقاولات · '+now+'</div>'
     +'<div class="sum"><div class="box"><div class="bl">إجمالي المشتريات</div><div class="bv" style="color:#D93025">'+fmt(total)+' ﷼</div></div>'
@@ -8668,7 +8716,7 @@ function exportQuarterDetail(from, to, qLabel){
     +'th{background:#000;color:#fff;padding:5px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
     +'td{padding:4px 5px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}'
     +'.tr td{background:#111;color:#fff;font-weight:800}'
-    +'.diff{padding:10px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:center;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'.diff{padding:10px;border-radius:6px;text-align:center;margin:12px 0;border:2px solid}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
 
     +'<h1>تقرير '+qLabel+' '+yr+' التفصيلي</h1>'
     +'<div style="font-size:11px;color:#555;margin-bottom:10px">شركة كيان وبناء للمقاولات · '+now+' · '+from+' ← '+to+'</div>'
