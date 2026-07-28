@@ -7976,8 +7976,28 @@ async function pickPurchSingleFile(input){
       if(res.taxRate!=null)document.getElementById('p-taxrate').value=res.taxRate;
       if(res.type)document.getElementById('p-type').value=res.type==='tax'?'tax':'petty';
       calcPurchVat();
-      st.innerHTML='<span style="color:#34d399">✅ تم استخراج البيانات — راجع وأكد</span>';
-      document.getElementById('purch-icon').textContent='✅';
+
+      // فحص فوري: هل الفاتورة دي مكررة (نفس رقم الفاتورة + التاريخ + المبلغ)؟
+      const _norm = s => (s||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+      const _invNo = res.invoiceNo||'';
+      const _date = res.date?_fixDate(res.date):'';
+      const _total = (res.subtotal||0)+((res.subtotal||0)*(res.taxRate||0)/100);
+      let dupWarning = '';
+      if(_invNo && _date){
+        const dup = DB.entries.find(e=>
+          (e.type==='petty'||e.type==='tax') &&
+          e.invoiceNo && _norm(e.invoiceNo)===_norm(_invNo) &&
+          e.date===_date &&
+          Math.abs((e.total||0)-_total)<0.5
+        );
+        if(dup){
+          const who = DB.supervisors.find(s=>s.id==dup.supId)?.name||'مشرف آخر';
+          dupWarning = '<div style="margin-top:6px;padding:8px 10px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171;font-size:12px;font-weight:700">⚠️ هذه الفاتورة مكررة! نفس الرقم والتاريخ والمبلغ مسجلة مسبقاً عند: '+who+' (تاريخ التسجيل: '+dup.date+')</div>';
+        }
+      }
+
+      st.innerHTML='<span style="color:#34d399">✅ تم استخراج البيانات — راجع وأكد</span>'+dupWarning;
+      document.getElementById('purch-icon').textContent=dupWarning?'⚠️':'✅';
       document.getElementById('purch-txt').textContent=file.name;
     }catch(e){
       st.innerHTML='<span style="color:#f87171">❌ '+e.message+'</span>';
