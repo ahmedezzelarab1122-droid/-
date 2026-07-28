@@ -7211,9 +7211,31 @@ function exportSalesPDFRange(from, to){
   const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 
+// حدود الكوارتر الحالي بناءً على تاريخ اليوم الفعلي
+function _currentQuarterBounds(){
+  const now = new Date();
+  const y = now.getFullYear();
+  const q = Math.floor(now.getMonth()/3); // 0..3
+  const startMonth = q*3;
+  const endMonth = startMonth+2;
+  const start = y+'-'+String(startMonth+1).padStart(2,'0')+'-01';
+  const lastDay = new Date(y, endMonth+1, 0).getDate();
+  const end = y+'-'+String(endMonth+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+  return {start, end};
+}
+
 function exportPurchPDFRange(from, to, taxOnly){
-  let entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
-  if(taxOnly) entries = entries.filter(e=>e.type==='tax');
+  const {start:curQStart, end:curQEnd} = _currentQuarterBounds();
+  const isCurrentQuarterTaxReport = taxOnly && from===curQStart && to===curQEnd;
+
+  let entries;
+  if(isCurrentQuarterTaxReport){
+    // تقرير الكوارتر الحالي: يضم فواتير الكوارتر الحالي + أي فواتير ضريبية متأخرة من كوارترات سابقة
+    entries = DB.entries.filter(e=>e.type==='tax'&&!e.rejected&&e.date<=curQEnd);
+  } else {
+    entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
+    if(taxOnly) entries = entries.filter(e=>e.type==='tax');
+  }
   if(!entries.length){alert(taxOnly?'لا توجد فواتير ضريبية في هذه الفترة':'لا توجد بيانات في هذه الفترة');return;}
   const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   const total = entries.reduce((a,e)=>a+(e.total||0),0);
@@ -7228,28 +7250,47 @@ function exportPurchPDFRange(from, to, taxOnly){
     +'.box{background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center}'
     +'.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}'
     +'table{width:100%;border-collapse:collapse;font-size:11px}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
-    +'td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}'
+    +'.late{background:#fef3c7 !important}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>'+reportTitle+'</h1>'
     +'<div class="period">شركة كيان وبناء للمقاولات · '+now+' · الفترة: '+(from||'البداية')+' → '+(to||'النهاية')+'</div>'
+    +(isCurrentQuarterTaxReport?'<div style="font-size:11px;background:#fef3c7;color:#92400e;padding:6px 10px;border-radius:6px;margin-bottom:12px">⚠️ هذا التقرير يشمل فواتير ضريبية متأخرة من كوارترات سابقة (محددة باللون الأصفر) تمت إضافتها تلقائياً للكوارتر الحالي</div>':'')
     +'<div class="sum">'
     +'<div class="box"><div class="bl">'+(taxOnly?'إجمالي الفواتير الضريبية':'إجمالي المشتريات')+'</div><div class="bv" style="color:#D93025">'+fmt(total)+' ﷼</div></div>'
     +'<div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">'+fmt(net)+' ﷼</div></div>'
     +'<div class="box"><div class="bl">VAT المدفوعة</div><div class="bv" style="color:#1d4ed8">'+fmt(vat)+' ﷼</div></div>'
     +'</div>'
-    +'<table><tr><th>التاريخ</th><th>المورد/الوصف</th><th>رقم الفاتورة</th><th>المشرف</th><th>المشروع</th>'+(taxOnly?'':'<th>النوع</th>')+'<th>صافي</th><th>VAT</th><th>الإجمالي</th></tr>'
-    +entries.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>'<tr><td>'+(e.date||'—')+'</td><td>'+(e.desc||e.supplier||'—')+'</td><td>'+(e.invoiceNo||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td>'+(taxOnly?'':'<td>'+(e.type==='tax'?'ضريبية':'نثرية')+'</td>')+'<td>'+fmt(e.subtotal||0)+' ﷼</td><td>'+fmt(e.taxAmt||0)+' ﷼</td><td style="font-weight:700;color:#D93025">'+fmt(e.total||0)+' ﷼</td></tr>').join('')
-    +'<tr class="tr"><td colspan="'+(taxOnly?5:6)+'">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td></tr>'
+    +'<table><tr><th>التاريخ</th><th>المورد/الوصف</th><th>رقم الفاتورة</th><th>المشرف</th><th>المشروع</th>'+(taxOnly?'':'<th>النوع</th>')+'<th>صافي</th><th>VAT</th><th>الإجمالي</th>'+(isCurrentQuarterTaxReport?'<th>ملاحظة</th>':'')+'</tr>'
+    +entries.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>{
+      const isLate = isCurrentQuarterTaxReport && e.date<curQStart;
+      let row = '<tr'+(isLate?' class="late"':'')+'><td>'+(e.date||'—')+'</td><td>'+(e.desc||e.supplier||'—')+'</td><td>'+(e.invoiceNo||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td>';
+      if(!taxOnly) row += '<td>'+(e.type==='tax'?'ضريبية':'نثرية')+'</td>';
+      row += '<td>'+fmt(e.subtotal||0)+' ﷼</td><td>'+fmt(e.taxAmt||0)+' ﷼</td><td style="font-weight:700;color:#D93025">'+fmt(e.total||0)+' ﷼</td>';
+      if(isCurrentQuarterTaxReport) row += '<td style="font-size:10px;color:#92400e">'+(isLate?'⚠️ متأخرة من كوارتر سابق':'')+'</td>';
+      row += '</tr>';
+      return row;
+    }).join('')
+    +'<tr class="tr"><td colspan="'+(taxOnly?5:6)+'">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td>'+(isCurrentQuarterTaxReport?'<td></td>':'')+'</tr>'
     +'</table></body></html>';
   const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 
 function exportPurchExcelRange(from, to, taxOnly){
-  let entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
-  if(taxOnly) entries = entries.filter(e=>e.type==='tax');
+  const {start:curQStart, end:curQEnd} = _currentQuarterBounds();
+  const isCurrentQuarterTaxReport = taxOnly && from===curQStart && to===curQEnd;
+
+  let entries;
+  if(isCurrentQuarterTaxReport){
+    entries = DB.entries.filter(e=>e.type==='tax'&&!e.rejected&&e.date<=curQEnd);
+  } else {
+    entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
+    if(taxOnly) entries = entries.filter(e=>e.type==='tax');
+  }
   if(!entries.length){alert(taxOnly?'لا توجد فواتير ضريبية في هذه الفترة':'لا توجد بيانات في هذه الفترة');return;}
   entries = entries.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
 
   const rows = entries.map(e=>{
+    const isLate = isCurrentQuarterTaxReport && e.date<curQStart;
     const row = {
       'التاريخ': e.date||'',
       'المورد/الوصف': e.desc||e.supplier||'',
@@ -7261,6 +7302,7 @@ function exportPurchExcelRange(from, to, taxOnly){
     row['صافي'] = e.subtotal||0;
     row['VAT'] = e.taxAmt||0;
     row['الإجمالي'] = e.total||0;
+    if(isCurrentQuarterTaxReport) row['ملاحظة'] = isLate?'⚠️ متأخرة من كوارتر سابق':'';
     return row;
   });
   const total = entries.reduce((a,e)=>a+(e.total||0),0);
@@ -7269,10 +7311,11 @@ function exportPurchExcelRange(from, to, taxOnly){
   const totalsRow = { 'التاريخ':'', 'المورد/الوصف':'الإجمالي', 'رقم الفاتورة':'', 'المشرف':'', 'المشروع':'' };
   if(!taxOnly) totalsRow['النوع']='';
   totalsRow['صافي']=net; totalsRow['VAT']=vat; totalsRow['الإجمالي']=total;
+  if(isCurrentQuarterTaxReport) totalsRow['ملاحظة']='';
   rows.push(totalsRow);
 
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{wch:12},{wch:28},{wch:16},{wch:16},{wch:18},{wch:10},{wch:12},{wch:12},{wch:14}];
+  ws['!cols'] = [{wch:12},{wch:28},{wch:16},{wch:16},{wch:18},{wch:10},{wch:12},{wch:12},{wch:14},{wch:24}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, taxOnly?'فواتير ضريبية':'المشتريات');
   const fname = (taxOnly?'تقرير_الفواتير_الضريبية_':'تقرير_المشتريات_')+(from||'البداية')+'_'+(to||'النهاية')+'.xlsx';
@@ -7285,6 +7328,12 @@ function setPurchRepQ(q){
   const dates={1:[y+'-01-01',y+'-03-31'],2:[y+'-04-01',y+'-06-30'],3:[y+'-07-01',y+'-09-30'],4:[y+'-10-01',y+'-12-31'],0:[y+'-01-01',y+'-12-31']};
   const f=document.getElementById('purch-rep-from'),t=document.getElementById('purch-rep-to');
   if(f&&t){f.value=dates[q][0];t.value=dates[q][1];}
+}
+function setPurchRepCurrentQ(){
+  const {start,end} = _currentQuarterBounds();
+  const f=document.getElementById('purch-rep-from'),t=document.getElementById('purch-rep-to'),c=document.getElementById('purch-rep-taxonly');
+  if(f&&t){f.value=start;t.value=end;}
+  if(c) c.checked=true;
 }
 function setSalesRepQ(q){
   const y=new Date().getFullYear();
@@ -7857,6 +7906,7 @@ function rPurchases(){
         <button onclick="setPurchRepQ(3)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q3</button>
         <button onclick="setPurchRepQ(4)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">Q4</button>
         <button onclick="setPurchRepQ(0)" style="padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:7px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px">السنة كاملة</button>
+        <button onclick="setPurchRepCurrentQ()" style="padding:5px 10px;border:1px solid rgba(245,200,66,.4);border-radius:7px;background:rgba(245,200,66,.12);color:#f5c842;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:11px;font-weight:700">⭐ الكوارتر الحالي</button>
       </div>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.8);margin-bottom:10px;cursor:pointer">
         <input type="checkbox" id="purch-rep-taxonly" style="width:16px;height:16px">
