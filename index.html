@@ -5820,7 +5820,92 @@ function exportProjectFullReportPDF(project, fromDate, toDate){
   const win2=window.open('','_blank');win2.document.write(html);win2.document.close();setTimeout(()=>win2.print(),700);
 }
 
-// ── LABOR MANAGER ──────────────────────
+// ── تقرير حضور شهري لكل العمال (داخليين وخارجيين) — كل شهر منفصل بعمود لوحده ──
+const _arMonthNames = {'01':'يناير','02':'فبراير','03':'مارس','04':'أبريل','05':'مايو','06':'يونيو','07':'يوليو','08':'أغسطس','09':'سبتمبر','10':'أكتوبر','11':'نوفمبر','12':'ديسمبر'};
+
+function _buildMonthlyAttendanceData(fromDate, toDate){
+  let laborEntries = DB.entries.filter(e=>(e.type==='labor'||e.type==='labor_waiting')&&!e.rejected);
+  if(fromDate) laborEntries = laborEntries.filter(e=>e.date>=fromDate);
+  if(toDate) laborEntries = laborEntries.filter(e=>e.date<=toDate);
+
+  const workers = {};
+  const monthsSet = new Set();
+
+  laborEntries.forEach(e=>{
+    const month = (e.date||'').substring(0,7); // YYYY-MM
+    if(!month) return;
+    monthsSet.add(month);
+    (e.laborDetails?.presentWorkers||[]).forEach(w=>{
+      const k = 'company||'+_normWorkerName(w.name);
+      if(!workers[k]) workers[k]={name:_normWorkerName(w.name),type:'company',months:{},total:0};
+      workers[k].months[month]=(workers[k].months[month]||0)+1;
+      workers[k].total++;
+    });
+    (e.laborDetails?.externalWorkersList||[]).forEach(w=>{
+      const k = 'external||'+_normWorkerName(w.name);
+      if(!workers[k]) workers[k]={name:_normWorkerName(w.name),type:'external',months:{},total:0};
+      workers[k].months[month]=(workers[k].months[month]||0)+1;
+      workers[k].total++;
+    });
+  });
+
+  const months = Array.from(monthsSet).sort();
+  const workerList = Object.values(workers).sort((a,b)=>b.total-a.total);
+  return {workerList, months};
+}
+
+function exportMonthlyAttendancePDF(fromDate, toDate){
+  const {workerList, months} = _buildMonthlyAttendanceData(fromDate, toDate);
+  if(!workerList.length){alert('لا توجد بيانات حضور في هذه الفترة');return;}
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const monthLabels = months.map(m=>_arMonthNames[m.substring(5,7)]+' '+m.substring(0,4));
+  const grandTotal = workerList.reduce((a,w)=>a+w.total,0);
+
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير حضور شهري</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:11px}'
+    +'h1{font-size:18px;font-weight:900;margin-bottom:2px}.period{font-size:12px;color:#555;margin-bottom:14px}'
+    +'.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}'
+    +'.box{background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center}'
+    +'.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}'
+    +'table{width:100%;border-collapse:collapse;font-size:10px}th{background:#000;color:#fff;padding:5px 4px;text-align:center;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:4px;border:1px solid #ddd;text-align:center}td:first-child,th:first-child{text-align:right;font-weight:700}'
+    +'tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body>'
+    +'<div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<h1>تقرير حضور شهري — كل العمال</h1>'
+    +'<div class="period">شركة كيان وبناء للمقاولات · '+now+' · الفترة: '+(fromDate||'كل البيانات')+' → '+(toDate||'الآن')+'</div>'
+    +'<div class="sum"><div class="box"><div class="bl">عدد العمال</div><div class="bv">'+workerList.length+'</div></div><div class="box"><div class="bl">عدد الأشهر</div><div class="bv">'+months.length+'</div></div><div class="box"><div class="bl">إجمالي أيام الحضور</div><div class="bv" style="color:#b45309">'+grandTotal+' يوم</div></div></div>'
+    +'<table><tr><th>العامل</th><th>النوع</th>'+monthLabels.map(m=>'<th>'+m+'</th>').join('')+'<th>الإجمالي</th></tr>'
+    +workerList.map(w=>'<tr><td>'+w.name+'</td><td>'+(w.type==='company'?'🏢 داخلي':'👷 خارجي')+'</td>'+months.map(m=>'<td>'+(w.months[m]||'—')+'</td>').join('')+'<td style="font-weight:800;color:#b45309">'+w.total+'</td></tr>').join('')
+    +'<tr class="tr"><td colspan="2">الإجمالي</td>'+months.map(m=>'<td>'+workerList.reduce((a,w)=>a+(w.months[m]||0),0)+'</td>').join('')+'<td>'+grandTotal+'</td></tr>'
+    +'</table></body></html>';
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
+}
+
+function exportMonthlyAttendanceExcel(fromDate, toDate){
+  const {workerList, months} = _buildMonthlyAttendanceData(fromDate, toDate);
+  if(!workerList.length){alert('لا توجد بيانات حضور في هذه الفترة');return;}
+  const monthLabels = months.map(m=>_arMonthNames[m.substring(5,7)]+' '+m.substring(0,4));
+
+  const rows = workerList.map(w=>{
+    const row = {'العامل':w.name, 'النوع':w.type==='company'?'داخلي':'خارجي'};
+    months.forEach((m,i)=>{ row[monthLabels[i]] = w.months[m]||0; });
+    row['الإجمالي'] = w.total;
+    return row;
+  });
+  const totalsRow = {'العامل':'الإجمالي','النوع':''};
+  months.forEach((m,i)=>{ totalsRow[monthLabels[i]] = workerList.reduce((a,w)=>a+(w.months[m]||0),0); });
+  totalsRow['الإجمالي'] = workerList.reduce((a,w)=>a+w.total,0);
+  rows.push(totalsRow);
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:22},{wch:10}].concat(months.map(()=>({wch:12}))).concat([{wch:12}]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'حضور شهري');
+  XLSX.writeFile(wb, 'تقرير_حضور_شهري_'+(fromDate||'الكل')+'_'+(toDate||'الآن')+'.xlsx');
+}
+
+
 function rLaborMgr(){
   const rates = DB.laborRates || {company:100, external:150};
   const workers = DB.companyWorkers || [];
@@ -5892,6 +5977,16 @@ function rLaborMgr(){
         </select>
       </div>
       <button onclick="exportProjectLaborPDF(document.getElementById('mgr-labor-pdf-proj').value, window._mgrLaborFrom||'', window._mgrLaborTo||'')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير عمالة المشروع (عمالة داخلية وخارجية)</button>
+    </div>
+
+    <!-- Monthly Attendance Report -->
+    <div class="card" style="padding:12px 14px;margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:8px">📅 تقرير حضور شهري لكل العمال</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">كل عامل (داخلي وخارجي) وأيام حضوره في كل شهر على حدة</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportMonthlyAttendancePDF(window._mgrLaborFrom||'', window._mgrLaborTo||'')" style="flex:1;padding:10px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
+        <button onclick="exportMonthlyAttendanceExcel(window._mgrLaborFrom||'', window._mgrLaborTo||'')" style="flex:1;padding:10px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
+      </div>
     </div>
 
     <!-- Summary Stats -->
@@ -6534,6 +6629,14 @@ function rOwnerLabor(){
         </select>
       </div>
       <button onclick="exportProjectLaborPDF(document.getElementById('labor-pdf-proj').value, window._laborFrom||'', window._laborTo||'')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير تقرير عمالة المشروع (عمالة داخلية وخارجية)</button>
+    </div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px">
+      <div class="ctitle" style="margin-bottom:8px">📅 تقرير حضور شهري لكل العمال</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">كل عامل (داخلي وخارجي) وأيام حضوره في كل شهر على حدة</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportMonthlyAttendancePDF(window._laborFrom||'', window._laborTo||'')" style="flex:1;padding:10px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
+        <button onclick="exportMonthlyAttendanceExcel(window._laborFrom||'', window._laborTo||'')" style="flex:1;padding:10px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div class="stat"><div class="sl">أيام الشركة</div><div class="sv" style="color:rgba(255,255,255,.9)">${totalComp} يوم</div></div>
