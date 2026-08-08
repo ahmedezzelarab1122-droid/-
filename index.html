@@ -5823,29 +5823,38 @@ function exportProjectFullReportPDF(project, fromDate, toDate){
 // ── تقرير حضور شهري لكل العمال (داخليين وخارجيين) — كل شهر منفصل بعمود لوحده ──
 const _arMonthNames = {'01':'يناير','02':'فبراير','03':'مارس','04':'أبريل','05':'مايو','06':'يونيو','07':'يوليو','08':'أغسطس','09':'سبتمبر','10':'أكتوبر','11':'نوفمبر','12':'ديسمبر'};
 
-function _buildMonthlyAttendanceData(fromDate, toDate){
+function _buildMonthlyAttendanceData(fromDate, toDate, opts){
+  opts = opts || {};
   let laborEntries = DB.entries.filter(e=>(e.type==='labor'||e.type==='labor_waiting')&&!e.rejected);
   if(fromDate) laborEntries = laborEntries.filter(e=>e.date>=fromDate);
   if(toDate) laborEntries = laborEntries.filter(e=>e.date<=toDate);
 
   const workers = {};
   const monthsSet = new Set();
+  const includeCompany = opts.types ? opts.types.includes('company') : true;
+  const includeExternal = opts.types ? opts.types.includes('external') : true;
 
   laborEntries.forEach(e=>{
     const month = (e.date||'').substring(0,7); // YYYY-MM
     if(!month) return;
-    monthsSet.add(month);
-    (e.laborDetails?.presentWorkers||[]).forEach(w=>{
-      const k = 'company||'+_normWorkerName(w.name);
-      if(!workers[k]) workers[k]={name:_normWorkerName(w.name),type:'company',months:{},total:0};
+    if(opts.months && !opts.months.includes(month)) return;
+    if(includeCompany) (e.laborDetails?.presentWorkers||[]).forEach(w=>{
+      const nm = _normWorkerName(w.name);
+      if(opts.workerNames && !opts.workerNames.includes('company||'+nm)) return;
+      const k = 'company||'+nm;
+      if(!workers[k]) workers[k]={name:nm,type:'company',months:{},total:0};
       workers[k].months[month]=(workers[k].months[month]||0)+1;
       workers[k].total++;
+      monthsSet.add(month);
     });
-    (e.laborDetails?.externalWorkersList||[]).forEach(w=>{
-      const k = 'external||'+_normWorkerName(w.name);
-      if(!workers[k]) workers[k]={name:_normWorkerName(w.name),type:'external',months:{},total:0};
+    if(includeExternal) (e.laborDetails?.externalWorkersList||[]).forEach(w=>{
+      const nm = _normWorkerName(w.name);
+      if(opts.workerNames && !opts.workerNames.includes('external||'+nm)) return;
+      const k = 'external||'+nm;
+      if(!workers[k]) workers[k]={name:nm,type:'external',months:{},total:0};
       workers[k].months[month]=(workers[k].months[month]||0)+1;
       workers[k].total++;
+      monthsSet.add(month);
     });
   });
 
@@ -5854,9 +5863,112 @@ function _buildMonthlyAttendanceData(fromDate, toDate){
   return {workerList, months};
 }
 
-function exportMonthlyAttendancePDF(fromDate, toDate){
-  const {workerList, months} = _buildMonthlyAttendanceData(fromDate, toDate);
+// كل العمال والشهور المتاحة في الفترة (بدون فلترة) — تُستخدم لبناء نافذة الاختيار
+function _getAttendanceOptions(fromDate, toDate){
+  const {workerList, months} = _buildMonthlyAttendanceData(fromDate, toDate, {});
+  return {workerList, months};
+}
+
+function openAttendanceFilterModal(fromDate, toDate){
+  const {workerList, months} = _getAttendanceOptions(fromDate, toDate);
   if(!workerList.length){alert('لا توجد بيانات حضور في هذه الفترة');return;}
+  const monthLabel = m => _arMonthNames[m.substring(5,7)]+' '+m.substring(0,4);
+  const compWorkers = workerList.filter(w=>w.type==='company');
+  const extWorkers = workerList.filter(w=>w.type==='external');
+
+  const old = document.getElementById('att-filter-modal');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'att-filter-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  const workerRow = w => `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0;cursor:pointer">
+    <input type="checkbox" class="att-worker-chk" data-key="${w.type}||${w.name}" checked style="width:15px;height:15px">
+    ${w.name} <span style="color:rgba(255,255,255,.4);font-size:10px">(${w.total} يوم)</span>
+  </label>`;
+
+  m.innerHTML = `
+    <div style="background:#1a1535;border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:700;color:#f5c842">🎛️ تخصيص تقرير الحضور</div>
+        <button onclick="document.getElementById('att-filter-modal').remove()" style="border:none;background:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px">✕</button>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px">📅 الأشهر</div>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button onclick="document.querySelectorAll('.att-month-chk').forEach(c=>c.checked=true)" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-family:'Tajawal',sans-serif">تحديد الكل</button>
+          <button onclick="document.querySelectorAll('.att-month-chk').forEach(c=>c.checked=false)" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء الكل</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;background:rgba(255,255,255,.04);border-radius:8px;padding:8px">
+          ${months.map(mo=>`<label style="display:flex;align-items:center;gap:5px;font-size:11px;cursor:pointer">
+            <input type="checkbox" class="att-month-chk" data-month="${mo}" checked style="width:14px;height:14px">${monthLabel(mo)}
+          </label>`).join('')}
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px">👥 نوع العمال</div>
+        <div style="display:flex;gap:12px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="att-type-company" checked onchange="_toggleAttTypeGroup('company',this.checked)" style="width:15px;height:15px">🏢 عمال داخليون
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="att-type-external" checked onchange="_toggleAttTypeGroup('external',this.checked)" style="width:15px;height:15px">👷 عمال خارجيون
+          </label>
+        </div>
+      </div>
+
+      ${compWorkers.length?`<div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:4px">🏢 عمال الشركة</div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px;max-height:140px;overflow-y:auto">
+          ${compWorkers.map(workerRow).join('')}
+        </div>
+      </div>`:''}
+
+      ${extWorkers.length?`<div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:4px">👷 العمال الخارجيون</div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px;max-height:140px;overflow-y:auto">
+          ${extWorkers.map(workerRow).join('')}
+        </div>
+      </div>`:''}
+
+      <div style="display:flex;gap:8px">
+        <button onclick="_runFilteredAttendanceExport('pdf','${fromDate||''}','${toDate||''}')" style="flex:1;padding:11px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
+        <button onclick="_runFilteredAttendanceExport('excel','${fromDate||''}','${toDate||''}')" style="flex:1;padding:11px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+function _toggleAttTypeGroup(type, checked){
+  document.querySelectorAll('.att-worker-chk').forEach(c=>{
+    if(c.dataset.key.startsWith(type+'||')) c.checked = checked;
+  });
+}
+
+function _runFilteredAttendanceExport(format, fromDate, toDate){
+  const selectedMonths = Array.from(document.querySelectorAll('.att-month-chk:checked')).map(c=>c.dataset.month);
+  const selectedWorkers = Array.from(document.querySelectorAll('.att-worker-chk:checked')).map(c=>c.dataset.key);
+  const includeCompany = document.getElementById('att-type-company')?.checked;
+  const includeExternal = document.getElementById('att-type-external')?.checked;
+  const types = [];
+  if(includeCompany) types.push('company');
+  if(includeExternal) types.push('external');
+
+  if(!selectedMonths.length){alert('⚠️ اختر شهراً واحداً على الأقل');return;}
+  if(!selectedWorkers.length){alert('⚠️ اختر عاملاً واحداً على الأقل');return;}
+
+  const opts = {months:selectedMonths, workerNames:selectedWorkers, types};
+  const el = document.getElementById('att-filter-modal');
+  if(el) el.remove();
+  if(format==='pdf') exportMonthlyAttendancePDF(fromDate, toDate, opts);
+  else exportMonthlyAttendanceExcel(fromDate, toDate, opts);
+}
+
+function exportMonthlyAttendancePDF(fromDate, toDate, opts){
+  const {workerList, months} = _buildMonthlyAttendanceData(fromDate, toDate, opts);
+  if(!workerList.length){alert('لا توجد بيانات حضور تطابق الاختيار');return;}
   const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   const monthLabels = months.map(m=>_arMonthNames[m.substring(5,7)]+' '+m.substring(0,4));
   const grandTotal = workerList.reduce((a,w)=>a+w.total,0);
@@ -5882,9 +5994,9 @@ function exportMonthlyAttendancePDF(fromDate, toDate){
   const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
 }
 
-function exportMonthlyAttendanceExcel(fromDate, toDate){
-  const {workerList, months} = _buildMonthlyAttendanceData(fromDate, toDate);
-  if(!workerList.length){alert('لا توجد بيانات حضور في هذه الفترة');return;}
+function exportMonthlyAttendanceExcel(fromDate, toDate, opts){
+  const {workerList, months} = _buildMonthlyAttendanceData(fromDate, toDate, opts);
+  if(!workerList.length){alert('لا توجد بيانات حضور تطابق الاختيار');return;}
   const monthLabels = months.map(m=>_arMonthNames[m.substring(5,7)]+' '+m.substring(0,4));
 
   const rows = workerList.map(w=>{
@@ -5982,11 +6094,8 @@ function rLaborMgr(){
     <!-- Monthly Attendance Report -->
     <div class="card" style="padding:12px 14px;margin-bottom:12px">
       <div class="ctitle" style="margin-bottom:8px">📅 تقرير حضور شهري لكل العمال</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">كل عامل (داخلي وخارجي) وأيام حضوره في كل شهر على حدة</div>
-      <div style="display:flex;gap:8px">
-        <button onclick="exportMonthlyAttendancePDF(window._mgrLaborFrom||'', window._mgrLaborTo||'')" style="flex:1;padding:10px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
-        <button onclick="exportMonthlyAttendanceExcel(window._mgrLaborFrom||'', window._mgrLaborTo||'')" style="flex:1;padding:10px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
-      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">اختر العمال (داخليين/خارجيين) والأشهر اللي محتاجها بس</div>
+      <button onclick="openAttendanceFilterModal(window._mgrLaborFrom||'', window._mgrLaborTo||'')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">🎛️ تخصيص وتصدير تقرير الحضور</button>
     </div>
 
     <!-- Summary Stats -->
@@ -6632,11 +6741,9 @@ function rOwnerLabor(){
     </div>
     <div class="card" style="padding:12px 14px;margin-bottom:12px">
       <div class="ctitle" style="margin-bottom:8px">📅 تقرير حضور شهري لكل العمال</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">كل عامل (داخلي وخارجي) وأيام حضوره في كل شهر على حدة</div>
-      <div style="display:flex;gap:8px">
-        <button onclick="exportMonthlyAttendancePDF(window._laborFrom||'', window._laborTo||'')" style="flex:1;padding:10px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
-        <button onclick="exportMonthlyAttendanceExcel(window._laborFrom||'', window._laborTo||'')" style="flex:1;padding:10px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
-      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:10px">اختر العمال (داخليين/خارجيين) والأشهر اللي محتاجها بس</div>
+      <button onclick="openAttendanceFilterModal(window._laborFrom||'', window._laborTo||'')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">🎛️ تخصيص وتصدير تقرير الحضور</button>
+    </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div class="stat"><div class="sl">أيام الشركة</div><div class="sv" style="color:rgba(255,255,255,.9)">${totalComp} يوم</div></div>
