@@ -3722,7 +3722,13 @@ function rReports(){
         tx=DB.entries.filter(e=>e.supId==s.id).reduce((a,e)=>a+(e.taxAmt||0),0);
       return`<div class="txr"><div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${gc(i)};display:inline-block"></span>${s.name}</div><div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:1px">نثرية:${fmt(p)} · ضريبية:${fmt(t)} · ضريبة:${fmt(tx)}</div></div><div style="text-align:left"><div style="font-size:13px;font-weight:700;color:var(--r)">${fmt(sp)} ﷼</div><div style="font-size:10px;color:#C8960C">متبقي:${fmt(rem)}</div></div></div>`;
     }).join('')}</div>
-    <div class="card"><div class="ctitle">تقرير المشاريع</div>${DB.projects.map(p=>`<div class="txr"><span style="font-size:13px">${p}</span><span style="font-weight:700;color:var(--r)">${fmt(pm[p]||0)} ﷼</span></div>`).join('')}</div>
+    <div class="card"><div class="ctitle" style="display:flex;justify-content:space-between;align-items:center">
+      <span>تقرير المشاريع</span>
+      <div style="display:flex;gap:6px">
+        <button onclick="exportProjectsSummaryPDF()" style="border:none;background:rgba(248,113,113,.15);color:#f87171;padding:4px 9px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
+        <button onclick="exportProjectsSummaryExcel()" style="border:none;background:rgba(52,211,153,.15);color:#34d399;padding:4px 9px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
+      </div>
+    </div>${DB.projects.map(p=>`<div class="txr"><span style="font-size:13px">${p}</span><span style="font-weight:700;color:var(--r)">${fmt(pm[p]||0)} ﷼</span></div>`).join('')}</div>
     <div class="card"><div class="ctitle">إجمالي ضريبة القيمة المضافة</div><div style="font-size:22px;font-weight:800;color:var(--b)">${fmt(taxT)} ﷼</div></div>
     <div class="card"><div class="ctitle">توزيع المصاريف</div>
     ${[['نثرية',ptT,'#166534'],['ضريبية',txT,'var(--b)']].map(([l,v,c])=>{
@@ -6587,6 +6593,69 @@ function rOwnerSup(){
     }).join('')}`;
 }
 
+// ── تصدير تقرير المشاريع (ملخص كل المشاريع) PDF و Excel ──
+function _buildProjectsSummary(){
+  const pm={};
+  DB.entries.filter(e=>e.type!=='labor'&&e.type!=='budget_add').forEach(e=>{
+    if(!pm[e.project])pm[e.project]={total:0,tax:0,petty:0,count:0};
+    pm[e.project].total+=(e.total||0);
+    pm[e.project][e.type]=(pm[e.project][e.type]||0)+(e.total||0);
+    pm[e.project].count++;
+  });
+  return Object.entries(pm).sort((a,b)=>b[1].total-a[1].total);
+}
+
+function exportProjectsSummaryPDF(){
+  const sorted = _buildProjectsSummary();
+  if(!sorted.length){alert('لا توجد بيانات مشاريع');return;}
+  const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  const grandTotal = sorted.reduce((a,p)=>a+p[1].total,0);
+  const grandTax = sorted.reduce((a,p)=>a+(p[1].tax||0),0);
+  const grandPetty = sorted.reduce((a,p)=>a+(p[1].petty||0),0);
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المشاريع</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}'
+    +'h1{font-size:18px;font-weight:900;margin-bottom:2px}.period{font-size:12px;color:#555;margin-bottom:14px}'
+    +'.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}'
+    +'.box{background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center}'
+    +'.bl{font-size:10px;color:#555;margin-bottom:2px}.bv{font-size:14px;font-weight:800}'
+    +'table{width:100%;border-collapse:collapse;font-size:11px}th{background:#000;color:#fff;padding:6px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:5px 6px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}</style></head><body>'
+    +'<div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<h1>تقرير المشاريع</h1>'
+    +'<div class="period">شركة كيان وبناء للمقاولات · '+now+'</div>'
+    +'<div class="sum"><div class="box"><div class="bl">عدد المشاريع</div><div class="bv">'+sorted.length+'</div></div><div class="box"><div class="bl">إجمالي كل المشاريع</div><div class="bv" style="color:#D93025">'+fmt(grandTotal)+' ﷼</div></div><div class="box"><div class="bl">إجمالي المعاملات</div><div class="bv">'+sorted.reduce((a,p)=>a+p[1].count,0)+'</div></div></div>'
+    +'<table><tr><th>المشروع</th><th>عدد المعاملات</th><th>ضريبية</th><th>نثرية</th><th>الإجمالي</th></tr>'
+    +sorted.map(([proj,d])=>'<tr><td style="font-weight:700">'+proj+'</td><td style="text-align:center">'+d.count+'</td><td style="color:#1d4ed8">'+fmt(d.tax||0)+' ﷼</td><td style="color:#166534">'+fmt(d.petty||0)+' ﷼</td><td style="font-weight:800;color:#D93025">'+fmt(d.total)+' ﷼</td></tr>').join('')
+    +'<tr class="tr"><td colspan="2">الإجمالي</td><td>'+fmt(grandTax)+' ﷼</td><td>'+fmt(grandPetty)+' ﷼</td><td>'+fmt(grandTotal)+' ﷼</td></tr>'
+    +'</table></body></html>';
+  const win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(()=>win.print(),700);
+}
+
+function exportProjectsSummaryExcel(){
+  const sorted = _buildProjectsSummary();
+  if(!sorted.length){alert('لا توجد بيانات مشاريع');return;}
+  const rows = sorted.map(([proj,d])=>({
+    'المشروع': proj,
+    'عدد المعاملات': d.count,
+    'ضريبية': d.tax||0,
+    'نثرية': d.petty||0,
+    'الإجمالي': d.total
+  }));
+  rows.push({
+    'المشروع':'الإجمالي',
+    'عدد المعاملات': sorted.reduce((a,p)=>a+p[1].count,0),
+    'ضريبية': sorted.reduce((a,p)=>a+(p[1].tax||0),0),
+    'نثرية': sorted.reduce((a,p)=>a+(p[1].petty||0),0),
+    'الإجمالي': sorted.reduce((a,p)=>a+p[1].total,0)
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:24},{wch:14},{wch:14},{wch:14},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'تقرير المشاريع');
+  XLSX.writeFile(wb, 'تقرير_المشاريع.xlsx');
+}
+
 function rOwnerProj(){
   const pm={};
   DB.entries.filter(e=>e.type!=='labor'&&e.type!=='budget_add').forEach(e=>{
@@ -6608,7 +6677,13 @@ function rOwnerProj(){
       </div>
       <button onclick="exportProjectFullReportPDF(document.getElementById('proj-full-pdf').value,'','')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير التقرير الشامل</button>
     </div>
-    <div class="shdr">تقرير المشاريع</div>
+    <div class="shdr" style="display:flex;justify-content:space-between;align-items:center">
+      <span>تقرير المشاريع</span>
+      <div style="display:flex;gap:6px">
+        <button onclick="exportProjectsSummaryPDF()" style="border:none;background:rgba(248,113,113,.15);color:#f87171;padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
+        <button onclick="exportProjectsSummaryExcel()" style="border:none;background:rgba(52,211,153,.15);color:#34d399;padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
+      </div>
+    </div>
     ${sorted.map(([proj,d])=>`<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.9)">${proj}</div>
