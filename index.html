@@ -3712,7 +3712,10 @@ function rReports(){
           ${DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('')}
         </select>
       </div>
-      <button onclick="exportProjectFullReportPDF(document.getElementById('rep-proj-full-pdf').value, window._reportFrom||'', window._reportTo||'')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير التقرير الشامل</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportProjectFullReportPDF(document.getElementById('rep-proj-full-pdf').value, window._reportFrom||'', window._reportTo||'')" style="flex:1;padding:11px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
+        <button onclick="exportProjectFullReportExcel(document.getElementById('rep-proj-full-pdf').value, window._reportFrom||'', window._reportTo||'')" style="flex:1;padding:11px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
+      </div>
     </div>
     <div class="card" style="background:transparent"><div class="ctitle">تقرير المشرفين</div>
     ${DB.supervisors.map((s,i)=>{
@@ -5826,6 +5829,117 @@ function exportProjectFullReportPDF(project, fromDate, toDate){
   const win2=window.open('','_blank');win2.document.write(html);win2.document.close();setTimeout(()=>win2.print(),700);
 }
 
+function exportProjectFullReportExcel(project, fromDate, toDate){
+  if(!project){alert('يرجى اختيار مشروع أولاً');return;}
+
+  let entries = DB.entries.filter(e=>e.project===project);
+  if(fromDate) entries = entries.filter(e=>e.date>=fromDate);
+  if(toDate) entries = entries.filter(e=>e.date<=toDate);
+
+  const expenseEntries = entries.filter(e=>e.type==='petty'||e.type==='tax').sort((a,b)=>a.date.localeCompare(b.date));
+  const returnEntries  = entries.filter(e=>e.type==='return').sort((a,b)=>a.date.localeCompare(b.date));
+  const laborEntries   = entries.filter(e=>e.type==='labor'||e.type==='labor_waiting').sort((a,b)=>a.date.localeCompare(b.date));
+  const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]').filter(s=>s.project===project);
+  const contracts = JSON.parse(localStorage.getItem('kayan_contracts')||'[]').filter(c=>c.project===project);
+
+  if(!expenseEntries.length && !returnEntries.length && !laborEntries.length && !sales.length && !contracts.length){
+    alert('لا توجد أي بيانات مسجلة على هذا المشروع في الفترة المحددة');
+    return;
+  }
+
+  const totalExpense = expenseEntries.reduce((a,e)=>a+(e.total||0),0);
+  const totalReturns  = returnEntries.reduce((a,e)=>a+(e.total||0),0);
+  const totalLabor    = laborEntries.reduce((a,e)=>a+(e.laborDetails?.laborTotal||0),0);
+  const totalSales    = sales.reduce((a,s)=>a+(s.total||0),0);
+  const totalContracts= contracts.reduce((a,c)=>a+(c.value||0),0);
+  const netCost       = totalExpense - totalReturns + totalLabor;
+
+  const externalRate = (DB.laborRates||{}).external||150;
+  const companyRate  = (DB.laborRates||{}).company||100;
+  const extW={}, compW={};
+  laborEntries.forEach(e=>{
+    if(e.laborDetails?.externalWorkersList){
+      e.laborDetails.externalWorkersList.forEach(w=>{
+        const k=w.name+'||'+w.jobTitle;
+        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0};
+        extW[k].days++; extW[k].total+=externalRate;
+      });
+    }
+    if(e.laborDetails?.presentWorkers){
+      e.laborDetails.presentWorkers.forEach(w=>{
+        if(!compW[w.name])compW[w.name]={name:w.name,days:0,total:0};
+        compW[w.name].days++; compW[w.name].total+=companyRate;
+      });
+    }
+  });
+  const extList = Object.values(extW).sort((a,b)=>b.days-a.days);
+  const compList = Object.values(compW).sort((a,b)=>b.days-a.days);
+  const periodStr = (fromDate||toDate) ? ((fromDate||'البداية')+' → '+(toDate||'الآن')) : 'كل الفترات';
+
+  const wb = XLSX.utils.book_new();
+
+  const summaryRows = [
+    {'البيان':'المشروع','القيمة':project},
+    {'البيان':'الفترة','القيمة':periodStr},
+    {'البيان':'إجمالي الفواتير','القيمة':totalExpense},
+    {'البيان':'إجمالي المرتجعات','القيمة':totalReturns},
+    {'البيان':'تكلفة العمالة','القيمة':totalLabor},
+  ];
+  if(sales.length) summaryRows.push({'البيان':'إجمالي المبيعات','القيمة':totalSales});
+  if(contracts.length) summaryRows.push({'البيان':'قيمة العقود','القيمة':totalContracts});
+  summaryRows.push({'البيان':'صافي التكلفة','القيمة':netCost});
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  wsSummary['!cols']=[{wch:22},{wch:24}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'ملخص');
+
+  if(expenseEntries.length){
+    const ws = XLSX.utils.json_to_sheet(expenseEntries.map(e=>({
+      'التاريخ':e.date, 'الوصف/المورد':e.desc||e.supplier||'', 'رقم الفاتورة':e.invoiceNo||'',
+      'النوع':e.type==='tax'?'ضريبية':'نثرية', 'المبلغ':e.total||0
+    })));
+    ws['!cols']=[{wch:12},{wch:26},{wch:16},{wch:12},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws, 'الفواتير');
+  }
+  if(returnEntries.length){
+    const ws = XLSX.utils.json_to_sheet(returnEntries.map(e=>({
+      'التاريخ':e.date, 'الوصف/المورد':e.desc||e.supplier||'', 'رقم الفاتورة':e.invoiceNo||'', 'المبلغ':e.total||0
+    })));
+    ws['!cols']=[{wch:12},{wch:26},{wch:16},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws, 'المرتجعات');
+  }
+  if(extList.length){
+    const ws = XLSX.utils.json_to_sheet(extList.map(w=>({
+      'عامل خارجي':w.name, 'الصفة':w.jobTitle, 'أيام':w.days, 'التكلفة':w.total
+    })));
+    ws['!cols']=[{wch:20},{wch:16},{wch:10},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws, 'عمالة خارجية');
+  }
+  if(compList.length){
+    const ws = XLSX.utils.json_to_sheet(compList.map(w=>({
+      'عامل شركة (داخلي)':w.name, 'أيام':w.days
+    })));
+    ws['!cols']=[{wch:22},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, 'عمالة داخلية');
+  }
+  if(sales.length){
+    const ws = XLSX.utils.json_to_sheet(sales.map(s=>({
+      'التاريخ':s.date, 'العميل':s.client||'', 'رقم الفاتورة':s.invoiceNo||'', 'المبلغ':s.total||0
+    })));
+    ws['!cols']=[{wch:12},{wch:22},{wch:16},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws, 'المبيعات');
+  }
+  if(contracts.length){
+    const ws = XLSX.utils.json_to_sheet(contracts.map(c=>({
+      'العميل':c.clientName||'', 'التاريخ':c.date||'', 'قيمة العقد':c.value||0,
+      'المُحصّل':(c.transfers||[]).reduce((a,t)=>a+(t.amount||0),0)
+    })));
+    ws['!cols']=[{wch:22},{wch:12},{wch:14},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws, 'العقود');
+  }
+
+  XLSX.writeFile(wb, 'تقرير_شامل_'+project+'.xlsx');
+}
+
 // ── تقرير حضور شهري لكل العمال (داخليين وخارجيين) — كل شهر منفصل بعمود لوحده ──
 const _arMonthNames = {'01':'يناير','02':'فبراير','03':'مارس','04':'أبريل','05':'مايو','06':'يونيو','07':'يوليو','08':'أغسطس','09':'سبتمبر','10':'أكتوبر','11':'نوفمبر','12':'ديسمبر'};
 
@@ -6675,7 +6789,10 @@ function rOwnerProj(){
           ${DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('')}
         </select>
       </div>
-      <button onclick="exportProjectFullReportPDF(document.getElementById('proj-full-pdf').value,'','')" style="width:100%;padding:11px;background:rgba(245,200,66,.12);color:#f5c842;border:1px solid rgba(245,200,66,.3);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 تصدير التقرير الشامل</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportProjectFullReportPDF(document.getElementById('proj-full-pdf').value,'','')" style="flex:1;padding:11px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📄 PDF</button>
+        <button onclick="exportProjectFullReportExcel(document.getElementById('proj-full-pdf').value,'','')" style="flex:1;padding:11px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">📊 Excel</button>
+      </div>
     </div>
     <div class="shdr" style="display:flex;justify-content:space-between;align-items:center">
       <span>تقرير المشاريع</span>
