@@ -5504,8 +5504,9 @@ function buildLaborTable(laborEntries, fromDate, toDate){
   laborEntries.forEach(e=>{
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
-        const k=w.name+'||'+w.jobTitle;
-        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
+        const k=_normWorkerName(w.name);
+        if(!extW[k])extW[k]={name:k,jobTitles:new Set(),days:0,total:0,dates:[],projects:new Set()};
+        if(w.jobTitle) extW[k].jobTitles.add(w.jobTitle);
         extW[k].days++;
         extW[k].total+=externalRate;
         if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
@@ -5543,7 +5544,7 @@ function buildLaborTable(laborEntries, fromDate, toDate){
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.75)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.75)">${[...w.jobTitles].join('، ')} · ${[...w.projects].join('،')}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px">${w.dates.sort().join(' · ')}</div>
           </div>
           <div style="text-align:center;font-size:20px;font-weight:900;color:var(--blue)">${w.days}<div style="font-size:9px;font-weight:400;color:rgba(255,255,255,.75)">يوم</div></div>
@@ -5672,17 +5673,19 @@ function exportProjectLaborPDF(project, fromDate, toDate){
   laborEntries.forEach(e=>{
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
-        const k=w.name+'||'+w.jobTitle;
-        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[]};
+        const k=_normWorkerName(w.name);
+        if(!extW[k])extW[k]={name:k,jobTitles:new Set(),days:0,total:0,dates:[]};
+        if(w.jobTitle) extW[k].jobTitles.add(w.jobTitle);
         extW[k].days++; extW[k].total+=externalRate;
         if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
       });
     }
     if(e.laborDetails?.presentWorkers){
       e.laborDetails.presentWorkers.forEach(w=>{
-        if(!compW[w.name])compW[w.name]={name:w.name,jobTitle:w.jobTitle||'',days:0,total:0,dates:[]};
-        compW[w.name].days++; compW[w.name].total+=companyRate;
-        if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+        const kc=_normWorkerName(w.name);
+        if(!compW[kc])compW[kc]={name:kc,days:0,total:0,dates:[]};
+        compW[kc].days++; compW[kc].total+=companyRate;
+        if(e.date&&!compW[kc].dates.includes(e.date))compW[kc].dates.push(e.date);
       });
     }
   });
@@ -5698,9 +5701,9 @@ function exportProjectLaborPDF(project, fromDate, toDate){
 
   const workerTable = (title,color,bg,list,showCost)=> list.length ? `
     <h2 style="background:${bg};color:${color};padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">${title} (${list.length})</h2>
-    <table><tr><th>الاسم</th>${list.some(w=>w.jobTitle)?'<th>الصفة</th>':''}<th>عدد الأيام</th>${showCost?'<th>الإجمالي</th>':''}<th>التواريخ</th></tr>
-    ${list.map(w=>`<tr><td style="font-weight:700">${w.name}</td>${list.some(x=>x.jobTitle)?'<td>'+(w.jobTitle||'—')+'</td>':''}<td style="text-align:center">${w.days}</td>${showCost?'<td style="font-weight:700;color:'+color+'">'+fmt(w.total)+' ﷼</td>':''}<td style="font-size:10px">${w.dates.sort().join('، ')}</td></tr>`).join('')}
-    <tr class="tr"><td colspan="${1+(list.some(w=>w.jobTitle)?1:0)}">الإجمالي</td><td style="text-align:center">${list.reduce((a,w)=>a+w.days,0)} يوم</td>${showCost?'<td>'+fmt(list.reduce((a,w)=>a+w.total,0))+' ﷼</td>':''}<td></td></tr>
+    <table><tr><th>الاسم</th>${list.some(w=>w.jobTitles&&w.jobTitles.size)?'<th>الصفة</th>':''}<th>عدد الأيام</th>${showCost?'<th>الإجمالي</th>':''}<th>التواريخ</th></tr>
+    ${list.map(w=>`<tr><td style="font-weight:700">${w.name}</td>${list.some(x=>x.jobTitles&&x.jobTitles.size)?'<td>'+(w.jobTitles&&w.jobTitles.size?[...w.jobTitles].join('، '):'—')+'</td>':''}<td style="text-align:center">${w.days}</td>${showCost?'<td style="font-weight:700;color:'+color+'">'+fmt(w.total)+' ﷼</td>':''}<td style="font-size:10px">${w.dates.sort().join('، ')}</td></tr>`).join('')}
+    <tr class="tr"><td colspan="${1+(list.some(w=>w.jobTitles&&w.jobTitles.size)?1:0)}">الإجمالي</td><td style="text-align:center">${list.reduce((a,w)=>a+w.days,0)} يوم</td>${showCost?'<td>'+fmt(list.reduce((a,w)=>a+w.total,0))+' ﷼</td>':''}<td></td></tr>
     </table>` : '';
 
   const dailyLog = laborEntries.map(e=>{
@@ -5759,15 +5762,17 @@ function exportProjectFullReportPDF(project, fromDate, toDate){
   laborEntries.forEach(e=>{
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
-        const k=w.name+'||'+w.jobTitle;
-        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0};
+        const k=_normWorkerName(w.name);
+        if(!extW[k])extW[k]={name:k,jobTitles:new Set(),days:0,total:0};
+        if(w.jobTitle) extW[k].jobTitles.add(w.jobTitle);
         extW[k].days++; extW[k].total+=externalRate;
       });
     }
     if(e.laborDetails?.presentWorkers){
       e.laborDetails.presentWorkers.forEach(w=>{
-        if(!compW[w.name])compW[w.name]={name:w.name,days:0,total:0};
-        compW[w.name].days++; compW[w.name].total+=companyRate;
+        const kc=_normWorkerName(w.name);
+        if(!compW[kc])compW[kc]={name:kc,days:0,total:0};
+        compW[kc].days++; compW[kc].total+=companyRate;
       });
     }
   });
@@ -5792,7 +5797,7 @@ function exportProjectFullReportPDF(project, fromDate, toDate){
   const laborTables = (extList.length||compList.length) ? `
     <h2 style="background:#fef3c7;color:#b45309;padding:5px 8px;border-radius:4px;font-size:13px;margin:14px 0 6px">👷 العمالة (داخلية وخارجية)</h2>
     ${extList.length?`<table><tr><th>عامل خارجي</th><th>الصفة</th><th>أيام</th><th>التكلفة</th></tr>
-    ${extList.map(w=>`<tr><td style="font-weight:700">${w.name}</td><td>${w.jobTitle}</td><td style="text-align:center">${w.days}</td><td style="font-weight:700;color:#b45309">${fmt(w.total)} ﷼</td></tr>`).join('')}
+    ${extList.map(w=>`<tr><td style="font-weight:700">${w.name}</td><td>${[...w.jobTitles].join('، ')}</td><td style="text-align:center">${w.days}</td><td style="font-weight:700;color:#b45309">${fmt(w.total)} ﷼</td></tr>`).join('')}
     <tr class="tr"><td colspan="2">الإجمالي</td><td style="text-align:center">${extList.reduce((a,w)=>a+w.days,0)} يوم</td><td>${fmt(extList.reduce((a,w)=>a+w.total,0))} ﷼</td></tr></table>`:''}
     ${compList.length?`<table style="margin-top:6px"><tr><th>عامل شركة (داخلي)</th><th>أيام</th></tr>
     ${compList.map(w=>`<tr><td style="font-weight:700">${w.name}</td><td style="text-align:center">${w.days}</td></tr>`).join('')}
@@ -5860,15 +5865,17 @@ function exportProjectFullReportExcel(project, fromDate, toDate){
   laborEntries.forEach(e=>{
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
-        const k=w.name+'||'+w.jobTitle;
-        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0};
+        const k=_normWorkerName(w.name);
+        if(!extW[k])extW[k]={name:k,jobTitles:new Set(),days:0,total:0};
+        if(w.jobTitle) extW[k].jobTitles.add(w.jobTitle);
         extW[k].days++; extW[k].total+=externalRate;
       });
     }
     if(e.laborDetails?.presentWorkers){
       e.laborDetails.presentWorkers.forEach(w=>{
-        if(!compW[w.name])compW[w.name]={name:w.name,days:0,total:0};
-        compW[w.name].days++; compW[w.name].total+=companyRate;
+        const kc=_normWorkerName(w.name);
+        if(!compW[kc])compW[kc]={name:kc,days:0,total:0};
+        compW[kc].days++; compW[kc].total+=companyRate;
       });
     }
   });
@@ -5909,7 +5916,7 @@ function exportProjectFullReportExcel(project, fromDate, toDate){
   }
   if(extList.length){
     const ws = XLSX.utils.json_to_sheet(extList.map(w=>({
-      'عامل خارجي':w.name, 'الصفة':w.jobTitle, 'أيام':w.days, 'التكلفة':w.total
+      'عامل خارجي':w.name, 'الصفة':[...w.jobTitles].join('، '), 'أيام':w.days, 'التكلفة':w.total
     })));
     ws['!cols']=[{wch:20},{wch:16},{wch:10},{wch:14}];
     XLSX.utils.book_append_sheet(wb, ws, 'عمالة خارجية');
@@ -6160,8 +6167,9 @@ function rLaborMgr(){
   laborEntries.forEach(e=>{
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
-        const k=w.name+'||'+w.jobTitle;
-        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
+        const k=_normWorkerName(w.name);
+        if(!extW[k])extW[k]={name:k,jobTitles:new Set(),days:0,total:0,dates:[],projects:new Set()};
+        if(w.jobTitle) extW[k].jobTitles.add(w.jobTitle);
         extW[k].days++;
         extW[k].total+=rates.external;
         if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
@@ -6170,10 +6178,11 @@ function rLaborMgr(){
     }
     if(e.laborDetails?.presentWorkers){
       e.laborDetails.presentWorkers.forEach(w=>{
-        if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[],projects:new Set()};
-        compW[w.name].days++;
-        if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
-        if(e.project)compW[w.name].projects.add(e.project);
+        const kc=_normWorkerName(w.name);
+        if(!compW[kc])compW[kc]={name:kc,days:0,dates:[],projects:new Set()};
+        compW[kc].days++;
+        if(e.date&&!compW[kc].dates.includes(e.date))compW[kc].dates.push(e.date);
+        if(e.project)compW[kc].projects.add(e.project);
       });
     }
   });
@@ -6237,7 +6246,7 @@ function rLaborMgr(){
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 14px;background:${'transparent'}">
           <div>
             <div style="font-size:13px;font-weight:700;color:#FFFFFF">${w.name}</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.55)">${w.jobTitle}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.55)">${[...w.jobTitles].join('، ')}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">${w.dates.sort().join(' · ')}</div>
           </div>
           <div style="text-align:center;font-size:20px;font-weight:900;color:#1A50A8">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.55);font-weight:400">يوم</div></div>
@@ -6824,8 +6833,9 @@ function buildExtWorkersReport(){
   laborEntries.forEach(function(e){
     if(!e.laborDetails||!e.laborDetails.externalWorkersList) return;
     e.laborDetails.externalWorkersList.forEach(function(w){
-      const k=w.name+'||'+(w.jobTitle||'');
-      if(!workers[k]) workers[k]={name:w.name,jobTitle:w.jobTitle||'',days:0,total:0};
+      const k=_normWorkerName(w.name);
+      if(!workers[k]) workers[k]={name:k,jobTitles:new Set(),days:0,total:0};
+      if(w.jobTitle) workers[k].jobTitles.add(w.jobTitle);
       workers[k].days++;
       workers[k].total += (e.laborDetails.externalRate||extRate);
     });
@@ -6847,12 +6857,12 @@ function buildExtWorkersReport(){
     +'</div>'
     +list.map(function(entry){
       var k=entry[0], w=entry[1];
-      var paid=payments.filter(function(p){return p.workerKey===k;}).reduce(function(a,p){return a+p.amount;},0);
+      var paid=payments.filter(function(p){return _normWorkerName((p.workerKey||'').split('||')[0])===k;}).reduce(function(a,p){return a+p.amount;},0);
       var left=w.total-paid;
       var isPaid=paid>=w.total;
       return '<div class="card" style="padding:9px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;border-right:3px solid '+(isPaid?'#34d399':'#f87171')+'">'
         +'<div><div style="font-size:12px;font-weight:700">'+(isPaid?'✅ ':'🔴 ')+w.name+'</div>'
-        +'<div style="font-size:10px;color:rgba(255,255,255,.4)">'+w.jobTitle+' · '+w.days+' أيام</div></div>'
+        +'<div style="font-size:10px;color:rgba(255,255,255,.4)">'+[...w.jobTitles].join('، ')+' · '+w.days+' أيام</div></div>'
         +'<div style="text-align:left">'
         +'<div style="font-size:11px;color:rgba(255,255,255,.5)">مستحق: '+fmt(w.total)+' ﷼</div>'
         +'<div style="font-size:11px;color:#34d399">مدفوع: '+fmt(paid)+' ﷼</div>'
@@ -6872,14 +6882,14 @@ function rOwnerLabor(){
   // الحصول على العمال الخارجيين الذين تم محاسبتهم
   const _wPmts = JSON.parse(localStorage.getItem('kayan_worker_payments')||'[]');
   const _paidWorkers = {};
-  // جمع كل ما دُفع لكل عامل
-  _wPmts.forEach(function(p){ _paidWorkers[p.workerKey]=(_paidWorkers[p.workerKey]||0)+p.amount; });
+  // جمع كل ما دُفع لكل عامل (بالاسم فقط، بدون الصفة، لتجميع كل مدفوعاته مع بعض)
+  _wPmts.forEach(function(p){ var pk=_normWorkerName((p.workerKey||'').split('||')[0]); _paidWorkers[pk]=(_paidWorkers[pk]||0)+p.amount; });
   // حساب المستحق لكل عامل
   const _workerDue = {};
   laborEntries.forEach(function(e){
     if(!e.laborDetails||!e.laborDetails.externalWorkersList) return;
     e.laborDetails.externalWorkersList.forEach(function(w){
-      var k=w.name+'||'+(w.jobTitle||'');
+      var k=_normWorkerName(w.name);
       _workerDue[k]=(_workerDue[k]||0)+(e.laborDetails.externalRate||150);
     });
   });
@@ -6892,7 +6902,7 @@ function rOwnerLabor(){
     var extPaidCost=0;
     if(e.laborDetails.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(function(w){
-        var k=w.name+'||'+(w.jobTitle||'');
+        var k=_normWorkerName(w.name);
         if(_fullyPaid.has(k)) extPaidCost+=(e.laborDetails.externalRate||150);
       });
     }
@@ -6902,7 +6912,7 @@ function rOwnerLabor(){
   const totalExt=laborEntries.reduce(function(a,e){
     if(!e.laborDetails||!e.laborDetails.externalWorkersList) return a+(e.laborDetails?.externalCount||0);
     var paidCount=e.laborDetails.externalWorkersList.filter(function(w){
-      return _fullyPaid.has(w.name+'||'+(w.jobTitle||''));
+      return _fullyPaid.has(_normWorkerName(w.name));
     }).length;
     return a+((e.laborDetails.externalCount||0)-paidCount);
   },0);
@@ -6944,7 +6954,6 @@ function rOwnerLabor(){
       <div class="stat"><div class="sl">أيام تسجيل</div><div class="sv">${laborEntries.length}</div></div>
     </div>
     ${buildLaborTable(laborEntries, window._laborFrom||'', window._laborTo||'')}
-    +buildExtWorkersReport()
     `;
 }
 
@@ -6976,15 +6985,17 @@ function exportPDF(){
   const extW={};compW={};
   laborE.forEach(e=>{
     if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{
-      const k=w.name+'||'+w.jobTitle;
-      if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[]};
+      const k=_normWorkerName(w.name);
+      if(!extW[k])extW[k]={name:k,jobTitles:new Set(),days:0,total:0,dates:[]};
+      if(w.jobTitle) extW[k].jobTitles.add(w.jobTitle);
       extW[k].days++;extW[k].total+=exRate;
       if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
     });
     if(e.laborDetails?.presentWorkers)e.laborDetails.presentWorkers.forEach(w=>{
-      if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[]};
-      compW[w.name].days++;
-      if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+      const kc=_normWorkerName(w.name);
+      if(!compW[kc])compW[kc]={name:kc,days:0,dates:[]};
+      compW[kc].days++;
+      if(e.date&&!compW[kc].dates.includes(e.date))compW[kc].dates.push(e.date);
     });
   });
   const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
@@ -7047,7 +7058,7 @@ function exportPDF(){
   <tr class="total-row"><td>الإجمالي</td><td>${fmt(tSpent)} ﷼</td><td>${fmt(tTax)} ﷼</td><td>${fmt(tPetty)} ﷼</td><td>${fmt(tVat)} ﷼</td></tr>
 </table>
 
-${extList.length?'<h2>👷 العمال الخارجيون</h2><table><tr><th>الاسم</th><th>الصفة</th><th>عدد الأيام</th><th>الإجمالي</th></tr>'+extList.map(w=>'<tr><td>'+w.name+'</td><td>'+w.jobTitle+'</td><td style="font-weight:700;color:#1A50A8">'+w.days+' يوم</td><td style="font-size:10px;color:#555">'+(w.dates||[]).sort().join(' · ')+'</td><td style="font-weight:700;color:#D93025">'+fmt(w.total)+' ﷼</td></tr>').join('')+'<tr class="total-row"><td>الإجمالي</td><td></td><td>'+extList.reduce((a,w)=>a+w.days,0)+' يوم</td><td>'+fmt(extList.reduce((a,w)=>a+w.total,0))+' ﷼</td></tr></table>':''}
+${extList.length?'<h2>👷 العمال الخارجيون</h2><table><tr><th>الاسم</th><th>الصفة</th><th>عدد الأيام</th><th>الإجمالي</th></tr>'+extList.map(w=>'<tr><td>'+w.name+'</td><td>'+[...w.jobTitles].join('، ')+'</td><td style="font-weight:700;color:#1A50A8">'+w.days+' يوم</td><td style="font-size:10px;color:#555">'+(w.dates||[]).sort().join(' · ')+'</td><td style="font-weight:700;color:#D93025">'+fmt(w.total)+' ﷼</td></tr>').join('')+'<tr class="total-row"><td>الإجمالي</td><td></td><td>'+extList.reduce((a,w)=>a+w.days,0)+' يوم</td><td>'+fmt(extList.reduce((a,w)=>a+w.total,0))+' ﷼</td></tr></table>':''}
 
 ${compList.length?'<h2>🏢 عمال الشركة</h2><table><tr><th>الاسم</th><th>عدد أيام الحضور</th></tr>'+compList.map(w=>'<tr><td>'+w.name+'</td><td style="font-weight:700;color:#1A7A3C">'+w.days+' يوم</td><td style="font-size:10px;color:#555">'+(w.dates||[]).sort().join(' · ')+'</td></tr>').join('')+'</table>':''}
 
@@ -7108,8 +7119,9 @@ function buildLaborSection(fromDate, toDate){
   projectEntries.forEach(e=>{
     if(e.laborDetails?.externalWorkersList){
       e.laborDetails.externalWorkersList.forEach(w=>{
-        const k=w.name+'||'+w.jobTitle;
-        if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[],projects:new Set()};
+        const k=_normWorkerName(w.name);
+        if(!extW[k])extW[k]={name:k,jobTitles:new Set(),days:0,total:0,dates:[],projects:new Set()};
+        if(w.jobTitle) extW[k].jobTitles.add(w.jobTitle);
         extW[k].days++;extW[k].total+=rates.external;
         if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
         if(e.project)extW[k].projects.add(e.project);
@@ -7117,10 +7129,11 @@ function buildLaborSection(fromDate, toDate){
     }
     if(e.laborDetails?.presentWorkers){
       e.laborDetails.presentWorkers.forEach(w=>{
-        if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[],projects:new Set()};
-        compW[w.name].days++;
-        if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
-        if(e.project)compW[w.name].projects.add(e.project);
+        const kc=_normWorkerName(w.name);
+        if(!compW[kc])compW[kc]={name:kc,days:0,dates:[],projects:new Set()};
+        compW[kc].days++;
+        if(e.date&&!compW[kc].dates.includes(e.date))compW[kc].dates.push(e.date);
+        if(e.project)compW[kc].projects.add(e.project);
       });
     }
   });
@@ -7159,7 +7172,7 @@ function buildLaborSection(fromDate, toDate){
       ${extList.map((w,i)=>`
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:9px 14px;background:transparent">
           <div><div style="font-size:13px;font-weight:700">${w.name}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.5)">${w.jobTitle} · ${[...w.projects].join('،')}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">${[...w.jobTitles].join('، ')} · ${[...w.projects].join('،')}</div>
           <div style="font-size:10px;color:rgba(255,255,255,.4)">${w.dates.sort().join(' · ')}</div></div>
           <div style="text-align:center;font-size:20px;font-weight:900;color:#70B5FF">${w.days}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">يوم</div></div>
           <div style="text-align:center;font-size:13px;font-weight:700;color:#f87171">${fmt(w.total)}<div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:400">﷼</div></div>
@@ -7234,15 +7247,17 @@ function exportSupPDF(supId){
   const compRate=(DB.laborRates||{}).company||100;
   laborE.forEach(e=>{
     if(e.laborDetails?.externalWorkersList)e.laborDetails.externalWorkersList.forEach(w=>{
-      const k=w.name+'||'+w.jobTitle;
-      if(!extW[k])extW[k]={name:w.name,jobTitle:w.jobTitle,days:0,total:0,dates:[]};
+      const k=_normWorkerName(w.name);
+      if(!extW[k])extW[k]={name:k,jobTitles:new Set(),days:0,total:0,dates:[]};
+      if(w.jobTitle) extW[k].jobTitles.add(w.jobTitle);
       extW[k].days++;extW[k].total+=exRate;
       if(e.date&&!extW[k].dates.includes(e.date))extW[k].dates.push(e.date);
     });
     if(e.laborDetails?.presentWorkers)e.laborDetails.presentWorkers.forEach(w=>{
-      if(!compW[w.name])compW[w.name]={name:w.name,days:0,dates:[]};
-      compW[w.name].days++;
-      if(e.date&&!compW[w.name].dates.includes(e.date))compW[w.name].dates.push(e.date);
+      const kc=_normWorkerName(w.name);
+      if(!compW[kc])compW[kc]={name:kc,days:0,dates:[]};
+      compW[kc].days++;
+      if(e.date&&!compW[kc].dates.includes(e.date))compW[kc].dates.push(e.date);
     });
   });
   const extList=Object.values(extW).sort((a,b)=>b.days-a.days);
@@ -7298,7 +7313,7 @@ ${invoices.sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<tr><td>${e.date}</
 ${extList.length?`
 <h2>👷 العمال الخارجيون</h2>
 <table><tr><th>الاسم</th><th>الصفة</th><th>الأيام</th><th>التواريخ</th><th>الإجمالي</th></tr>
-${extList.map(w=>`<tr><td>${w.name}</td><td>${w.jobTitle}</td><td class="blue">${w.days} يوم</td><td style="font-size:11px">${w.dates.sort().join(' · ')}</td><td class="red">${fmt(w.total)} ﷼</td></tr>`).join('')}
+${extList.map(w=>`<tr><td>${w.name}</td><td>${[...w.jobTitles].join('، ')}</td><td class="blue">${w.days} يوم</td><td style="font-size:11px">${w.dates.sort().join(' · ')}</td><td class="red">${fmt(w.total)} ﷼</td></tr>`).join('')}
 </table>`:''}
 
 ${compList.length?`
