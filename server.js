@@ -2,6 +2,15 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+
+// حماية أخيرة: امنع أي خطأ غير متوقع من إيقاف السيرفر بالكامل
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception (تم تجاهله لمنع توقف السيرفر):', err.message, err.stack);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled Rejection (تم تجاهله لمنع توقف السيرفر):', reason);
+});
+
 const PORT = process.env.PORT || 10000;
 const CLOUDINARY_CLOUD = process.env.CLOUDINARY_CLOUD || 'dqgjqmwpy';
 const CLOUDINARY_KEY = process.env.CLOUDINARY_KEY || '458945749658771';
@@ -392,41 +401,44 @@ function generateExcel(dbData) {
 }
 
 const server = http.createServer(async (req, res) => {
+ try {
   const { pathname } = url.parse(req.url);
   if (req.method === 'OPTIONS') {
     res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,DELETE,PATCH', 'Access-Control-Allow-Headers': 'Content-Type' });
     return res.end();
   }
   if (pathname === '/api/login' && req.method === 'POST') {
-    const { role, password, supId } = await parseBody(req);
-    const data = await loadDB();
-    if (role === 'owner') {
-      if ((password||'').trim() === ((data.ownerPassword || 'owner123')).trim()) return sendJSON(res, { ok: true, role: 'owner', name: 'المالك' });
-      return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-    }
-    if (role === 'manager') {
-      if ((password||'').trim() === (data.managerPassword||'').trim()) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
-      return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-    }
-    if (role === 'accountant') {
-      const cfg = await db.collection('config').findOne({_id:'main'});
-      // Support multiple accountants
-      const accountants = cfg?.accountants || [];
-      // Legacy single accountant
-      if(accountants.length===0 && cfg?.accountant){
-        accountants.push({id:'acc_1', name:cfg.accountant.name||'إسلام', password:cfg.accountant.password||'i1234', permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr','ext-workers']});
+    try {
+      const { role, password, supId } = await parseBody(req);
+      const data = await loadDB();
+      if (role === 'owner') {
+        if ((password||'').trim() === ((data.ownerPassword || 'owner123')).trim()) return sendJSON(res, { ok: true, role: 'owner', name: 'المالك' });
+        return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
       }
-      const acc = accountants.find(a=>(a.password||'').trim()===(password||'').trim());
-      if(acc) return sendJSON(res, { ok: true, role: 'accountant', name: acc.name, accId: acc.id, permissions: acc.permissions||[] });
-      return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-    }
-    if (role === 'supervisor') {
-      const sup = data.supervisors.find(s => s.id === parseInt(supId));
-      if (!sup) return sendJSON(res, { ok: false, error: 'المشرف غير موجود' }, 404);
-      if ((sup.password||'').trim() !== (password||'').trim()) return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
-      return sendJSON(res, { ok: true, role: 'supervisor', name: sup.name, supId: sup.id, budget: sup.budget });
-    }
-    return sendJSON(res, { ok: false, error: 'بيانات خاطئة' }, 400);
+      if (role === 'manager') {
+        if ((password||'').trim() === (data.managerPassword||'').trim()) return sendJSON(res, { ok: true, role: 'manager', name: 'المدير' });
+        return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
+      }
+      if (role === 'accountant') {
+        const cfg = await db.collection('config').findOne({_id:'main'});
+        // Support multiple accountants
+        const accountants = cfg?.accountants || [];
+        // Legacy single accountant
+        if(accountants.length===0 && cfg?.accountant){
+          accountants.push({id:'acc_1', name:cfg.accountant.name||'إسلام', password:cfg.accountant.password||'i1234', permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr','ext-workers']});
+        }
+        const acc = accountants.find(a=>(a.password||'').trim()===(password||'').trim());
+        if(acc) return sendJSON(res, { ok: true, role: 'accountant', name: acc.name, accId: acc.id, permissions: acc.permissions||[] });
+        return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
+      }
+      if (role === 'supervisor') {
+        const sup = data.supervisors.find(s => s.id === parseInt(supId));
+        if (!sup) return sendJSON(res, { ok: false, error: 'المشرف غير موجود' }, 404);
+        if ((sup.password||'').trim() !== (password||'').trim()) return sendJSON(res, { ok: false, error: 'كلمة المرور خاطئة' }, 401);
+        return sendJSON(res, { ok: true, role: 'supervisor', name: sup.name, supId: sup.id, budget: sup.budget });
+      }
+      return sendJSON(res, { ok: false, error: 'بيانات خاطئة' }, 400);
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/status' && req.method === 'GET') {
     const cfg = db ? await db.collection('config').findOne({ _id: 'main' }).catch(()=>null) : null;
@@ -464,27 +476,31 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/db' && req.method === 'GET') {
-    const data = await loadDB();
-    const cfg2 = await db.collection('config').findOne({_id:'main'}).catch(()=>null);
-    const accs2 = (cfg2?.accountants||[]);
-    if(accs2.length===0 && cfg2?.accountant) accs2.push({id:'acc_1',name:cfg2.accountant.name||'إسلام',permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr','ext-workers']});
-    const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [], accountants: accs2.map(a=>({id:a.id,name:a.name,permissions:a.permissions||[]})) };
-    delete safe.managerPassword;
-    return sendJSON(res, safe);
+    try {
+      const data = await loadDB();
+      const cfg2 = await db.collection('config').findOne({_id:'main'}).catch(()=>null);
+      const accs2 = (cfg2?.accountants||[]);
+      if(accs2.length===0 && cfg2?.accountant) accs2.push({id:'acc_1',name:cfg2.accountant.name||'إسلام',permissions:['txns','reports','transfer','labor-mgr','returns','inventory-mgr','ext-workers']});
+      const safe = { ...data, supervisors: data.supervisors.map(s => ({ id: s.id, name: s.name, budget: s.budget, visa: s.visa || '' })), laborRates: data.laborRates || { company: 100, external: 150 }, companyWorkers: data.companyWorkers || [], accountants: accs2.map(a=>({id:a.id,name:a.name,permissions:a.permissions||[]})) };
+      delete safe.managerPassword;
+      return sendJSON(res, safe);
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/passwords' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    if (body.managerPassword) data.managerPassword = body.managerPassword;
-    if (body.ownerPassword) data.ownerPassword = body.ownerPassword;
-    if (body.supervisors) {
-      body.supervisors.forEach(({ id, password }) => {
-        const sup = data.supervisors.find(s => s.id == id);
-        if (sup && password) sup.password = password;
-      });
-    }
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
+    try {
+      const body = await parseBody(req);
+      const data = await loadDB();
+      if (body.managerPassword) data.managerPassword = body.managerPassword;
+      if (body.ownerPassword) data.ownerPassword = body.ownerPassword;
+      if (body.supervisors) {
+        body.supervisors.forEach(({ id, password }) => {
+          const sup = data.supervisors.find(s => s.id == id);
+          if (sup && password) sup.password = password;
+        });
+      }
+      await saveConfig(data);
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/entries' && req.method === 'POST') {
     const body = await parseBody(req);
@@ -535,44 +551,54 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, { ok: true });
   }
   if (pathname === '/api/supervisors' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    data.supervisors.push({ id: Date.now(), name: body.name, budget: 0, password: body.password || '1234', visa: body.visa || '' });
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
+    try {
+      const body = await parseBody(req);
+      const data = await loadDB();
+      data.supervisors.push({ id: Date.now(), name: body.name, budget: 0, password: body.password || '1234', visa: body.visa || '' });
+      await saveConfig(data);
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname.match(/\/api\/supervisors\/\d+\/budget/) && req.method === 'POST') {
-    const id = parseInt(pathname.split('/')[3]);
-    const { amount } = await parseBody(req);
-    const data = await loadDB();
-    const sup = data.supervisors.find(s => s.id === id);
-    if (!sup) return sendJSON(res, { error: 'مشرف غير موجود' }, 404);
-    const amt = parseFloat(amount);
-    if (!amt || amt === 0) return sendJSON(res, { error: 'مبلغ غير صحيح' }, 400);
-    sup.budget += amt; // amt can be negative for deduction
-    await saveConfig(data);
-    return sendJSON(res, { ok: true, newBudget: sup.budget });
+    try {
+      const id = parseInt(pathname.split('/')[3]);
+      const { amount } = await parseBody(req);
+      const data = await loadDB();
+      const sup = data.supervisors.find(s => s.id === id);
+      if (!sup) return sendJSON(res, { error: 'مشرف غير موجود' }, 404);
+      const amt = parseFloat(amount);
+      if (!amt || amt === 0) return sendJSON(res, { error: 'مبلغ غير صحيح' }, 400);
+      sup.budget += amt; // amt can be negative for deduction
+      await saveConfig(data);
+      return sendJSON(res, { ok: true, newBudget: sup.budget });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname.startsWith('/api/supervisors/') && !pathname.includes('/budget') && req.method === 'DELETE') {
-    const id = parseInt(pathname.split('/').pop());
-    const data = await loadDB();
-    data.supervisors = data.supervisors.filter(s => s.id !== id);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
+    try {
+      const id = parseInt(pathname.split('/').pop());
+      const data = await loadDB();
+      data.supervisors = data.supervisors.filter(s => s.id !== id);
+      await saveConfig(data);
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/projects' && req.method === 'POST') {
-    const { name } = await parseBody(req);
-    const data = await loadDB();
-    if (name && !data.projects.includes(name)) data.projects.push(name);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
+    try {
+      const { name } = await parseBody(req);
+      const data = await loadDB();
+      if (name && !data.projects.includes(name)) data.projects.push(name);
+      await saveConfig(data);
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname.startsWith('/api/projects/') && req.method === 'DELETE') {
-    const name = decodeURIComponent(pathname.split('/').pop());
-    const data = await loadDB();
-    data.projects = data.projects.filter(p => p !== name);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
+    try {
+      const name = decodeURIComponent(pathname.split('/').pop());
+      const data = await loadDB();
+      data.projects = data.projects.filter(p => p !== name);
+      await saveConfig(data);
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/upload-image' && req.method === 'POST') {
     try {
@@ -661,26 +687,32 @@ const server = http.createServer(async (req, res) => {
     }
   }
   if (pathname === '/api/workers' && req.method === 'POST') {
-    const { name, jobTitle } = await parseBody(req);
-    const data = await loadDB();
-    if (!data.companyWorkers) data.companyWorkers = [];
-    data.companyWorkers.push({ id: Date.now(), name, jobTitle: jobTitle || '' });
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
+    try {
+      const { name, jobTitle } = await parseBody(req);
+      const data = await loadDB();
+      if (!data.companyWorkers) data.companyWorkers = [];
+      data.companyWorkers.push({ id: Date.now(), name, jobTitle: jobTitle || '' });
+      await saveConfig(data);
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname.startsWith('/api/workers/') && req.method === 'DELETE') {
-    const id = parseInt(pathname.split('/').pop());
-    const data = await loadDB();
-    data.companyWorkers = (data.companyWorkers || []).filter(w => w.id !== id);
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
+    try {
+      const id = parseInt(pathname.split('/').pop());
+      const data = await loadDB();
+      data.companyWorkers = (data.companyWorkers || []).filter(w => w.id !== id);
+      await saveConfig(data);
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/labor-rates' && req.method === 'POST') {
-    const body = await parseBody(req);
-    const data = await loadDB();
-    data.laborRates = { company: parseFloat(body.company)||100, external: parseFloat(body.external)||150 };
-    await saveConfig(data);
-    return sendJSON(res, { ok: true });
+    try {
+      const body = await parseBody(req);
+      const data = await loadDB();
+      data.laborRates = { company: parseFloat(body.company)||100, external: parseFloat(body.external)||150 };
+      await saveConfig(data);
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/labor-waiting' && req.method === 'POST') {
     const body = await parseBody(req);
@@ -1004,10 +1036,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/backup' && req.method === 'GET') {
-    const data = await loadDB();
-    const timestamp = new Date().toISOString().split('T')[0];
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Content-Disposition': `attachment; filename="kayan_backup_${timestamp}.json"` });
-    return res.end(JSON.stringify(data, null, 2));
+    try {
+      const data = await loadDB();
+      const timestamp = new Date().toISOString().split('T')[0];
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Content-Disposition': `attachment; filename="kayan_backup_${timestamp}.json"` });
+      return res.end(JSON.stringify(data, null, 2));
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/restore' && req.method === 'POST') {
     try {
@@ -1023,10 +1057,12 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/api/export' && req.method === 'GET') {
-    const data = await loadDB();
-    const xml = generateExcel(data);
-    res.writeHead(200, { 'Content-Type': 'application/vnd.ms-excel', 'Content-Disposition': 'attachment; filename="expenses.xls"', 'Access-Control-Allow-Origin': '*' });
-    return res.end(xml);
+    try {
+      const data = await loadDB();
+      const xml = generateExcel(data);
+      res.writeHead(200, { 'Content-Type': 'application/vnd.ms-excel', 'Content-Disposition': 'attachment; filename="expenses.xls"', 'Access-Control-Allow-Origin': '*' });
+      return res.end(xml);
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   if (pathname === '/manifest.json') {
     const f = path.join(__dirname, 'manifest.json');
@@ -1041,32 +1077,43 @@ const server = http.createServer(async (req, res) => {
     if (fs.existsSync(f)) { const buf = Buffer.from(fs.readFileSync(f, 'utf8'), 'base64'); res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(buf); }
   }
   if (pathname === '/api/attendance' && req.method === 'GET') {
-    const data = await loadDB();
-    const query = url.parse(req.url, true).query;
-    const month = parseInt(query.month) || new Date().getMonth();
-    const year = parseInt(query.year) || new Date().getFullYear();
-    const laborEntries = data.entries.filter(e => {
-      if (e.type !== 'labor' && e.type !== 'labor_waiting') return false;
-      const d = new Date(e.date);
-      return d.getMonth() === month && d.getFullYear() === year;
-    });
-    const workerDays = {};
-    laborEntries.forEach(e => {
-      if (e.laborDetails && e.laborDetails.presentWorkers) {
-        e.laborDetails.presentWorkers.forEach(w => {
-          if (!workerDays[w.name]) workerDays[w.name] = new Set();
-          workerDays[w.name].add(e.date);
-        });
-      }
-    });
-    const workDays = 26;
-    const employees = Object.entries(workerDays).map(([name, dates]) => ({ name, present_days: dates.size, absent_days: Math.max(0, workDays - dates.size), late_minutes: 0, notes: '' }));
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    return res.end(JSON.stringify({ month: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][month], year, work_days: workDays, employees }));
+    try {
+      const data = await loadDB();
+      const query = url.parse(req.url, true).query;
+      const month = parseInt(query.month) || new Date().getMonth();
+      const year = parseInt(query.year) || new Date().getFullYear();
+      const laborEntries = data.entries.filter(e => {
+        if (e.type !== 'labor' && e.type !== 'labor_waiting') return false;
+        const d = new Date(e.date);
+        return d.getMonth() === month && d.getFullYear() === year;
+      });
+      const workerDays = {};
+      laborEntries.forEach(e => {
+        if (e.laborDetails && e.laborDetails.presentWorkers) {
+          e.laborDetails.presentWorkers.forEach(w => {
+            if (!workerDays[w.name]) workerDays[w.name] = new Set();
+            workerDays[w.name].add(e.date);
+          });
+        }
+      });
+      const workDays = 26;
+      const employees = Object.entries(workerDays).map(([name, dates]) => ({ name, present_days: dates.size, absent_days: Math.max(0, workDays - dates.size), late_minutes: 0, notes: '' }));
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ month: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][month], year, work_days: workDays, employees }));
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
   // HTML fallback
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8'));
+ } catch(e) {
+  console.error('❌ Unhandled server error:', e.message, e.stack);
+  try {
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ error: 'خطأ غير متوقع في السيرفر: ' + e.message }));
+    }
+  } catch(e2) { /* connection already closed, nothing to do */ }
+ }
 });
 
 connectMongo().then(() => {
