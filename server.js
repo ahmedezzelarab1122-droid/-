@@ -924,6 +924,35 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, { ok: true });
     } catch(e){ return sendJSON(res, { error: e.message }, 500); }
   }
+  // إضافة طلب معلّق واحد بشكل ذرّي — يمنع فقدان طلب لو محاسبين اتنين بعتوا في نفس اللحظة
+  if (pathname === '/api/pending/add' && req.method === 'POST') {
+    try {
+      const { request } = await parseBody(req);
+      if (!request) return sendJSON(res, { error: 'لا توجد بيانات' }, 400);
+      await db.collection('config').updateOne({_id:'main'},{$push:{pendingRequests:request}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  // إزالة طلب معلّق واحد بشكل ذرّي (atomic) — يمنع تضارب الموافقات المتزامنة أو الضغط المزدوج
+  if (pathname.match(/^\/api\/pending\/[^/]+\/remove$/) && req.method === 'POST') {
+    try {
+      const reqId = decodeURIComponent(pathname.split('/')[3]);
+      const cfgBefore = await db.collection('config').findOne({_id:'main'});
+      const existed = (cfgBefore?.pendingRequests||[]).find(r=>r.id===reqId);
+      if (!existed) return sendJSON(res, { ok: true, alreadyRemoved: true });
+      await db.collection('config').updateOne({_id:'main'},{$pull:{pendingRequests:{id:reqId}}});
+      return sendJSON(res, { ok: true, removed: existed });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
+  // إضافة سجل واحد لتاريخ الطلبات بشكل ذرّي (atomic) — بدل استبدال المصفوفة بالكامل
+  if (pathname === '/api/pending-history/add' && req.method === 'POST') {
+    try {
+      const { entry } = await parseBody(req);
+      if (!entry) return sendJSON(res, { error: 'لا توجد بيانات' }, 400);
+      await db.collection('config').updateOne({_id:'main'},{$push:{pendingHistory:{$each:[entry],$slice:-200}}},{upsert:true});
+      return sendJSON(res, { ok: true });
+    } catch(e){ return sendJSON(res, { error: e.message }, 500); }
+  }
   // Update accountant settings
   if (pathname === '/api/accountant' && req.method === 'POST') {
     try {
