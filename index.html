@@ -4364,8 +4364,8 @@ function _renderPendingRequests(){
           <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;text-align:center">اضغط لعرض الصورة كاملة</div>
         </div>`:''}
         <div style="display:flex;gap:8px">
-          <button onclick="approvePending('${req.id}')" style="flex:1;padding:8px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">✅ موافقة</button>
-          <button onclick="rejectPending('${req.id}')" style="flex:1;padding:8px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">❌ رفض</button>
+          <button id="ap-btn-${req.id}" onclick="approvePending('${req.id}')" style="flex:1;padding:8px;background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">✅ موافقة</button>
+          <button id="rj-btn-${req.id}" onclick="rejectPending('${req.id}')" style="flex:1;padding:8px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">❌ رفض</button>
         </div>
       </div>`).join(''))
 
@@ -4384,17 +4384,32 @@ function _renderPendingRequests(){
       }).join(''));
 }
 
+// يمنع تنفيذ نفس الطلب أكثر من مرة لو ضُغط الزرار مرتين بسرعة أو تأخرت الشبكة
+const _processingPendingReqs = new Set();
+
 async function approvePending(reqId){
-  let pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
-  const req = pending.find(r=>r.id===reqId);
-  if(!req) return;
+  if(_processingPendingReqs.has(reqId)) return; // طلب قيد التنفيذ بالفعل — تجاهل الضغطة المكررة
+  _processingPendingReqs.add(reqId);
+  const btnA=document.getElementById('ap-btn-'+reqId), btnR=document.getElementById('rj-btn-'+reqId);
+  if(btnA){btnA.disabled=true;btnA.style.opacity='.5';btnA.textContent='⏳ جاري التنفيذ...';}
+  if(btnR){btnR.disabled=true;btnR.style.opacity='.5';}
 
   try{
-    // Execute the actual action
+    // الخطوة الأولى (والأهم): "استحواذ" ذرّي على الطلب بإزالته فورًا من قائمة السيرفر.
+    // أي محاولة موافقة تانية (تاب تاني / مدير تاني / ضغطة مكررة) هتلاقي الطلب مش موجود
+    // وتتوقف فورًا قبل ما تنفذ أي حاجة — فمستحيل يتعمل نفس الطلب مرتين.
+    const _rmRes = await api('/api/pending/'+encodeURIComponent(reqId)+'/remove','POST',{});
+    if(!_rmRes || _rmRes.alreadyRemoved || !_rmRes.removed){
+      _processingPendingReqs.delete(reqId);
+      alert('ℹ️ تم التعامل مع هذا الطلب بالفعل من مكان آخر');
+      rPendingRequests();
+      return;
+    }
+    const req = _rmRes.removed;
+
+    // الخطوة الثانية: تنفيذ الإجراء الفعلي (بعد ضمان إننا الوحيدين اللي هننفذه)
     if(req.action==='add'){
       const entryData = Object.assign({},req.data);
-      // Upload image if b64Image exists but no imageUrl
-      // Get b64 from localStorage if not in data
       if(!entryData.b64Image && !entryData.imageUrl){
         const storedB64 = localStorage.getItem('kayan_img_'+req.id);
         if(storedB64) entryData.b64Image = storedB64;
@@ -4416,8 +4431,6 @@ async function approvePending(reqId){
     } else if(req.action==='transfer'){
       const res = await api('/api/transfer','POST',req.data);
       if(res.error) throw new Error(res.error);
-    } else if(req.action==='delete'){
-      await api('/api/entries/'+req.data.id,'DELETE');
     } else if(req.action==='toggleReject'){
       await api('/api/entries/'+req.data.id+'/reject','POST',{rejected:req.data.newRejected});
     } else if(req.action==='workerPayment'){
@@ -4427,50 +4440,51 @@ async function approvePending(reqId){
       await api('/api/worker-payments','POST',{payments});
       await api('/api/entries','POST',{supId:0,supName:'المدير',project:'مصروفات العمالة',type:'petty',desc:'حساب عامل خارجي: '+req.data.workerKey.split('||')[0],date:today(),payMethod:'cash',subtotal:req.data.amount,taxRate:0,taxAmt:0,total:req.data.amount});
     }
-    // Save req data before filtering
-    const _reqData = pending.find(r=>r.id===reqId) || req;
-    // Remove from pending
-    pending = pending.filter(r=>r.id!==reqId);
-    localStorage.setItem('kayan_pending',JSON.stringify(pending));
-    await api('/api/pending','POST',{pending});
-    // Update history on server directly (not from localStorage)
-    const _hrRes = await api('/api/pending-history').catch(()=>({history:[]}));
-    const _hist = (_hrRes&&_hrRes.history)||[];
-    const _hi = _hist.findIndex(r=>r.id===reqId);
-    if(_hi>=0){ _hist[_hi].status='approved'; }
-    else { _hist.push(Object.assign({},_reqData,{status:'approved'})); }
-    await api('/api/pending-history','POST',{history:_hist});
-    localStorage.setItem('kayan_my_requests',JSON.stringify(_hist));
+
+    // إضافة سجل واحد للتاريخ بشكل ذرّي بدل استبدال المصفوفة بالكامل
+    await api('/api/pending-history/add','POST',{entry:Object.assign({},req,{status:'approved'})});
     DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
     alert('✅ تم تنفيذ الطلب');
+    _processingPendingReqs.delete(reqId);
     rPendingRequests();
   }catch(e){
     alert('❌ '+e.message);
+    _processingPendingReqs.delete(reqId);
+    if(btnA){btnA.disabled=false;btnA.style.opacity='1';btnA.textContent='✅ موافقة';}
+    if(btnR){btnR.disabled=false;btnR.style.opacity='1';}
   }
 }
 
 async function rejectPending(reqId){
+  if(_processingPendingReqs.has(reqId)) return;
   if(!confirm('رفض هذا الطلب؟')) return;
-  let pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
-  // Save the request BEFORE filtering
-  const _rejReq = pending.find(r=>r.id===reqId) || {id:reqId};
-  pending = pending.filter(r=>r.id!==reqId);
-  localStorage.setItem('kayan_pending',JSON.stringify(pending));
-  await api('/api/pending','POST',{pending});
-  // Update history on server
-  const _hrRes2 = await api('/api/pending-history').catch(()=>({history:[]}));
-  const _hist2 = (_hrRes2&&_hrRes2.history)||[];
-  const _hi2 = _hist2.findIndex(r=>r.id===reqId);
-  if(_hi2>=0){ _hist2[_hi2].status='rejected'; }
-  else { _hist2.push(Object.assign({},_rejReq,{status:'rejected'})); }
-  await api('/api/pending-history','POST',{history:_hist2});
-  localStorage.setItem('kayan_my_requests',JSON.stringify(_hist2));
-  rPendingRequests();
+  _processingPendingReqs.add(reqId);
+  const btnA=document.getElementById('ap-btn-'+reqId), btnR=document.getElementById('rj-btn-'+reqId);
+  if(btnA){btnA.disabled=true;btnA.style.opacity='.5';}
+  if(btnR){btnR.disabled=true;btnR.style.opacity='.5';btnR.textContent='⏳ جاري...';}
+
+  try{
+    const _rmRes = await api('/api/pending/'+encodeURIComponent(reqId)+'/remove','POST',{});
+    if(!_rmRes || _rmRes.alreadyRemoved || !_rmRes.removed){
+      _processingPendingReqs.delete(reqId);
+      alert('ℹ️ تم التعامل مع هذا الطلب بالفعل من مكان آخر');
+      rPendingRequests();
+      return;
+    }
+    const _rejReq = _rmRes.removed;
+    await api('/api/pending-history/add','POST',{entry:Object.assign({},_rejReq,{status:'rejected'})});
+    _processingPendingReqs.delete(reqId);
+    rPendingRequests();
+  }catch(e){
+    alert('❌ '+e.message);
+    _processingPendingReqs.delete(reqId);
+    if(btnA){btnA.disabled=false;btnA.style.opacity='1';}
+    if(btnR){btnR.disabled=false;btnR.style.opacity='1';btnR.textContent='❌ رفض';}
+  }
 }
 
 // Accountant submits a pending request instead of direct action
 async function submitPendingRequest(action, desc, amount, data, entryId){
-  const pending = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
   const reqId = 'req_'+Date.now();
   // Upload image to Cloudinary immediately so manager can see it
   if(data && data.b64Image && !data.imageUrl){
@@ -4489,9 +4503,11 @@ async function submitPendingRequest(action, desc, amount, data, entryId){
     submittedAt: new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}),
     submittedBy: CU?.name||''
   };
-  pending.push(req);
-  localStorage.setItem('kayan_pending',JSON.stringify(pending));
-  await api('/api/pending','POST',{pending}).catch(()=>{});
+  // إضافة ذرّية بدل استبدال المصفوفة بالكامل — يمنع ضياع طلب لو محاسبين بعتوا في نفس اللحظة
+  await api('/api/pending/add','POST',{request:req}).catch(()=>{});
+  const _pendingCache = JSON.parse(localStorage.getItem('kayan_pending')||'[]');
+  _pendingCache.push(req);
+  localStorage.setItem('kayan_pending',JSON.stringify(_pendingCache));
   alert('✅ تم إرسال الطلب للمدير للموافقة');
 }
 
