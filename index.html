@@ -1434,7 +1434,7 @@ async function analyzeReturn2(){
   btn.disabled = true;
   try{
     // Step 1: Analyze the return invoice
-    const res = await api('/api/analyze','POST',{b64:returnB64_2,text:'هذه فاتورة مرتجع مشتريات. استخرج بدقة تامة: اسم المورد بالضبط كما هو مكتوب في الفاتورة (supplier)، رقم الفاتورة الأصلية إن وجد (invoiceNo)، تاريخ المرتجع بصيغة YYYY-MM-DD (date)، المبلغ الإجمالي المرتجع كرقم (total)، وقائمة الأصناف أو المواد المرتجعة (items: مصفوفة من {name, quantity}). لا تخمن — إذا لم تجد اسم المورد بوضوح اتركه فارغاً. أخرج JSON نقي فقط بدون أي نص إضافي.'});
+    const res = await api('/api/analyze','POST',{b64:returnB64_2,text:'هذه فاتورة مرتجع مشتريات. استخرج بياناتها بدقة تامة تمامًا مثل فاتورة الشراء العادية: اسم المورد بالضبط كما هو مكتوب في الفاتورة (supplier)، رقم الفاتورة الأصلية إن وجد (invoiceNo)، تاريخ المرتجع بصيغة YYYY-MM-DD (date)، المبلغ الصافي قبل الضريبة (subtotal)، نسبة ضريبة القيمة المضافة كرقم مئوي مثلاً 15 (taxRate)، قيمة الضريبة (taxAmt)، المبلغ الإجمالي شامل الضريبة (total)، وقائمة الأصناف أو المواد المرتجعة (items: مصفوفة من {name, quantity}). إذا لم تجد ضريبة في الفاتورة اجعل taxRate=0 و taxAmt=0 و subtotal=total. لا تخمن — إذا لم تجد اسم المورد بوضوح اتركه فارغاً. أخرج JSON نقي فقط بدون أي نص إضافي.'});
     if(res.error) throw new Error(res.error);
     if(!res.total||res.total===0){
       document.getElementById('ret-preview2').style.display='block';
@@ -1447,8 +1447,13 @@ async function analyzeReturn2(){
     const myInvoices = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&e.supId==CU.id);
     const {match:bestMatch, score:bestScore, matchedItems} = matchOriginalInvoice(res, myInvoices);
     let html = `<div style="margin-bottom:8px"><b>المورد:</b> ${res.supplier||'—'}</div>`;
-    html += `<div style="margin-bottom:8px"><b>المبلغ المرتجع:</b> <span style="color:#34d399;font-weight:700">${fmt(res.total)} ﷼</span></div>`;
     html += `<div style="margin-bottom:8px"><b>رقم الفاتورة:</b> ${res.invoiceNo||'—'}</div>`;
+    html += `<div style="margin-bottom:8px"><b>التاريخ:</b> ${res.date||'—'}</div>`;
+    html += `<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>الصافي (بدون ضريبة)</span><span>${fmt(res.subtotal||0)} ﷼</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>ضريبة القيمة المضافة (${res.taxRate||0}%)</span><span>${fmt(res.taxAmt||0)} ﷼</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#34d399;border-top:1px solid rgba(255,255,255,.1);padding-top:4px;margin-top:4px"><span>الإجمالي المرتجع</span><span>${fmt(res.total)} ﷼</span></div>
+    </div>`;
     if(res.items&&res.items.length){
       html += `<div style="margin-bottom:8px"><b>المواد المرتجعة:</b> ${res.items.map(it=>(it.name||it.desc||'')+(it.quantity?' × '+it.quantity:'')).join('، ')}</div>`;
     }
@@ -1457,10 +1462,12 @@ async function analyzeReturn2(){
       const diff = (bestMatch.total||0)-(res.total||0);
       html += `<div style="padding:10px;background:rgba(52,211,153,.1);border-radius:8px;margin-top:8px;border-right:3px solid #34d399">`;
       html += `<div style="font-size:11px;color:#34d399;font-weight:700;margin-bottom:5px">✅ تم التطابق التلقائي (نسبة الثقة: ${bestScore})</div>`;
-      html += `<b>الفاتورة الأصلية:</b> ${bestMatch.supplier||bestMatch.desc} — ${fmt(bestMatch.total)} ﷼<br>`;
+      html += `<b>الفاتورة الأصلية:</b> ${bestMatch.supplier||bestMatch.desc} — ${fmt(bestMatch.total)} ﷼ (صافي ${fmt(bestMatch.subtotal||0)} + ضريبة ${fmt(bestMatch.taxAmt||0)})<br>`;
       html += `<b>رقم الفاتورة الأصلية:</b> ${bestMatch.invoiceNo||'—'}<br>`;
       html += `<b>تاريخ الفاتورة الأصلية:</b> ${bestMatch.date}<br>`;
-      if(matchedItems.length) html += `<b>مواد متطابقة:</b> ${matchedItems.join('، ')}<br>`;
+      html += `<b>المشروع:</b> ${bestMatch.project||'—'}<br>`;
+      if(bestMatch.items&&bestMatch.items.length) html += `<b>كل بنود الفاتورة الأصلية:</b> ${bestMatch.items.map(it=>(it.name||it.desc||'')+(it.qty?' × '+it.qty:'')).join('، ')}<br>`;
+      if(matchedItems.length) html += `<b>مواد متطابقة مع المرتجع:</b> ${matchedItems.join('، ')}<br>`;
       html += `<b>المتبقي بعد المرتجع:</b> <span style="color:#f5c842">${fmt(diff)} ﷼</span>`;
       html += `</div>`;
       document.getElementById('ret-save-btn2').style.display='block';
@@ -1494,7 +1501,7 @@ async function saveReturn2(){
     invoiceNo: returnParsed_2.invoiceNo||'RET-'+Date.now(),
     date: returnParsed_2.date||today(),
     payMethod: 'cash',
-    subtotal: returnParsed_2.subtotal||returnParsed_2.total||0,
+    subtotal: returnParsed_2.subtotal||0,
     taxRate: returnParsed_2.taxRate||0,
     taxAmt: returnParsed_2.taxAmt||0,
     total: returnParsed_2.total||0,
@@ -3433,10 +3440,26 @@ function rReturns(){
       </div>
       <div class="fg">
         <label class="lbl">فاتورة الشراء الأصلية</label>
-        <select id="ret-orig" style="width:100%">
+        <select id="ret-orig" onchange="_onRetOrigChange()" style="width:100%">
           <option value="">-- اختر الفاتورة الأصلية --</option>
           ${invoiceOpts}
         </select>
+      </div>
+      <div class="fg2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="lbl">المشرف (صاحب الرصيد اللي هيتضاف له المرتجع)</label>
+          <select id="ret-sup" style="width:100%">
+            <option value="">-- اختر المشرف --</option>
+            ${DB.supervisors.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="lbl">المشروع</label>
+          <select id="ret-proj" style="width:100%">
+            <option value="">-- اختر المشروع --</option>
+            ${DB.projects.map(p=>`<option value="${p}">${p}</option>`).join('')}
+          </select>
+        </div>
       </div>
       <div class="fg">
         <label class="lbl">ارفع صورة فاتورة المرتجع</label>
@@ -3587,13 +3610,23 @@ async function handleReturnFile(input){
   reader.readAsDataURL(file);
 }
 
+function _onRetOrigChange(){
+  const origId = parseInt(document.getElementById('ret-orig').value);
+  const orig = DB.entries.find(e=>e.id===origId);
+  if(!orig) return;
+  const supSel = document.getElementById('ret-sup');
+  const projSel = document.getElementById('ret-proj');
+  if(supSel) supSel.value = orig.supId;
+  if(projSel) projSel.value = orig.project;
+}
+
 async function analyzeReturn(){
   if(!returnB64){alert('يرجى رفع صورة المرتجع أولاً');return;}
   const btn = document.getElementById('ret-analyze-btn');
   btn.textContent = '⏳ جاري التحليل والمطابقة...';
   btn.disabled = true;
   try{
-    const res = await api('/api/analyze','POST',{b64:returnB64,text:'هذه فاتورة مرتجع مشتريات. استخرج بدقة تامة: اسم المورد بالضبط كما هو مكتوب في الفاتورة (supplier)، رقم الفاتورة الأصلية إن وجد (invoiceNo)، تاريخ المرتجع بصيغة YYYY-MM-DD (date)، المبلغ الإجمالي المرتجع كرقم (total)، وقائمة الأصناف أو المواد المرتجعة (items: مصفوفة من {name, quantity}). لا تخمن — إذا لم تجد اسم المورد بوضوح اتركه فارغاً. أخرج JSON نقي فقط بدون أي نص إضافي.'});
+    const res = await api('/api/analyze','POST',{b64:returnB64,text:'هذه فاتورة مرتجع مشتريات. استخرج بياناتها بدقة تامة تمامًا مثل فاتورة الشراء العادية: اسم المورد بالضبط كما هو مكتوب في الفاتورة (supplier)، رقم الفاتورة الأصلية إن وجد (invoiceNo)، تاريخ المرتجع بصيغة YYYY-MM-DD (date)، المبلغ الصافي قبل الضريبة (subtotal)، نسبة ضريبة القيمة المضافة كرقم مئوي مثلاً 15 (taxRate)، قيمة الضريبة (taxAmt)، المبلغ الإجمالي شامل الضريبة (total)، وقائمة الأصناف أو المواد المرتجعة (items: مصفوفة من {name, quantity}). إذا لم تجد ضريبة في الفاتورة اجعل taxRate=0 و taxAmt=0 و subtotal=total. لا تخمن — إذا لم تجد اسم المورد بوضوح اتركه فارغاً. أخرج JSON نقي فقط بدون أي نص إضافي.'});
     if(res.error) throw new Error(res.error);
     returnParsed = res;
     // مطابقة تلقائية مع كل الفواتير (كل المشرفين) واختيار الأقرب في القائمة
@@ -3605,10 +3638,16 @@ async function analyzeReturn(){
     }
     const origId = parseInt(document.getElementById('ret-orig').value);
     const orig = DB.entries.find(e=>e.id===origId);
+    // تعبئة المشرف والمشروع تلقائيًا من الفاتورة المطابقة (تقدر تغيّرهم يدويًا بعد كده)
+    if(orig) _onRetOrigChange();
     let html = `<div style="margin-bottom:8px"><b>المورد:</b> ${res.supplier||'—'}</div>`;
-    html += `<div style="margin-bottom:8px"><b>المبلغ المرتجع:</b> <span style="color:#34d399;font-weight:700">${fmt(res.total)} ﷼</span></div>`;
     html += `<div style="margin-bottom:8px"><b>رقم الفاتورة:</b> ${res.invoiceNo||'—'}</div>`;
     html += `<div style="margin-bottom:8px"><b>التاريخ:</b> ${res.date||'—'}</div>`;
+    html += `<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>الصافي (بدون ضريبة)</span><span>${fmt(res.subtotal||0)} ﷼</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>ضريبة القيمة المضافة (${res.taxRate||0}%)</span><span>${fmt(res.taxAmt||0)} ﷼</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#34d399;border-top:1px solid rgba(255,255,255,.1);padding-top:4px;margin-top:4px"><span>الإجمالي المرتجع</span><span>${fmt(res.total)} ﷼</span></div>
+    </div>`;
     if(res.items&&res.items.length){
       html += `<div style="margin-bottom:8px"><b>المواد المرتجعة:</b> ${res.items.map(it=>(it.name||it.desc||'')+(it.quantity?' × '+it.quantity:'')).join('، ')}</div>`;
     }
@@ -3617,11 +3656,14 @@ async function analyzeReturn(){
       const autoTag = (bestMatch&&bestMatch.id===orig.id&&bestScore>=3) ? '<div style="font-size:11px;color:#34d399;font-weight:700;margin-bottom:5px">✅ تم اختيار الفاتورة الأصلية تلقائياً (نسبة الثقة: '+bestScore+')</div>' : '';
       html += `<div style="margin-top:10px;padding:8px;background:rgba(112,181,255,.1);border-radius:8px">`;
       html += autoTag;
-      html += `<b>الفاتورة الأصلية:</b> ${orig.supplier||orig.desc} — ${fmt(orig.total)} ﷼<br>`;
+      html += `<b>الفاتورة الأصلية:</b> ${orig.supplier||orig.desc} — ${fmt(orig.total)} ﷼ (صافي ${fmt(orig.subtotal||0)} + ضريبة ${fmt(orig.taxAmt||0)})<br>`;
       html += `<b>رقم الفاتورة الأصلية:</b> ${orig.invoiceNo||'—'}<br>`;
-      if(matchedItems.length) html += `<b>مواد متطابقة:</b> ${matchedItems.join('، ')}<br>`;
+      html += `<b>المشرف:</b> ${gn(orig.supId)} · <b>المشروع:</b> ${orig.project||'—'}<br>`;
+      if(orig.items&&orig.items.length) html += `<b>كل بنود الفاتورة الأصلية:</b> ${orig.items.map(it=>(it.name||it.desc||'')+(it.qty?' × '+it.qty:'')).join('، ')}<br>`;
+      if(matchedItems.length) html += `<b>مواد متطابقة مع المرتجع:</b> ${matchedItems.join('، ')}<br>`;
       html += `<b>المتبقي بعد المرتجع:</b> <span style="color:#f5c842">${fmt(diff)} ﷼</span>`;
       html += `</div>`;
+      html += `<div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.5)">💡 تقدر تغيّر المشرف أو المشروع اللي هيتضاف لهم المرتجع من القوائم فوق قبل الحفظ</div>`;
     } else {
       html += `<div style="margin-top:8px;padding:8px;background:rgba(251,191,36,.1);border-radius:8px;color:#fbbf24;font-size:12px">⚠️ لم يتم العثور على تطابق تلقائي بثقة كافية — يرجى اختيار الفاتورة الأصلية يدوياً من القائمة أعلاه</div>`;
     }
@@ -3649,22 +3691,25 @@ async function saveReturn(){
   }
   if(!returnParsed||!returnParsed.total){alert('يرجى تحليل الفاتورة أولاً');return;}
   const origId = parseInt(document.getElementById('ret-orig').value);
-  if(!origId){alert('يرجى اختيار الفاتورة الأصلية');return;}
-  const orig = DB.entries.find(e=>e.id===origId);
-  if(!orig){alert('الفاتورة الأصلية غير موجودة');return;}
+  const supId = parseInt(document.getElementById('ret-sup').value);
+  const project = document.getElementById('ret-proj').value;
+  if(!supId){alert('يرجى اختيار المشرف الذي سيُضاف له المرتجع');return;}
+  if(!project){alert('يرجى اختيار المشروع');return;}
+  const sup = DB.supervisors.find(s=>s.id===supId);
+  const orig = origId ? DB.entries.find(e=>e.id===origId) : null;
   const entry = {
-    supId: orig.supId, supName: orig.supName, project: orig.project,
+    supId: supId, supName: sup?.name||'', project: project,
     type: 'return',
-    desc: 'مرتجع: '+(returnParsed.supplier||orig.supplier||''),
-    supplier: returnParsed.supplier||orig.supplier||'',
+    desc: 'مرتجع: '+(returnParsed.supplier||orig?.supplier||''),
+    supplier: returnParsed.supplier||orig?.supplier||'',
     invoiceNo: returnParsed.invoiceNo||'RET-'+Date.now(),
     date: returnParsed.date||today(),
     payMethod: 'cash',
-    subtotal: returnParsed.subtotal||returnParsed.total||0,
+    subtotal: returnParsed.subtotal||0,
     taxRate: returnParsed.taxRate||0,
     taxAmt: returnParsed.taxAmt||0,
     total: returnParsed.total||0,
-    origInvoiceId: origId,
+    origInvoiceId: origId||null,
     b64Image: returnB64,
     items: returnParsed.items||[]
   };
@@ -3676,7 +3721,7 @@ async function saveReturn(){
   }
   DB = await api('/api/db'); if(DB&&DB.supervisors)localStorage.setItem('kayan_db_cache',JSON.stringify(DB));
   document.getElementById('ret-ok').style.display='block';
-  document.getElementById('ret-ok').textContent='✅ تم حفظ المرتجع وإضافة '+fmt(entry.total)+' ﷼ لرصيد '+orig.supName;
+  document.getElementById('ret-ok').textContent='✅ تم حفظ المرتجع وإضافة '+fmt(entry.total)+' ﷼ لرصيد '+entry.supName;
   document.getElementById('ret-save-btn').style.display='none';
   returnParsed=null; returnB64=null;
   setTimeout(()=>rReturns(),2000);
