@@ -3445,6 +3445,7 @@ function rReturns(){
           ${invoiceOpts}
         </select>
       </div>
+      <div id="ret-orig-details" style="display:none;margin-bottom:12px"></div>
       <div class="fg2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
           <label class="lbl">المشرف (صاحب الرصيد اللي هيتضاف له المرتجع)</label>
@@ -3613,16 +3614,30 @@ async function handleReturnFile(input){
 function _onRetOrigChange(){
   const origId = parseInt(document.getElementById('ret-orig').value);
   const orig = DB.entries.find(e=>e.id===origId);
-  if(!orig) return;
+  const detailsDiv = document.getElementById('ret-orig-details');
+  if(!orig){
+    if(detailsDiv){ detailsDiv.style.display='none'; detailsDiv.innerHTML=''; }
+    return;
+  }
   const supSel = document.getElementById('ret-sup');
   const projSel = document.getElementById('ret-proj');
   if(supSel) supSel.value = orig.supId;
   if(projSel) projSel.value = orig.project;
-}
 
-function _useReturnSuggestion(origId){
-  const sel = document.getElementById('ret-orig');
-  if(sel){ sel.value = origId; _onRetOrigChange(); }
+  if(detailsDiv){
+    let html = `<div style="padding:10px;background:rgba(112,181,255,.1);border-radius:8px">`;
+    html += `<div style="font-size:11px;color:#70B5FF;font-weight:700;margin-bottom:5px">📄 تفاصيل الفاتورة الأصلية</div>`;
+    html += `<b>${orig.supplier||orig.desc||'—'}</b> — ${fmt(orig.total)} ﷼ (صافي ${fmt(orig.subtotal||0)} + ضريبة ${fmt(orig.taxAmt||0)})<br>`;
+    html += `رقم الفاتورة: ${orig.invoiceNo||'—'} · التاريخ: ${orig.date} · المشرف: ${gn(orig.supId)} · المشروع: ${orig.project||'—'}<br>`;
+    if(orig.items&&orig.items.length) html += `البنود: ${orig.items.map(it=>(it.name||it.desc||'')+(it.qty?' × '+it.qty:'')).join('، ')}<br>`;
+    if(returnParsed&&returnParsed.total){
+      const diff = (orig.total||0)-(returnParsed.total||0);
+      html += `<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.1)"><b>المتبقي بعد المرتجع:</b> <span style="color:#f5c842">${fmt(diff)} ﷼</span></div>`;
+    }
+    html += `</div>`;
+    detailsDiv.innerHTML = html;
+    detailsDiv.style.display = 'block';
+  }
 }
 
 async function analyzeReturn(){
@@ -3634,9 +3649,6 @@ async function analyzeReturn(){
     const res = await api('/api/analyze','POST',{b64:returnB64,text:'هذه فاتورة مرتجع مشتريات. استخرج بياناتها بدقة تامة تمامًا مثل فاتورة الشراء العادية: اسم المورد بالضبط كما هو مكتوب في الفاتورة (supplier)، رقم الفاتورة الأصلية إن وجد (invoiceNo)، تاريخ المرتجع بصيغة YYYY-MM-DD (date)، المبلغ الصافي قبل الضريبة (subtotal)، نسبة ضريبة القيمة المضافة كرقم مئوي مثلاً 15 (taxRate)، قيمة الضريبة (taxAmt)، المبلغ الإجمالي شامل الضريبة (total)، وقائمة الأصناف أو المواد المرتجعة (items: مصفوفة من {name, quantity}). إذا لم تجد ضريبة في الفاتورة اجعل taxRate=0 و taxAmt=0 و subtotal=total. لا تخمن — إذا لم تجد اسم المورد بوضوح اتركه فارغاً. أخرج JSON نقي فقط بدون أي نص إضافي.'});
     if(res.error) throw new Error(res.error);
     returnParsed = res;
-    // نقترح فاتورة أصلية محتملة بس من غير ما نختارها تلقائيًا — الاختيار الفعلي دايمًا يدوي من القائمة
-    const allInvoices = DB.entries.filter(e=>e.type==='petty'||e.type==='tax');
-    const {match:bestMatch, score:bestScore, matchedItems} = matchOriginalInvoice(res, allInvoices);
 
     let html = `<div style="margin-bottom:8px"><b>المورد:</b> ${res.supplier||'—'}</div>`;
     html += `<div style="margin-bottom:8px"><b>رقم الفاتورة:</b> ${res.invoiceNo||'—'}</div>`;
@@ -3649,17 +3661,7 @@ async function analyzeReturn(){
     if(res.items&&res.items.length){
       html += `<div style="margin-bottom:8px"><b>المواد المرتجعة:</b> ${res.items.map(it=>(it.name||it.desc||'')+(it.quantity?' × '+it.quantity:'')).join('، ')}</div>`;
     }
-
-    if(bestMatch && bestScore>=3){
-      html += `<div style="padding:10px;background:rgba(251,191,36,.1);border-radius:8px;margin-top:8px;border-right:3px solid #fbbf24">`;
-      html += `<div style="font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:5px">💡 اقتراح — يشبه هذه الفاتورة (نسبة تطابق: ${bestScore})</div>`;
-      html += `<b>${bestMatch.supplier||bestMatch.desc}</b> — ${fmt(bestMatch.total)} ﷼ (صافي ${fmt(bestMatch.subtotal||0)} + ضريبة ${fmt(bestMatch.taxAmt||0)})<br>`;
-      html += `رقم الفاتورة: ${bestMatch.invoiceNo||'—'} · التاريخ: ${bestMatch.date} · المشرف: ${gn(bestMatch.supId)} · المشروع: ${bestMatch.project||'—'}<br>`;
-      if(matchedItems.length) html += `مواد متطابقة: ${matchedItems.join('، ')}<br>`;
-      html += `<button type="button" onclick="_useReturnSuggestion(${bestMatch.id})" style="margin-top:6px;padding:6px 12px;background:rgba(251,191,36,.2);color:#fbbf24;border:1px solid rgba(251,191,36,.4);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">✓ استخدام هذا الاقتراح</button>`;
-      html += `</div>`;
-    }
-    html += `<div style="margin-top:8px;padding:8px;background:rgba(112,181,255,.08);border-radius:8px;color:#70B5FF;font-size:12px">👆 اختر الفاتورة الأصلية والمشرف والمشروع بنفسك من القوائم فوق قبل الحفظ</div>`;
+    html += `<div style="margin-top:4px;padding:8px;background:rgba(112,181,255,.08);border-radius:8px;color:#70B5FF;font-size:12px">👆 اختر الفاتورة الأصلية والمشرف والمشروع بنفسك من القوائم فوق قبل الحفظ</div>`;
 
     if(!res.total || res.total===0){
       html += `<div style="margin-top:8px;padding:8px;background:rgba(248,113,113,.15);border-radius:8px;color:#f87171">⚠️ تعذر قراءة المبلغ — يرجى رفع صورة أوضح</div>`;
@@ -3669,6 +3671,8 @@ async function analyzeReturn(){
     }
     document.getElementById('ret-preview').style.display = 'block';
     document.getElementById('ret-result').innerHTML = html;
+    // لو فيه فاتورة أصلية متختارة بالفعل من القائمة، حدّث حساب المتبقي بعد المرتجع
+    _onRetOrigChange();
   }catch(e){
     document.getElementById('ret-err').style.display='block';
     document.getElementById('ret-err').textContent='❌ '+e.message;
