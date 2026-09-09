@@ -7719,12 +7719,13 @@ function _currentQuarterBounds(){
 
 function exportPurchPDFRange(from, to, taxOnly){
   const {start:curQStart, end:curQEnd} = _currentQuarterBounds();
-  const isCurrentQuarterTaxReport = taxOnly && from===curQStart && to===curQEnd;
+  const isCurrentQuarterReport = from===curQStart && to===curQEnd;
 
   let entries;
-  if(isCurrentQuarterTaxReport){
-    // تقرير الكوارتر الحالي: يضم فواتير الكوارتر الحالي + أي فواتير ضريبية متأخرة من كوارترات سابقة
-    entries = DB.entries.filter(e=>e.type==='tax'&&!e.rejected&&e.date<=curQEnd);
+  if(isCurrentQuarterReport){
+    // تقرير الكوارتر الحالي: يضم فواتير الكوارتر الحالي + أي فواتير متأخرة من كوارترات سابقة لسه ما ظهرتش
+    entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&e.date<=curQEnd);
+    if(taxOnly) entries = entries.filter(e=>e.type==='tax');
   } else {
     entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
     if(taxOnly) entries = entries.filter(e=>e.type==='tax');
@@ -7747,34 +7748,35 @@ function exportPurchPDFRange(from, to, taxOnly){
     +'.late{background:#fef3c7 !important}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
     +'<h1>'+reportTitle+'</h1>'
     +'<div class="period">شركة كيان وبناء للمقاولات · '+now+' · الفترة: '+(from||'البداية')+' → '+(to||'النهاية')+'</div>'
-    +(isCurrentQuarterTaxReport?'<div style="font-size:11px;background:#fef3c7;color:#92400e;padding:6px 10px;border-radius:6px;margin-bottom:12px">⚠️ هذا التقرير يشمل فواتير ضريبية متأخرة من كوارترات سابقة (محددة باللون الأصفر) تمت إضافتها تلقائياً للكوارتر الحالي</div>':'')
+    +(isCurrentQuarterReport?'<div style="font-size:11px;background:#fef3c7;color:#92400e;padding:6px 10px;border-radius:6px;margin-bottom:12px">⚠️ هذا التقرير يشمل فواتير متأخرة من كوارترات سابقة (محددة باللون الأصفر) تمت إضافتها تلقائياً للكوارتر الحالي</div>':'')
     +'<div class="sum">'
     +'<div class="box"><div class="bl">'+(taxOnly?'إجمالي الفواتير الضريبية':'إجمالي المشتريات')+'</div><div class="bv" style="color:#D93025">'+fmt(total)+' ﷼</div></div>'
     +'<div class="box"><div class="bl">صافي بدون ضريبة</div><div class="bv">'+fmt(net)+' ﷼</div></div>'
     +'<div class="box"><div class="bl">VAT المدفوعة</div><div class="bv" style="color:#1d4ed8">'+fmt(vat)+' ﷼</div></div>'
     +'</div>'
-    +'<table><tr><th>التاريخ</th><th>المورد/الوصف</th><th>رقم الفاتورة</th><th>المشرف</th><th>المشروع</th>'+(taxOnly?'':'<th>النوع</th>')+'<th>صافي</th><th>VAT</th><th>الإجمالي</th>'+(isCurrentQuarterTaxReport?'<th>ملاحظة</th>':'')+'</tr>'
+    +'<table><tr><th>التاريخ</th><th>المورد/الوصف</th><th>رقم الفاتورة</th><th>المشرف</th><th>المشروع</th>'+(taxOnly?'':'<th>النوع</th>')+'<th>صافي</th><th>VAT</th><th>الإجمالي</th>'+(isCurrentQuarterReport?'<th>ملاحظة</th>':'')+'</tr>'
     +entries.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>{
-      const isLate = isCurrentQuarterTaxReport && e.date<curQStart;
+      const isLate = isCurrentQuarterReport && e.date<curQStart;
       let row = '<tr'+(isLate?' class="late"':'')+'><td>'+(e.date||'—')+'</td><td>'+(e.desc||e.supplier||'—')+'</td><td>'+(e.invoiceNo||'—')+'</td><td>'+(e.supName||'—')+'</td><td>'+(e.project||'—')+'</td>';
       if(!taxOnly) row += '<td>'+(e.type==='tax'?'ضريبية':'نثرية')+'</td>';
       row += '<td>'+fmt(e.subtotal||0)+' ﷼</td><td>'+fmt(e.taxAmt||0)+' ﷼</td><td style="font-weight:700;color:#D93025">'+fmt(e.total||0)+' ﷼</td>';
-      if(isCurrentQuarterTaxReport) row += '<td style="font-size:10px;color:#92400e">'+(isLate?'⚠️ متأخرة من كوارتر سابق':'')+'</td>';
+      if(isCurrentQuarterReport) row += '<td style="font-size:10px;color:#92400e">'+(isLate?'⚠️ متأخرة من كوارتر سابق':'')+'</td>';
       row += '</tr>';
       return row;
     }).join('')
-    +'<tr class="tr"><td colspan="'+(taxOnly?5:6)+'">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td>'+(isCurrentQuarterTaxReport?'<td></td>':'')+'</tr>'
+    +'<tr class="tr"><td colspan="'+(taxOnly?5:6)+'">الإجمالي</td><td>'+fmt(net)+' ﷼</td><td>'+fmt(vat)+' ﷼</td><td>'+fmt(total)+' ﷼</td>'+(isCurrentQuarterReport?'<td></td>':'')+'</tr>'
     +'</table></body></html>';
   const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 
 function exportPurchExcelRange(from, to, taxOnly){
   const {start:curQStart, end:curQEnd} = _currentQuarterBounds();
-  const isCurrentQuarterTaxReport = taxOnly && from===curQStart && to===curQEnd;
+  const isCurrentQuarterReport = from===curQStart && to===curQEnd;
 
   let entries;
-  if(isCurrentQuarterTaxReport){
-    entries = DB.entries.filter(e=>e.type==='tax'&&!e.rejected&&e.date<=curQEnd);
+  if(isCurrentQuarterReport){
+    entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&e.date<=curQEnd);
+    if(taxOnly) entries = entries.filter(e=>e.type==='tax');
   } else {
     entries = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&(!from||e.date>=from)&&(!to||e.date<=to));
     if(taxOnly) entries = entries.filter(e=>e.type==='tax');
@@ -7783,7 +7785,7 @@ function exportPurchExcelRange(from, to, taxOnly){
   entries = entries.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
 
   const rows = entries.map(e=>{
-    const isLate = isCurrentQuarterTaxReport && e.date<curQStart;
+    const isLate = isCurrentQuarterReport && e.date<curQStart;
     const row = {
       'التاريخ': e.date||'',
       'المورد/الوصف': e.desc||e.supplier||'',
@@ -7795,7 +7797,7 @@ function exportPurchExcelRange(from, to, taxOnly){
     row['صافي'] = e.subtotal||0;
     row['VAT'] = e.taxAmt||0;
     row['الإجمالي'] = e.total||0;
-    if(isCurrentQuarterTaxReport) row['ملاحظة'] = isLate?'⚠️ متأخرة من كوارتر سابق':'';
+    if(isCurrentQuarterReport) row['ملاحظة'] = isLate?'⚠️ متأخرة من كوارتر سابق':'';
     return row;
   });
   const total = entries.reduce((a,e)=>a+(e.total||0),0);
@@ -7804,7 +7806,7 @@ function exportPurchExcelRange(from, to, taxOnly){
   const totalsRow = { 'التاريخ':'', 'المورد/الوصف':'الإجمالي', 'رقم الفاتورة':'', 'المشرف':'', 'المشروع':'' };
   if(!taxOnly) totalsRow['النوع']='';
   totalsRow['صافي']=net; totalsRow['VAT']=vat; totalsRow['الإجمالي']=total;
-  if(isCurrentQuarterTaxReport) totalsRow['ملاحظة']='';
+  if(isCurrentQuarterReport) totalsRow['ملاحظة']='';
   rows.push(totalsRow);
 
   const ws = XLSX.utils.json_to_sheet(rows);
