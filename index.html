@@ -9101,7 +9101,15 @@ function _renderTrialBalance(){
   var fS   = filterByDate(sales,    _tbFrom, _tbTo);
   var fSR  = filterByDate(salesRet, _tbFrom, _tbTo);
   // المشتريات في ميزان المراجعة = فواتير ضريبية فقط
-  var fP   = filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}), _tbFrom, _tbTo);
+  // لو الفترة المختارة هي الكوارتر الحالي بالظبط، نضم أي فاتورة ضريبية متأخرة من كوارترات سابقة لسه ما ظهرتش
+  var _tbQ = _currentQuarterBounds();
+  var _tbIsCurrentQ = (_tbFrom===_tbQ.start && _tbTo===_tbQ.end);
+  var fP;
+  if(_tbIsCurrentQ){
+    fP = DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected&&e.date<=_tbQ.end;});
+  } else {
+    fP = filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}), _tbFrom, _tbTo);
+  }
   var fRet = filterByDate(DB.entries.filter(function(e){return e.type==='return';}), _tbFrom, _tbTo);
 
   // ── المبيعات ──
@@ -9160,6 +9168,7 @@ function _renderTrialBalance(){
     +'<div><label class="lbl" style="font-size:11px">إلى</label><input type="date" id="tb-to" value="'+_tbTo+'" onchange="_tbTo=this.value;_renderTrialBalance()"></div>'
     +'</div>'
     +'<div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center">'+(_tbFrom||'—')+' → '+(_tbTo||'—')+' · '+fS.length+' مبيعة · '+fP.length+' مشترى</div>'
+    +(_tbIsCurrentQ?'<div style="margin-top:6px;font-size:10px;background:rgba(251,191,36,.12);color:#fbbf24;padding:5px 8px;border-radius:6px;text-align:center">⚠️ شامل أي فواتير ضريبية متأخرة من كوارترات سابقة تمت إضافتها للكوارتر الحالي</div>':'')
     +'</div>'
 
     // المبيعات
@@ -9349,11 +9358,75 @@ function onTBSelect(val){
   }
 }
 function setTBYear(){var year=new Date().getFullYear();_tbFrom=year+'-01-01';_tbTo=year+'-12-31';_renderTrialBalance();}
+function exportTrialBalancePDF(){
+  var sales    = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  var salesRet = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  var fS   = filterByDate(sales,    _tbFrom, _tbTo);
+  var fSR  = filterByDate(salesRet, _tbFrom, _tbTo);
+  var _tbQ2 = _currentQuarterBounds();
+  var _isCurQ2 = (_tbFrom===_tbQ2.start && _tbTo===_tbQ2.end);
+  var fP = _isCurQ2
+    ? DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected&&e.date<=_tbQ2.end;})
+    : filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}), _tbFrom, _tbTo);
+  var fRet = filterByDate(DB.entries.filter(function(e){return e.type==='return';}), _tbFrom, _tbTo);
+
+  var salesTotal = fS.reduce(function(a,s){return a+(s.total||0);},0);
+  var salesVat   = fS.reduce(function(a,s){return a+(s.taxAmt||0);},0);
+  var salesNet   = fS.reduce(function(a,s){return a+(s.subtotal||0);},0);
+  var retSalesT  = fSR.reduce(function(a,r){return a+(r.total||0);},0);
+  var retSalesV  = fSR.reduce(function(a,r){return a+(r.taxAmt||0);},0);
+  var purchTotal = fP.reduce(function(a,e){return a+(e.total||0);},0);
+  var purchVat   = fP.reduce(function(a,e){return a+(e.taxAmt||0);},0);
+  var purchNet   = fP.reduce(function(a,e){return a+(e.subtotal||e.total||0);},0);
+  var retPurchT  = fRet.reduce(function(a,e){return a+(e.total||0);},0);
+  var retPurchV  = fRet.reduce(function(a,e){return a+(e.taxAmt||0);},0);
+  var netSales   = salesTotal - retSalesT;
+  var netPurch   = purchTotal - retPurchT;
+  var diff       = netSales - netPurch;
+  var vatCollected = salesVat - retSalesV;
+  var vatPaid      = purchVat - retPurchV;
+  var vatDue       = vatCollected - vatPaid;
+
+  var now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  var html = '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>ميزان المراجعة</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}'
+    +'h1{font-size:18px;font-weight:900;margin-bottom:2px}.period{font-size:12px;color:#555;margin-bottom:14px}'
+    +'table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}th{background:#000;color:#fff;padding:7px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:6px 7px;border:1px solid #ddd}tr:nth-child(even)td{background:#f9f9f9}.tr td{background:#e5e7eb;font-weight:800}'
+    +'.vat-box{padding:14px;border-radius:8px;text-align:center;margin-top:10px;border:2px solid}</style></head><body>'
+    +'<div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
+    +'<h1>⚖️ ميزان المراجعة</h1>'
+    +'<div class="period">شركة كيان وبناء للمقاولات · '+now+' · الفترة: '+(_tbFrom||'—')+' → '+(_tbTo||'—')+'</div>'
+    +(_isCurQ2?'<div style="font-size:11px;background:#fef3c7;color:#92400e;padding:6px 10px;border-radius:6px;margin-bottom:12px">⚠️ يشمل فواتير ضريبية متأخرة من كوارترات سابقة تمت إضافتها للكوارتر الحالي</div>':'')
+    +'<table><tr><th>البيان</th><th>صافي (بدون ضريبة)</th><th>ضريبة</th><th>الإجمالي</th></tr>'
+    +'<tr><td>📈 المبيعات ('+fS.length+')</td><td>'+fmt(salesNet)+' ﷼</td><td>'+fmt(salesVat)+' ﷼</td><td style="font-weight:700;color:#166534">'+fmt(salesTotal)+' ﷼</td></tr>'
+    +'<tr><td>↩️ مرتجعات المبيعات ('+fSR.length+')</td><td>—</td><td>'+fmt(retSalesV)+' ﷼</td><td style="color:#D93025">-'+fmt(retSalesT)+' ﷼</td></tr>'
+    +'<tr><td>📉 المشتريات — فواتير ضريبية ('+fP.length+')</td><td>'+fmt(purchNet)+' ﷼</td><td>'+fmt(purchVat)+' ﷼</td><td style="font-weight:700;color:#1d4ed8">'+fmt(purchTotal)+' ﷼</td></tr>'
+    +'<tr><td>↩️ مرتجعات المشتريات ('+fRet.length+')</td><td>—</td><td>'+fmt(retPurchV)+' ﷼</td><td style="color:#D93025">-'+fmt(retPurchT)+' ﷼</td></tr>'
+    +'<tr class="tr"><td>صافي المبيعات بعد المرتجعات</td><td colspan="2"></td><td>'+fmt(netSales)+' ﷼</td></tr>'
+    +'<tr class="tr"><td>صافي المشتريات بعد المرتجعات</td><td colspan="2"></td><td>'+fmt(netPurch)+' ﷼</td></tr>'
+    +'<tr class="tr"><td>الفرق (مبيعات − مشتريات)</td><td colspan="2"></td><td style="color:'+(diff>=0?'#166534':'#D93025')+'">'+fmt(diff)+' ﷼</td></tr>'
+    +'</table>'
+    +'<div class="vat-box" style="background:'+(vatDue>=0?'#fee2e2':'#dcfce7')+';border-color:'+(vatDue>=0?'#D93025':'#166534')+'">'
+    +'<div style="font-size:11px;color:#555;margin-bottom:4px">ضريبة محصّلة '+fmt(vatCollected)+' ﷼ − ضريبة مدفوعة '+fmt(vatPaid)+' ﷼</div>'
+    +'<div style="font-size:20px;font-weight:900;color:'+(vatDue>=0?'#D93025':'#166534')+'">'+(vatDue>=0?'مستحق للهيئة: ':'مستحق لك: ')+fmt(Math.abs(vatDue))+' ﷼</div>'
+    +'</div>'
+    +'</body></html>';
+  var win = window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(function(){win.print();},700);
+}
+
 function exportVatReturn(){
   var sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
   var salesRet=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
   var fS=filterByDate(sales,_tbFrom,_tbTo);
-  var fP=filterByDate(DB.entries.filter(function(e){returne.type==='tax'&&!e.rejected;}),_tbFrom,_tbTo);
+  var _vrQ=_currentQuarterBounds();
+  var fP = (_tbFrom===_vrQ.start && _tbTo===_vrQ.end)
+    ? DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected&&e.date<=_vrQ.end;})
+    : filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}),_tbFrom,_tbTo);
   var fSR=filterByDate(salesRet,_tbFrom,_tbTo);
   var sv=fS.reduce(function(a,s){return a+(s.taxAmt||0);},0);
   var sn=fS.reduce(function(a,s){return a+(s.subtotal||0);},0);
