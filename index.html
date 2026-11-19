@@ -2935,51 +2935,48 @@ function exportQuarterlyPL(){
   const year = new Date().getFullYear();
   const now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   const quarters = [
-    {key:'q0',label:'Q1 — يناير إلى مارس',from:year+'-01-01',to:year+'-03-31'},
-    {key:'q1',label:'Q2 — أبريل إلى يونيو',from:year+'-04-01',to:year+'-06-30'},
-    {key:'q2',label:'Q3 — يوليو إلى سبتمبر',from:year+'-07-01',to:year+'-09-30'},
-    {key:'q3',label:'Q4 — أكتوبر إلى ديسمبر',from:year+'-10-01',to:year+'-12-31'},
+    {label:'Q1 — يناير إلى مارس',from:year+'-01-01',to:year+'-03-31'},
+    {label:'Q2 — أبريل إلى يونيو',from:year+'-04-01',to:year+'-06-30'},
+    {label:'Q3 — يوليو إلى سبتمبر',from:year+'-07-01',to:year+'-09-30'},
+    {label:'Q4 — أكتوبر إلى ديسمبر',from:year+'-10-01',to:year+'-12-31'}
   ];
   const sales = JSON.parse(localStorage.getItem('kayan_sales')||'[]');
-  let rows = '';
-  let totalSalesAll=0, totalPurchAll=0;
+  const sret = JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  const taxE = DB.entries.filter(e=>e.type==='tax'&&!e.rejected);
+  const pret = DB.entries.filter(e=>e.type==='return');
+  const inR=(x,q)=>x.date>=q.from&&x.date<=q.to;
+  const sum=(a,k)=>a.reduce((t,x)=>t+(x[k]||0),0);
+  const T={s:0,sr:0,p:0,pr:0,vs:0,vp:0};
+  let rows='';
   quarters.forEach(q=>{
-    const qSales = sales.filter(s=>s.date>=q.from&&s.date<=q.to);
-    const qPurch = DB.entries.filter(e=>(e.type==='petty'||e.type==='tax')&&!e.rejected&&e.date>=q.from&&e.date<=q.to);
-    const tS = qSales.reduce((a,s)=>a+(s.total||0),0);
-    const tP = qPurch.reduce((a,e)=>a+(e.total||0),0);
-    const diff = tS - tP;
-    totalSalesAll+=tS; totalPurchAll+=tP;
-    rows += '<tr>'
-      +'<td style="font-weight:700">'+q.label+'</td>'
-      +'<td style="color:#166534;font-weight:700">'+fmt(tS)+' ﷼</td>'
-      +'<td style="color:#D93025;font-weight:700">'+fmt(tP)+' ﷼</td>'
-      +'<td style="font-weight:800;color:'+(diff>=0?'#166534':'#D93025')+'">'+(diff>=0?'+':'')+fmt(diff)+' ﷼</td>'
-      +'</tr>';
+    const s1=sum(sales.filter(x=>inR(x,q)),'total'), sr=sum(sret.filter(x=>inR(x,q)),'total');
+    const p1=sum(taxE.filter(x=>inR(x,q)),'total'), pr=sum(pret.filter(x=>inR(x,q)),'total');
+    const vs=sum(sales.filter(x=>inR(x,q)),'taxAmt')-sum(sret.filter(x=>inR(x,q)),'taxAmt');
+    const vp=sum(taxE.filter(x=>inR(x,q)),'taxAmt')-sum(pret.filter(x=>inR(x,q)),'taxAmt');
+    T.s+=s1;T.sr+=sr;T.p+=p1;T.pr+=pr;T.vs+=vs;T.vp+=vp;
+    const diff=(s1-sr)-(p1-pr), due=vs-vp;
+    rows+='<tr><td style="font-weight:700">'+q.label+'</td><td>'+fmt(s1)+'</td><td>'+fmt(sr)+'</td><td>'+fmt(p1)+'</td><td>'+fmt(pr)+'</td>'
+      +'<td style="font-weight:800">'+(diff>=0?'+':'')+fmt(diff)+'</td><td style="font-weight:800">'+fmt(due)+'</td></tr>';
   });
-  const totalDiff = totalSalesAll - totalPurchAll;
-  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير المبيعات والمشتريات</title>'
-    '<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'+
-    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:13px}'
+  const tDiff=(T.s-T.sr)-(T.p-T.pr), tDue=T.vs-T.vp;
+  const html='<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>تقرير الأرباع</title>'
+    +'<style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");'
+    +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Tajawal",sans-serif;direction:rtl;color:#000;padding:24px;font-size:12px}'
     +'h1{font-size:20px;font-weight:900;margin-bottom:4px}'
-    +'table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}'
-    +'th{background:#000;color:#fff;padding:10px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
-    +'td{padding:9px 10px;border:1px solid #ddd}'
-    +'tr:nth-child(even)td{background:#f9f9f9}'
-    +'.total td{background:#000;color:#fff;font-weight:800;font-size:14px}</style></head><body><div style="text-align:right;margin-bottom:14px"><img src="'+CO_LOGO+'" style="max-width:200px;max-height:90px;height:auto"></div>'
-    +'<h1>تقرير المبيعات والمشتريات</h1>'
-    +'<div style="font-size:12px;color:#555;margin-bottom:16px">شركة كيان وبناء للمقاولات · '+now+' · السنة '+year+'</div>'
-    +'<table>'
-    +'<tr><th>الربع</th><th>إجمالي المبيعات (شامل VAT)</th><th>إجمالي المشتريات (شامل VAT)</th><th>الفرق (المستحق)</th></tr>'
+    +'table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12px}'
+    +'th{background:#000;color:#fff;padding:8px;text-align:right;print-color-adjust:exact;-webkit-print-color-adjust:exact}'
+    +'td{padding:8px;border:1px solid #bbb}'
+    +'.total td{background:#000;color:#fff;font-weight:800;print-color-adjust:exact;-webkit-print-color-adjust:exact}</style></head><body>'
+    +'<h1>تقرير المبيعات والمشتريات والمرتجعات — الأرباع</h1>'
+    +'<div style="font-size:12px;color:#555;margin-bottom:10px">شركة كيان وبناء للمقاولات · '+now+' · السنة '+year+' · المبالغ شاملة VAT</div>'
+    +'<table><tr><th>الربع</th><th>المبيعات</th><th>مرتجعات المبيعات</th><th>المشتريات الضريبية</th><th>مرتجعات المشتريات</th><th>الفرق (صافي)</th><th>VAT المستحقة</th></tr>'
     +rows
-    +'<tr class="total"><td>الإجمالي السنوي</td><td>'+fmt(totalSalesAll)+' ﷼</td><td>'+fmt(totalPurchAll)+' ﷼</td><td>'+(totalDiff>=0?'+':'')+fmt(totalDiff)+' ﷼</td></tr>'
-    +'</table>'
-    +'<div style="margin-top:20px;padding:14px;border-radius:8px;border:2px solid '+(totalDiff>=0?'#166534':'#D93025')+';text-align:center">'
-    +'<div style="font-size:13px;color:#555;margin-bottom:6px">صافي السنة كاملة</div>'
-    +'<div style="font-size:28px;font-weight:900;color:'+(totalDiff>=0?'#166534':'#D93025')+'">'+(totalDiff>=0?'+':'')+fmt(totalDiff)+' ﷼</div>'
-    +'</div>'
+    +'<tr class="total"><td>الإجمالي السنوي</td><td>'+fmt(T.s)+'</td><td>'+fmt(T.sr)+'</td><td>'+fmt(T.p)+'</td><td>'+fmt(T.pr)+'</td><td>'+(tDiff>=0?'+':'')+fmt(tDiff)+'</td><td>'+fmt(tDue)+'</td></tr></table>'
+    +'<p style="margin-top:12px;font-size:11px">الفرق = (المبيعات − مرتجعاتها) − (المشتريات − مرتجعاتها). VAT المستحقة = ضريبة صافي المبيعات − ضريبة صافي المشتريات، والسالب يعني ضريبة مستردة.</p>'
     +'</body></html>';
-  const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
+  const w=window.open('','_blank');
+  if(!w){alert('المتصفح منع النافذة — اسمح بالنوافذ المنبثقة');return;}
+  w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
 
 // ── AI TRANSFER READER ──
