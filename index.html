@@ -764,7 +764,7 @@ const _lastTab = localStorage.getItem('kayan_last_tab');
 function _goDefault(){if(ROLE==='manager')rDash();else if(ROLE==='owner')rOwnerDash();else if(ROLE==='accountant')rDash();else rHome();}
 if(_lastTab){
   try{
-    const _map2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+    const _map2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'sales-returns':rSalesReturns,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
     if(_map2[_lastTab]) _map2[_lastTab](); else _goDefault();
     // Update active nav button
     setTimeout(function(){
@@ -782,7 +782,7 @@ api('/api/db').then(function(d){
   if(d&&d.supervisors){DB=d;localStorage.setItem('kayan_db_cache',JSON.stringify(d));}
   try{
     const _lt=localStorage.getItem('kayan_last_tab');
-    const _m2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+    const _m2={'dash':rDash,'txns':rTxns,'reports':rReports,'setup':rSetup,'pws':rPws,'home':rHome,'hist':rHist,'bal':rBal,'transfer':rTransfer,'labor-mgr':rLaborMgr,'labor':rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':_renderPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'sales-returns':rSalesReturns,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
     if(_lt&&_m2[_lt])_m2[_lt](); else _goDefault();
   }catch(e){}
 }).catch(function(){});
@@ -981,7 +981,7 @@ function showApp(){
     { label:'المخزون', items:[['inventory-mgr','📦','مخزون المشرفين']] },
     { label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] },
     { label:'فواتير المشتريات', items:[['purchases','🛒','فواتير المشتريات']] },
-    { label:'المبيعات', items:[['sales','🧾','فواتير المبيعات'],['trial-balance','⚖️','ميزان المراجعة']] },
+    { label:'المبيعات', items:[['sales','🧾','فواتير المبيعات'],['sales-returns','↩️','مرتجعات المبيعات'],['trial-balance','⚖️','ميزان المراجعة']] },
     { label:'حساب المالك', items:[['manager-governance','🏦','حساب المالك']] },
     { label:'حسابات المدير', items:[['director-accounts','👔','حسابات المدير']] },
     { label:'طلبات المحاسب', items:[['pending-requests','📋','طلبات المحاسب']] },
@@ -1004,7 +1004,7 @@ function showApp(){
     { label:'العمال الخارجيون', items:[['ext-workers','👷','حسابات العمال الخارجيين']] },
     ...(((CU&&CU.permissions)||[]).includes('cost-center') ? [{ label:'مركز التكلفة', items:[['cost-center','💼','مركز تكلفة المشروع']] }] : []),
     ...(((CU&&CU.permissions)||[]).includes('purchases') ? [{ label:'المشتريات', items:[['purchases','🧾','فواتير المشتريات']] }] : []),
-    ...(((CU&&CU.permissions)||[]).includes('sales') ? [{ label:'المبيعات', items:[['sales','💰','فواتير المبيعات']] }] : []),
+    ...(((CU&&CU.permissions)||[]).includes('sales') ? [{ label:'المبيعات', items:[['sales','💰','فواتير المبيعات'],['sales-returns','↩️','مرتجعات المبيعات']] }] : []),
     ...(((CU&&CU.permissions)||[]).includes('trial-balance') ? [{ label:'ميزان المراجعة', items:[['trial-balance','⚖️','ميزان المراجعة']] }] : []),
     ...(((CU&&CU.permissions)||[]).includes('projects') ? [{ label:'المشاريع', items:[['projects-mgr','🏗️','إدارة المشاريع']] }] : []),
     ...(((CU&&CU.permissions)||[]).includes('director-accounts') ? [{ label:'حسابات المدير', items:[['director-accounts','👔','حسابات المدير']] }] : []),
@@ -1144,10 +1144,10 @@ function goBNav(id,btn){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   // Update topbar title
-  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','my-requests':'طلباتي','manager-governance':'حساب المالك','director-accounts':'حسابات المدير','sales':'فواتير المبيعات','trial-balance':'ميزان المراجعة'};
+  const _titles={'dash':'الرئيسية','txns':'المعاملات','reports':'التقارير','setup':'الإعداد','pws':'كلمات المرور','transfer':'التحويلات','labor-mgr':'إدارة العمالة','home':'الرئيسية','hist':'سجلاتي','bal':'رصيدي','labor':'تسجيل عمالة','owner-dash':'الملخص','owner-sup':'المشرفون','owner-proj':'المشاريع','owner-labor':'العمالة','returns':'فواتير المرتجعات','sup-returns':'مرتجعاتي','inventory':'المخزون والعهدة','inventory-mgr':'مخزون المشرفين','cost-center':'مركز تكلفة المشروع','purchases':'فواتير المشتريات','pending-requests':'طلبات المحاسب','my-requests':'طلباتي','manager-governance':'حساب المالك','director-accounts':'حسابات المدير','sales':'فواتير المبيعات','sales-returns':'مرتجعات المبيعات','trial-balance':'ميزان المراجعة'};
   const tbn = document.getElementById('tbname');
   if(tbn) tbn.textContent = _titles[id] || '';
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'sales-returns':rSalesReturns,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
   // Sync from server then render
   if(map[id]) map[id]();
 }
@@ -1155,7 +1155,7 @@ function goBNav(id,btn){
 function goTab(id,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
+  const map={dash:rDash,txns:rTxns,reports:rReports,setup:rSetup,pws:rPws,home:rHome,hist:rHist,bal:rBal,transfer:rTransfer,stransfer:rSTransfer,'labor-mgr':rLaborMgr,labor:rLaborSup,'owner-dash':rOwnerDash,'owner-sup':rOwnerSup,'owner-proj':rOwnerProj,'owner-labor':rOwnerLabor,'returns':rReturns,'sup-returns':rSupReturns,'inventory':rInventory,'inventory-mgr':rInventoryMgr,'cost-center':rCostCenter,'pending-requests':rPendingRequests,'my-requests':rMyRequests,'manager-governance':rManagerGovernance,'director-accounts':rDirectorAccounts,'purchases':rPurchases,'sales':rSales,'sales-returns':rSalesReturns,'trial-balance':rTrialBalance,'accountants-mgr':rAccountantsMgr,'ext-workers':rExternalWorkersAccounting,'projects-mgr':rProjectsMgr,'backups':rBackups};
   if(map[id]) map[id]();
 }
 
@@ -7872,6 +7872,140 @@ function calcSalesVat(){
   if(te) te.textContent = fmt(total)+' ﷼';
 }
 
+
+// ── SALES RETURNS TAB ──────────────────────────────
+function _refreshSalesView(){
+  let cur='';try{cur=localStorage.getItem('kayan_last_tab')||'';}catch(e){}
+  if(cur==='sales-returns') rSalesReturns(); else rSales();
+}
+function rSalesReturns(){
+  const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const rets=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
+  const tot=rets.reduce((a,r)=>a+(r.total||0),0);
+  const vat=rets.reduce((a,r)=>a+(r.taxAmt||0),0);
+  const net=rets.reduce((a,r)=>a+(r.subtotal||0),0);
+  const totSales=sales.reduce((a,x)=>a+(x.total||0),0);
+  const pct=totSales?Math.round(tot/totSales*1000)/10:0;
+  document.getElementById('mc').innerHTML=`
+    <div class="sg" style="margin-bottom:12px">
+      <div class="stat"><div class="sl">إجمالي المرتجعات</div><div class="sv" style="color:#f87171">${fmt(tot)} ﷼</div></div>
+      <div class="stat"><div class="sl">عدد المرتجعات</div><div class="sv" style="color:#f5c842">${rets.length}</div></div>
+      <div class="stat"><div class="sl">VAT المسترد</div><div class="sv" style="color:#70B5FF">${fmt(vat)} ﷼</div></div>
+      <div class="stat"><div class="sl">نسبة من المبيعات</div><div class="sv" style="color:#34d399">${pct}%</div></div>
+    </div>
+    <div class="card" style="margin-bottom:12px;padding:12px">
+      <div class="ctitle" id="sr-form-title">➕ مرتجع مبيعات جديد</div>
+      <input type="hidden" id="sr-edit-id">
+      <div class="fg2">
+        <div><label class="lbl">رقم المرتجع</label><input id="sr-no" placeholder="RET-001"></div>
+        <div><label class="lbl">التاريخ</label><input type="date" id="sr-date" value="${today()}"></div>
+      </div>
+      <div class="fg2">
+        <div><label class="lbl">اسم العميل</label><input id="sr-client"></div>
+        <div><label class="lbl">رقم الفاتورة الأصلية</label><input id="sr-orig"></div>
+      </div>
+      <div class="fg2">
+        <div><label class="lbl">المبلغ قبل الضريبة</label><input type="number" id="sr-sub" oninput="calcSRVat()"></div>
+        <div><label class="lbl">نسبة VAT %</label><input type="number" id="sr-rate" value="15" oninput="calcSRVat()"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(248,113,113,.08);border-radius:8px;margin-bottom:10px;font-size:13px">
+        <span>VAT: <strong id="sr-vat">0.00</strong></span><span>الإجمالي: <strong id="sr-tot" style="color:#f87171">0.00 ﷼</strong></span>
+      </div>
+      <div class="fg"><label class="lbl">سبب المرتجع</label><input id="sr-reason"></div>
+      <div class="err" id="sr-err" style="display:none"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bp" onclick="saveSR()" style="flex:1">💾 حفظ</button>
+        <button onclick="rSalesReturns()" style="padding:0 14px;background:transparent;color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15);border-radius:10px;cursor:pointer;font-family:'Tajawal',sans-serif">إلغاء</button>
+      </div>
+      <button onclick="openSalesReturnForm()" style="width:100%;margin-top:8px;padding:9px;background:transparent;color:#70B5FF;border:1px solid rgba(112,181,255,.25);border-radius:10px;font-size:12px;cursor:pointer;font-family:'Tajawal',sans-serif">📷 قراءة من صورة / Excel / PDF</button>
+    </div>
+    <div class="card" style="margin-bottom:12px;padding:12px">
+      <input id="sr-search" placeholder="🔍 بحث بالعميل أو رقم الفاتورة..." oninput="filterSalesReturnsList()" style="margin-bottom:8px">
+      <div class="fg2">
+        <div><label class="lbl" style="font-size:11px">من</label><input type="date" id="sr-from" onchange="filterSalesReturnsList()"></div>
+        <div><label class="lbl" style="font-size:11px">إلى</label><input type="date" id="sr-to" onchange="filterSalesReturnsList()"></div>
+      </div>
+    </div>
+    <div class="shdr">↩️ فواتير مرتجعات المبيعات</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button onclick="deleteSelectedSR()" style="flex:1;padding:9px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">🗑️ حذف المحدد</button>
+      <button onclick="deleteAllSR()" style="flex:1;padding:9px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.25);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif">⚠️ حذف الكل</button>
+    </div>
+    <div id="sr-list">${renderSRList(rets)}</div>
+  `;
+}
+
+function _srGet(){return JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');}
+function _srSet(a){localStorage.setItem('kayan_sales_returns',JSON.stringify(a));api('/api/sales-returns','POST',{returns:a}).catch(()=>{});}
+function calcSRVat(){
+  const sub=parseFloat(document.getElementById('sr-sub').value)||0,rate=parseFloat(document.getElementById('sr-rate').value)||0;
+  const v=sub*rate/100;document.getElementById('sr-vat').textContent=v.toFixed(2);document.getElementById('sr-tot').textContent=(sub+v).toFixed(2)+' ﷼';
+}
+function renderSRList(rets){
+  if(!rets.length) return '<div class="empty">لا توجد مرتجعات مبيعات</div>';
+  return rets.slice().reverse().map(r=>`
+    <div class="card" style="padding:12px 14px;margin-bottom:8px;border-right:3px solid #f87171!important">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <input type="checkbox" class="sr-chk" value="${r.id}" style="width:18px;height:18px;margin-top:3px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${r.client||'—'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px">${r.invoiceNo||'—'} · ${r.date}${r.origInvoiceNo?' · أصلية: '+r.origInvoiceNo:''}</div>
+          ${r.reason?`<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">السبب: ${r.reason}</div>`:''}
+        </div>
+        <div style="text-align:left;flex-shrink:0">
+          <div style="font-size:15px;font-weight:800;color:#f87171">-${fmt(r.total)} ﷼</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5)">VAT: ${fmt(r.taxAmt)} ﷼</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="editSR('${r.id}')" style="flex:1;padding:6px;background:rgba(245,200,66,.1);color:#f5c842;border:1px solid rgba(245,200,66,.25);border-radius:7px;cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">✏️ تعديل</button>
+        <button onclick="printSalesReturn('${r.id}')" style="flex:1;padding:6px;background:rgba(112,181,255,.1);color:#70B5FF;border:1px solid rgba(112,181,255,.2);border-radius:7px;cursor:pointer;font-size:11px;font-family:'Tajawal',sans-serif">🖨️ طباعة</button>
+        <button onclick="deleteSalesReturn('${r.id}')" style="padding:6px 10px;background:rgba(255,80,80,.1);color:#f87171;border:1px solid rgba(255,80,80,.2);border-radius:7px;cursor:pointer;font-size:11px">✕ حذف</button>
+      </div>
+    </div>`).join('');
+}
+function saveSR(){
+  const g=id=>document.getElementById(id).value;
+  const client=g('sr-client').trim(),sub=parseFloat(g('sr-sub'))||0,rate=parseFloat(g('sr-rate'))||0;
+  const err=document.getElementById('sr-err');
+  if(!client||!sub){err.style.display='block';err.textContent='⚠️ أدخل اسم العميل والمبلغ';return;}
+  const vat=sub*rate/100,total=sub+vat,eid=g('sr-edit-id');
+  const rets=_srGet();
+  const data={invoiceNo:g('sr-no')||'RET-'+Date.now(),origInvoiceNo:g('sr-orig'),date:g('sr-date')||today(),client,subtotal:sub,taxRate:rate,taxAmt:vat,total,reason:g('sr-reason')};
+  if(eid){const i=rets.findIndex(r=>r.id===eid);if(i>=0)rets[i]={...rets[i],...data};}
+  else rets.push({id:'r-'+Date.now(),...data,createdAt:new Date().toISOString()});
+  _srSet(rets);rSalesReturns();
+}
+function editSR(id){
+  const r=_srGet().find(x=>x.id===id);if(!r)return;
+  const set=(k,v)=>document.getElementById(k).value=v==null?'':v;
+  set('sr-edit-id',r.id);set('sr-no',r.invoiceNo);set('sr-date',r.date);set('sr-client',r.client);set('sr-orig',r.origInvoiceNo);
+  set('sr-sub',r.subtotal);set('sr-rate',r.taxRate);set('sr-reason',r.reason);calcSRVat();
+  document.getElementById('sr-form-title').textContent='✏️ تعديل المرتجع';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function deleteSelectedSR(){
+  const ids=[...document.querySelectorAll('.sr-chk:checked')].map(c=>c.value);
+  if(!ids.length){alert('حدد مرتجعاً واحداً على الأقل');return;}
+  if(!confirm('حذف '+ids.length+' مرتجع؟'))return;
+  _srSet(_srGet().filter(r=>!ids.includes(r.id)));rSalesReturns();
+}
+function deleteAllSR(){
+  if(!_srGet().length)return;
+  if(!confirm('حذف كل المرتجعات؟ لا يمكن التراجع'))return;
+  _srSet([]);rSalesReturns();
+}
+function filterSalesReturnsList(){
+  const sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
+  const q=(document.getElementById('sr-search')?.value||'').toLowerCase().trim();
+  const from=document.getElementById('sr-from')?.value||'';
+  const to=document.getElementById('sr-to')?.value||'';
+  const rets=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]').filter(r=>
+    (!q||((r.client||'')+' '+(r.invoiceNo||'')+' '+(r.origInvoiceNo||'')).toLowerCase().includes(q))
+    &&(!from||r.date>=from)&&(!to||r.date<=to));
+  document.getElementById('sr-list').innerHTML=renderSRList(rets);
+}
+
 function renderSalesList(sales, salesReturns=[], filter='all'){
   const payLabel = {cash:'💵 كاش', transfer:'🏦 تحويل', deferred:'⏳ آجل'};
   const payColor = {cash:'#34d399', transfer:'#70B5FF', deferred:'#fbbf24'};
@@ -8269,7 +8403,7 @@ function saveSalesReturnManual(){
   api('/api/sales-returns','POST',{returns}).catch(()=>{});
   document.getElementById('sales-return-modal')?.remove();
   alert('✅ تم حفظ المرتجع — '+fmt(total)+' ﷼');
-  rSales();
+  _refreshSalesView();
 }
 
 let _bulkRetParsed=[];
@@ -8339,7 +8473,7 @@ function saveBulkReturns(){
   _bulkRetParsed=[];
   document.getElementById('sales-return-modal')?.remove();
   alert('✅ تم حفظ '+added+' مرتجع'+(skipped?' · تخطي '+skipped+' مكرر':''));
-  rSales();
+  _refreshSalesView();
 }
 
 function deleteSalesReturn(id){
@@ -8347,7 +8481,7 @@ function deleteSalesReturn(id){
   const returns=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]').filter(r=>r.id!==id);
   localStorage.setItem('kayan_sales_returns',JSON.stringify(returns));
   api('/api/sales-returns','POST',{returns}).catch(()=>{});
-  rSales();
+  _refreshSalesView();
 }
 
 function printSalesReturn(id){
