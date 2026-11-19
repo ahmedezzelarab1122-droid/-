@@ -9363,10 +9363,9 @@ function _renderTrialBalance(){
 
     // VAT
     +'<div class="card" style="margin-bottom:10px">'
-    +'<div class="ctitle" style="color:#70B5FF;margin-bottom:8px">🧾 تسوية VAT</div>'
-    +row('VAT المبيعات (بعد المرتجعات)', vatCollected, '#34d399', '')
-    +row('VAT المشتريات (بعد المرتجعات)', vatPaid, '#f87171', '')
-    +'<div style="padding:10px 12px;background:rgba('+(vatDue>=0?'248,113,113':'52,211,153')+',.1);border-radius:8px;margin-top:6px;display:flex;justify-content:space-between;align-items:center">'
+    +'<div class="ctitle" style="color:#70B5FF;margin-bottom:8px">🧾 إقرار VAT التفصيلي</div>'
+    +_vatTableHtml(_vatBreakdown(),true)
+    +'<div style="padding:10px 12px;background:rgba('+(vatDue>=0?'248,113,113':'52,211,153')+',.1);border-radius:8px;margin-top:8px;display:flex;justify-content:space-between;align-items:center">'
     +'<div style="font-size:12px;font-weight:700;color:'+(vatDue>=0?'#f87171':'#34d399')+'">'+(vatDue>=0?'💳 VAT مستحقة للهيئة':'✅ VAT مسترجعة')+'</div>'
     +'<strong style="font-size:18px;color:'+(vatDue>=0?'#f87171':'#34d399')+'">'+fmt(Math.abs(vatDue))+' ﷼</strong></div></div>'
 
@@ -9432,7 +9431,7 @@ function exportQuarterDetail(from, to, qLabel){
   var netS = tS-tSR;
   var diff = netS-tP;
   var vatS = fS.reduce(function(a,s){return a+(s.taxAmt||0);},0)-fSR.reduce(function(a,r){return a+(r.taxAmt||0);},0);
-  var vatP = fP.reduce(function(a,e){return a+(e.taxAmt||0);},0);
+  var vatP = fP.reduce(function(a,e){return a+(e.taxAmt||0);},0)-filterByDate(DB.entries.filter(function(e){return e.type==='return';}),from,to).reduce(function(a,e){return a+(e.taxAmt||0);},0);
   var vatDue = vatS-vatP;
   var now = new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
   var pl = {cash:'كاش',transfer:'تحويل',deferred:'آجل'};
@@ -9585,34 +9584,61 @@ function exportTrialBalancePDF(){
   setTimeout(function(){win.print();},700);
 }
 
-function exportVatReturn(){
+
+// ── تفصيل إقرار VAT ──
+function _vatBreakdown(){
   var sales=JSON.parse(localStorage.getItem('kayan_sales')||'[]');
   var salesRet=JSON.parse(localStorage.getItem('kayan_sales_returns')||'[]');
-  var fS=filterByDate(sales,_tbFrom,_tbTo);
-  var _vrQ=_currentQuarterBounds();
-  var fP = (_tbFrom===_vrQ.start && _tbTo===_vrQ.end)
-    ? DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected&&e.date<=_vrQ.end;})
-    : filterByDate(DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;}),_tbFrom,_tbTo);
-  var fSR=filterByDate(salesRet,_tbFrom,_tbTo);
-  var sv=fS.reduce(function(a,s){return a+(s.taxAmt||0);},0);
-  var sn=fS.reduce(function(a,s){return a+(s.subtotal||0);},0);
-  var pv=fP.reduce(function(a,e){return a+(e.taxAmt||0);},0);
-  var pn=fP.reduce(function(a,e){return a+(e.subtotal||e.total||0);},0);
-  var srv=fSR.reduce(function(a,r){return a+(r.taxAmt||0);},0);
-  var vatDue=(sv-srv)-pv;
+  var fS=filterByDate(sales,_tbFrom,_tbTo), fSR=filterByDate(salesRet,_tbFrom,_tbTo);
+  var q=_currentQuarterBounds();
+  var taxE=DB.entries.filter(function(e){return e.type==='tax'&&!e.rejected;});
+  var fP=(_tbFrom===q.start&&_tbTo===q.end)?taxE.filter(function(e){return e.date<=q.end;}):filterByDate(taxE,_tbFrom,_tbTo);
+  var fPR=filterByDate(DB.entries.filter(function(e){return e.type==='return';}),_tbFrom,_tbTo);
+  function agg(a){
+    var t=a.reduce(function(x,r){return x+(r.total||0);},0);
+    var v=a.reduce(function(x,r){return x+(r.taxAmt||0);},0);
+    return {n:a.length,total:t,vat:v,base:t-v};
+  }
+  var S=agg(fS),SR=agg(fSR),P=agg(fP),PR=agg(fPR);
+  var netS={base:S.base-SR.base,vat:S.vat-SR.vat,total:S.total-SR.total};
+  var netP={base:P.base-PR.base,vat:P.vat-PR.vat,total:P.total-PR.total};
+  return {S:S,SR:SR,P:P,PR:PR,netS:netS,netP:netP,
+    diffBase:netS.base-netP.base,diffTotal:netS.total-netP.total,due:netS.vat-netP.vat};
+}
+function _vatTableHtml(b,dark){
+  var bd=dark?'1px solid rgba(255,255,255,.12)':'1px solid #999';
+  var c=dark?'rgba(255,255,255,.85)':'#000';
+  function r(label,o,cnt,strong,sign){
+    var st='padding:6px 6px;border-bottom:'+bd+';font-size:'+(dark?'11':'12')+'px;'+(strong?'font-weight:800;':'');
+    var f=function(v){return (sign?'-':'')+fmt(v);};
+    return '<tr style="color:'+c+'"><td style="'+st+'text-align:right">'+label+(cnt!=null?' <small style="opacity:.6">('+cnt+')</small>':'')+'</td>'
+      +'<td style="'+st+'text-align:left">'+f(o.base)+'</td><td style="'+st+'text-align:left">'+f(o.vat)+'</td><td style="'+st+'text-align:left">'+f(o.total)+'</td></tr>';
+  }
+  function h(t){return '<tr><td colspan="4" style="padding:7px 6px;font-weight:800;'+(dark?'background:rgba(255,255,255,.08);color:#f5c842':'background:#000;color:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact')+'">'+t+'</td></tr>';}
+  return '<table style="width:100%;border-collapse:collapse"><tr style="color:'+c+';font-weight:800"><td style="padding:6px"></td><td style="padding:6px;text-align:left">قبل الضريبة</td><td style="padding:6px;text-align:left">الضريبة</td><td style="padding:6px;text-align:left">الإجمالي</td></tr>'
+    +h('أولاً: المبيعات')
+    +r('فواتير المبيعات',b.S,b.S.n)
+    +r('(−) مرتجعات المبيعات',b.SR,b.SR.n,false,true)
+    +r('صافي المبيعات',b.netS,null,true)
+    +h('ثانياً: المشتريات (الضريبية)')
+    +r('فواتير المشتريات',b.P,b.P.n)
+    +r('(−) مرتجعات المشتريات',b.PR,b.PR.n,false,true)
+    +r('صافي المشتريات',b.netP,null,true)
+    +h('ثالثاً: الفرق')
+    +r('الفرق (صافي المبيعات − صافي المشتريات)',{base:b.diffBase,vat:b.due,total:b.diffTotal},null,true)
+    +'</table>';
+}
+function exportVatReturn(){
+  var b=_vatBreakdown();
   var now=new Date().toLocaleDateString('ar-SA',{year:'numeric',month:'long',day:'numeric'});
+  var due=b.due;
   var w=window.open('','_blank');
-  w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>VAT</title></head><body style="font-family:Tajawal,sans-serif;direction:rtl;padding:30px;font-size:14px">');
-  w.document.write('<h2 style="margin-bottom:10px">\u0625\u0642\u0631\u0627\u0631 VAT \u2014 '+(_tbFrom||'-')+' \u0625\u0644\u0649 '+(_tbTo||'-')+'</h2>');
-  w.document.write('<p>\u0634\u0631\u0643\u0629 \u0643\u064a\u0627\u0646 \u0648\u0628\u0646\u0627\u0621 \u0644\u0644\u0645\u0642\u0627\u0648\u0644\u0627\u062a \u2022 '+now+'</p><br>');
-  w.document.write('<table border="1" cellpadding="8" cellspacing="0" width="100%" style="border-collapse:collapse">');
-  w.document.write('<tr style="background:#1a5a1a;color:#fff"><th>\u0627\u0644\u0628\u064a\u0627\u0646</th><th>\u0627\u0644\u0645\u0628\u0644\u063a</th></tr>');
-  w.document.write('<tr><td>\u0645\u0628\u064a\u0639\u0627\u062a \u0635\u0627\u0641\u064a</td><td>'+fmt(sn)+' \u0631\u064a\u0627\u0644</td></tr>');
-  w.document.write('<tr><td>VAT \u0645\u0628\u064a\u0639\u0627\u062a</td><td style="color:#166534;font-weight:bold">'+fmt(sv)+' \u0631\u064a\u0627\u0644</td></tr>');
-  w.document.write('<tr><td>\u0645\u0634\u062a\u0631\u064a\u0627\u062a \u0635\u0627\u0641\u064a</td><td>'+fmt(pn)+' \u0631\u064a\u0627\u0644</td></tr>');
-  w.document.write('<tr><td>VAT \u0645\u0634\u062a\u0631\u064a\u0627\u062a</td><td style="color:#D93025;font-weight:bold">'+fmt(pv)+' \u0631\u064a\u0627\u0644</td></tr>');
-  w.document.write('<tr style="background:#'+(vatDue>=0?'fee2e2':'dcfce7')+'"><td style="font-weight:bold">'+(vatDue>=0?'VAT \u0645\u0633\u062a\u062d\u0642\u0629 \u0644\u0644\u0647\u064a\u0626\u0629':'VAT \u0645\u0633\u062a\u0631\u062c\u0639\u0629')+'</td><td style="font-size:18px;font-weight:900;color:'+(vatDue>=0?'#D93025':'#166534')+'">'+fmt(Math.abs(vatDue))+' \u0631\u064a\u0627\u0644</td></tr>');
-  w.document.write('</table></body></html>');
+  w.document.write('<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>إقرار VAT</title><style>@import url("https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap");body{font-family:Tajawal,sans-serif;direction:rtl;padding:30px;font-size:13px;color:#000}h2{margin-bottom:6px}.due{border:2px solid #000;padding:12px;margin-top:16px;display:flex;justify-content:space-between;font-size:16px;font-weight:800}</style></head><body>');
+  w.document.write('<h2>إقرار ضريبة القيمة المضافة</h2>');
+  w.document.write('<p style="margin-bottom:14px">شركة كيان وبناء للمقاولات · الفترة: '+(_tbFrom||'-')+' إلى '+(_tbTo||'-')+' · '+now+'</p>');
+  w.document.write(_vatTableHtml(b,false));
+  w.document.write('<div class="due"><span>'+(due>=0?'الضريبة المستحقة للهيئة':'الضريبة المستردة')+'</span><span>'+fmt(Math.abs(due))+' ريال</span></div>');
+  w.document.write('<p style="margin-top:10px;font-size:11px">الضريبة المستحقة = ضريبة صافي المبيعات − ضريبة صافي المشتريات (بعد خصم المرتجعات).</p></body></html>');
   w.document.close();setTimeout(function(){w.print();},700);
 }
 
