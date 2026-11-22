@@ -2946,18 +2946,16 @@ function exportQuarterlyPL(){
   const pret = DB.entries.filter(e=>e.type==='return');
   const inR=(x,q)=>x.date>=q.from&&x.date<=q.to;
   const sum=(a,k)=>a.reduce((t,x)=>t+(x[k]||0),0);
-  const T={s:0,sr:0,p:0,pr:0,vs:0,vp:0,ex:0};
-  const pettyE=DB.entries.filter(e=>e.type==='petty'&&!e.rejected);
+  const T={s:0,sr:0,p:0,pr:0,vs:0,vp:0};
   let rows='';
   quarters.forEach(q=>{
     const s1=sum(sales.filter(x=>inR(x,q)),'total'), sr=sum(sret.filter(x=>inR(x,q)),'total');
     const p1=sum(taxE.filter(x=>inR(x,q)),'total'), pr=sum(pret.filter(x=>inR(x,q)),'total');
     const vs=sum(sales.filter(x=>inR(x,q)),'taxAmt')-sum(sret.filter(x=>inR(x,q)),'taxAmt');
     const vp=sum(taxE.filter(x=>inR(x,q)),'taxAmt')-sum(pret.filter(x=>inR(x,q)),'taxAmt');
-    const ex=sum(pettyE.filter(x=>inR(x,q)),'total');T.ex+=ex;
     T.s+=s1;T.sr+=sr;T.p+=p1;T.pr+=pr;T.vs+=vs;T.vp+=vp;
     const diff=(s1-sr)-(p1-pr), due=vs-vp;
-    rows+='<tr><td style="font-weight:700">'+q.label+'</td><td>'+fmt(s1)+'</td><td>'+fmt(sr)+'</td><td>'+fmt(p1)+'</td><td>'+fmt(pr)+'</td><td>'+fmt(ex)+'</td>'
+    rows+='<tr><td style="font-weight:700">'+q.label+'</td><td>'+fmt(s1)+'</td><td>'+fmt(sr)+'</td><td>'+fmt(p1)+'</td><td>'+fmt(pr)+'</td>'
       +'<td style="font-weight:800">'+(diff>=0?'+':'')+fmt(diff)+'</td><td style="font-weight:800">'+fmt(due)+'</td></tr>';
   });
   const tDiff=(T.s-T.sr)-(T.p-T.pr), tDue=T.vs-T.vp;
@@ -2971,9 +2969,9 @@ function exportQuarterlyPL(){
     +'.total td{background:#000;color:#fff;font-weight:800;print-color-adjust:exact;-webkit-print-color-adjust:exact}</style></head><body>'
     +'<h1>تقرير المبيعات والمشتريات والمرتجعات — الأرباع</h1>'
     +'<div style="font-size:12px;color:#555;margin-bottom:10px">شركة كيان وبناء للمقاولات · '+now+' · السنة '+year+' · المبالغ شاملة VAT</div>'
-    +'<table><tr><th>الربع</th><th>المبيعات</th><th>مرتجعات المبيعات</th><th>المشتريات الضريبية</th><th>مرتجعات المشتريات</th><th>المصروفات النثرية</th><th>الفرق (صافي)</th><th>VAT المستحقة</th></tr>'
+    +'<table><tr><th>الربع</th><th>المبيعات</th><th>مرتجعات المبيعات</th><th>المشتريات الضريبية</th><th>مرتجعات المشتريات</th><th>الفرق (صافي)</th><th>VAT المستحقة</th></tr>'
     +rows
-    +'<tr class="total"><td>الإجمالي السنوي</td><td>'+fmt(T.s)+'</td><td>'+fmt(T.sr)+'</td><td>'+fmt(T.p)+'</td><td>'+fmt(T.pr)+'</td><td>'+fmt(T.ex)+'</td><td>'+(tDiff>=0?'+':'')+fmt(tDiff)+'</td><td>'+fmt(tDue)+'</td></tr></table>'
+    +'<tr class="total"><td>الإجمالي السنوي</td><td>'+fmt(T.s)+'</td><td>'+fmt(T.sr)+'</td><td>'+fmt(T.p)+'</td><td>'+fmt(T.pr)+'</td><td>'+(tDiff>=0?'+':'')+fmt(tDiff)+'</td><td>'+fmt(tDue)+'</td></tr></table>'
     +'<p style="margin-top:12px;font-size:11px">الفرق = (المبيعات − مرتجعاتها) − (المشتريات − مرتجعاتها). VAT المستحقة = ضريبة صافي المبيعات − ضريبة صافي المشتريات، والسالب يعني ضريبة مستردة.</p>'
     +'</body></html>';
   const w=window.open('','_blank');
@@ -9402,16 +9400,6 @@ function rTrialBalance(){
   if(!_tbFrom&&!_tbTo){var qd=getQuarterDates(Math.floor(new Date().getMonth()/3),year);_tbFrom=qd.from;_tbTo=qd.to;}
   _renderTrialBalance();
 }
-
-// ── المصروفات النثرية في ميزان المراجعة ──
-function _tbPetty(){
-  var arr=filterByDate(DB.entries.filter(function(e){return e.type==='petty'&&!e.rejected;}),_tbFrom,_tbTo);
-  var total=arr.reduce(function(a,e){return a+(e.total||0);},0);
-  var byProj={};
-  arr.forEach(function(e){var k=e.project||'بدون مشروع';byProj[k]=(byProj[k]||0)+(e.total||0);});
-  var list=Object.keys(byProj).map(function(k){return {name:k,total:byProj[k]};}).sort(function(a,b){return b.total-a.total;});
-  return {arr:arr,total:total,list:list};
-}
 function _renderTrialBalance(){
   var year = new Date().getFullYear();
 
@@ -9510,10 +9498,6 @@ function _renderTrialBalance(){
     +'<div style="display:flex;justify-content:space-between;padding:8px 0 2px;border-top:2px solid rgba(248,113,113,.3);margin-top:4px">'
     +'<strong style="color:#f87171">صافي المشتريات</strong>'
     +'<strong style="color:#f87171;font-size:16px">'+fmt(netPurch)+' ﷼</strong></div></div>'
-
-    // المصروفات النثرية
-    +'<div class="card" style="margin-bottom:8px">'
-    +row('💸 المصروفات النثرية', _tbPetty().total, '#fbbf24', _tbPetty().arr.length+' فاتورة')+'</div>'
 
     // الفرق
     +'<div style="background:'+(diff>=0?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)')+';border:1.5px solid '+(diff>=0?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)')+';border-radius:12px;padding:14px;text-align:center;margin-bottom:10px">'
@@ -9732,7 +9716,6 @@ function exportTrialBalancePDF(){
     +'<tr class="tr"><td>صافي المبيعات بعد المرتجعات</td><td colspan="2"></td><td>'+fmt(netSales)+' ﷼</td></tr>'
     +'<tr class="tr"><td>صافي المشتريات بعد المرتجعات</td><td colspan="2"></td><td>'+fmt(netPurch)+' ﷼</td></tr>'
     +'<tr class="tr"><td>الفرق (مبيعات − مشتريات)</td><td colspan="2"></td><td style="color:'+(diff>=0?'#166534':'#D93025')+'">'+fmt(diff)+' ﷼</td></tr>'
-    +(function(){var pt=_tbPetty();return '<tr><td>💸 المصروفات النثرية ('+pt.arr.length+')</td><td colspan="2"></td><td style="font-weight:700;color:#b45309">'+fmt(pt.total)+' ﷼</td></tr>';})()
     +'</table>'
     +'<div class="vat-box" style="background:'+(vatDue>=0?'#fee2e2':'#dcfce7')+';border-color:'+(vatDue>=0?'#D93025':'#166534')+'">'
     +'<div style="font-size:11px;color:#555;margin-bottom:4px">ضريبة محصّلة '+fmt(vatCollected)+' ﷼ − ضريبة مدفوعة '+fmt(vatPaid)+' ﷼</div>'
@@ -9764,8 +9747,7 @@ function _vatBreakdown(){
   var netS={base:S.base-SR.base,vat:S.vat-SR.vat,total:S.total-SR.total};
   var netP={base:P.base-PR.base,vat:P.vat-PR.vat,total:P.total-PR.total};
   return {S:S,SR:SR,P:P,PR:PR,netS:netS,netP:netP,
-    diffBase:netS.base-netP.base,diffTotal:netS.total-netP.total,due:netS.vat-netP.vat,
-    petty:_tbPetty().total};
+    diffBase:netS.base-netP.base,diffTotal:netS.total-netP.total,due:netS.vat-netP.vat};
 }
 function _vatTableHtml(b,dark){
   var bd=dark?'1px solid rgba(255,255,255,.12)':'1px solid #999';
@@ -9788,8 +9770,6 @@ function _vatTableHtml(b,dark){
     +r('صافي المشتريات',b.netP,null,true)
     +h('ثالثاً: الفرق')
     +r('الفرق (صافي المبيعات − صافي المشتريات)',{base:b.diffBase,vat:b.due,total:b.diffTotal},null,true)
-    +h('رابعاً: المصروفات')
-    +'<tr style="color:'+c+'"><td colspan="3" style="padding:6px;border-bottom:'+bd+';font-weight:800">المصروفات النثرية</td><td style="padding:6px;border-bottom:'+bd+';text-align:left;font-weight:800">'+fmt(b.petty)+'</td></tr>'
     +'</table>';
 }
 function exportVatReturn(){
