@@ -9400,6 +9400,16 @@ function rTrialBalance(){
   if(!_tbFrom&&!_tbTo){var qd=getQuarterDates(Math.floor(new Date().getMonth()/3),year);_tbFrom=qd.from;_tbTo=qd.to;}
   _renderTrialBalance();
 }
+
+// ── المصروفات النثرية في ميزان المراجعة ──
+function _tbPetty(){
+  var arr=filterByDate(DB.entries.filter(function(e){return e.type==='petty'&&!e.rejected;}),_tbFrom,_tbTo);
+  var total=arr.reduce(function(a,e){return a+(e.total||0);},0);
+  var byProj={};
+  arr.forEach(function(e){var k=e.project||'بدون مشروع';byProj[k]=(byProj[k]||0)+(e.total||0);});
+  var list=Object.keys(byProj).map(function(k){return {name:k,total:byProj[k]};}).sort(function(a,b){return b.total-a.total;});
+  return {arr:arr,total:total,list:list};
+}
 function _renderTrialBalance(){
   var year = new Date().getFullYear();
 
@@ -9498,6 +9508,17 @@ function _renderTrialBalance(){
     +'<div style="display:flex;justify-content:space-between;padding:8px 0 2px;border-top:2px solid rgba(248,113,113,.3);margin-top:4px">'
     +'<strong style="color:#f87171">صافي المشتريات</strong>'
     +'<strong style="color:#f87171;font-size:16px">'+fmt(netPurch)+' ﷼</strong></div></div>'
+
+    // المصروفات النثرية
+    +(function(){var pt=_tbPetty();
+      return '<div class="card" style="margin-bottom:8px">'
+      +'<div class="ctitle" style="color:#fbbf24;margin-bottom:8px">💸 المصروفات (فواتير نثرية)</div>'
+      +row('إجمالي المصروفات النثرية', pt.total, '#fbbf24', pt.arr.length+' فاتورة')
+      +pt.list.map(function(x){return row(x.name, x.total, 'rgba(255,255,255,.8)', '');}).join('')
+      +'<div style="display:flex;justify-content:space-between;padding:8px 0 2px;border-top:2px solid rgba(251,191,36,.3);margin-top:4px">'
+      +'<strong style="color:#fbbf24">الفرق بعد المصروفات</strong>'
+      +'<strong style="color:'+((diff-pt.total)>=0?'#34d399':'#f87171')+';font-size:16px">'+fmt(diff-pt.total)+' ﷼</strong></div>'
+      +'<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:4px">(صافي المبيعات − صافي المشتريات − النثرية) · النثرية لا تدخل في حساب VAT</div></div>';})()
 
     // الفرق
     +'<div style="background:'+(diff>=0?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)')+';border:1.5px solid '+(diff>=0?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)')+';border-radius:12px;padding:14px;text-align:center;margin-bottom:10px">'
@@ -9716,6 +9737,9 @@ function exportTrialBalancePDF(){
     +'<tr class="tr"><td>صافي المبيعات بعد المرتجعات</td><td colspan="2"></td><td>'+fmt(netSales)+' ﷼</td></tr>'
     +'<tr class="tr"><td>صافي المشتريات بعد المرتجعات</td><td colspan="2"></td><td>'+fmt(netPurch)+' ﷼</td></tr>'
     +'<tr class="tr"><td>الفرق (مبيعات − مشتريات)</td><td colspan="2"></td><td style="color:'+(diff>=0?'#166534':'#D93025')+'">'+fmt(diff)+' ﷼</td></tr>'
+    +(function(){var pt=_tbPetty();return '<tr><td>💸 المصروفات — فواتير نثرية ('+pt.arr.length+')</td><td colspan="2">لا تدخل في VAT</td><td style="font-weight:700;color:#b45309">'+fmt(pt.total)+' ﷼</td></tr>'
+      +pt.list.map(function(x){return '<tr><td style="padding-right:22px;color:#555">↳ '+x.name+'</td><td colspan="2"></td><td>'+fmt(x.total)+' ﷼</td></tr>';}).join('')
+      +'<tr class="tr"><td>الفرق بعد المصروفات النثرية</td><td colspan="2"></td><td>'+fmt(diff-pt.total)+' ﷼</td></tr>';})()
     +'</table>'
     +'<div class="vat-box" style="background:'+(vatDue>=0?'#fee2e2':'#dcfce7')+';border-color:'+(vatDue>=0?'#D93025':'#166534')+'">'
     +'<div style="font-size:11px;color:#555;margin-bottom:4px">ضريبة محصّلة '+fmt(vatCollected)+' ﷼ − ضريبة مدفوعة '+fmt(vatPaid)+' ﷼</div>'
